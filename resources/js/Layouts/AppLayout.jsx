@@ -1,5 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function NavLink({ href, children }) {
     const { url } = usePage();
@@ -46,18 +47,19 @@ export default function AppLayout({ children }) {
                             <span className="text-sm text-text-secondary">{auth.user.name}</span>
                         )}
                         <form onSubmit={logout}>
-                            <button
+                            <Button
                                 type="submit"
-                                className="inline-flex items-center gap-1.5 text-sm text-text-secondary transition-colors duration-150 hover:text-foreground"
+                                variant="ghost"
+                                size="sm"
+                                className="text-text-secondary"
                             >
                                 <LogOut className="h-4 w-4" strokeWidth={1.5} />
                                 Sign out
-                            </button>
+                            </Button>
                         </form>
                     </div>
                 </div>
             </header>
-
             <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">{children}</main>
         </div>
     );
