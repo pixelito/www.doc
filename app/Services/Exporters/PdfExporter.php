@@ -1,0 +1,195 @@
+<?php
+
+namespace App\Services\Exporters;
+
+use App\Contracts\ExporterContract;
+use App\Models\Document;
+use App\Services\RenderDocument;
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Illuminate\Support\Facades\Storage;
+
+class PdfExporter implements ExporterContract
+{
+    public function export(Document $document): string
+    {
+        $html = $this->buildHtml($document);
+
+        $options = new Options();
+        $options->setIsRemoteEnabled(true);
+        $options->setIsHtml5ParserEnabled(true);
+        $options->setDefaultFont('DejaVu Sans');
+        $options->setDpi(96);
+
+        $pdf = new Dompdf($options);
+        $pdf->loadHtml($html, 'UTF-8');
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $slug     = $document->slug;
+        $filename = "exports/pdf/{$slug}-" . now()->format('YmdHis') . '.pdf';
+
+        Storage::disk('local')->put($filename, $pdf->output());
+
+        return $filename;
+    }
+
+    private function buildHtml(Document $document): string
+    {
+        $body  = RenderDocument::toHtml($document->content);
+        $title = e($document->title);
+        $toc   = $this->buildToc($document->content);
+        $date  = now()->format('d M Y');
+
+        return <<<HTML
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <title>{$title}</title>
+            <style>
+                @page {
+                    margin: 20mm 18mm 22mm 18mm;
+                }
+                body {
+                    font-family: "DejaVu Sans", sans-serif;
+                    font-size: 10pt;
+                    line-height: 1.6;
+                    color: #1F2520;
+                }
+                /* Running header */
+                .page-header {
+                    position: fixed; top: -15mm; left: 0; right: 0;
+                    font-size: 8pt; color: #8E938E;
+                    border-bottom: 0.5pt solid #E2DFD4;
+                    padding-bottom: 2mm;
+                    display: flex; justify-content: space-between;
+                }
+                /* Running footer */
+                .page-footer {
+                    position: fixed; bottom: -16mm; left: 0; right: 0;
+                    font-size: 8pt; color: #8E938E;
+                    border-top: 0.5pt solid #E2DFD4;
+                    padding-top: 2mm;
+                    display: flex; justify-content: space-between;
+                }
+                .page-footer .page-number::after {
+                    content: counter(page) " / " counter(pages);
+                }
+                h1, h2, h3, h4, h5, h6 {
+                    font-weight: 600; line-height: 1.25;
+                    margin-top: 1.4em; margin-bottom: 0.4em;
+                    color: #1F2520; page-break-after: avoid;
+                }
+                h1 { font-size: 18pt; margin-top: 0; }
+                h2 { font-size: 14pt; border-bottom: 0.5pt solid #E2DFD4; padding-bottom: 2pt; }
+                h3 { font-size: 12pt; }
+                h4, h5, h6 { font-size: 10pt; }
+                p { margin: 0 0 0.7em; }
+                ul, ol { padding-left: 1.4em; margin: 0 0 0.7em; }
+                li { margin-bottom: 0.25em; }
+                blockquote {
+                    margin: 0.7em 0; padding: 0.4em 0.8em;
+                    border-left: 3pt solid #9FB994; color: #5C625C;
+                    background: #EDF2EA;
+                }
+                pre, code {
+                    font-family: "DejaVu Sans Mono", monospace;
+                    font-size: 8.5pt;
+                }
+                pre {
+                    background: #F5F4ED; border: 0.5pt solid #E2DFD4;
+                    padding: 0.6em 0.8em; border-radius: 4pt;
+                    white-space: pre-wrap; word-wrap: break-word;
+                    page-break-inside: avoid;
+                }
+                code { background: #EDF2EA; padding: 0 2pt; border-radius: 2pt; }
+                table {
+                    border-collapse: collapse; width: 100%;
+                    margin: 0.7em 0; page-break-inside: avoid;
+                    font-size: 9pt;
+                }
+                th, td {
+                    border: 0.5pt solid #E2DFD4;
+                    padding: 4pt 6pt; text-align: left;
+                }
+                th { background: #EDF2EA; font-weight: 600; }
+                hr {
+                    border: none; border-top: 0.5pt solid #E2DFD4;
+                    margin: 1.2em 0;
+                }
+                img { max-width: 100%; height: auto; }
+                a { color: #4A6741; text-decoration: none; }
+                .toc { margin-bottom: 1.5em; page-break-after: always; }
+                .toc h2 { font-size: 13pt; margin-top: 0; }
+                .toc ul { list-style: none; padding: 0; }
+                .toc li { line-height: 1.8; }
+                .toc li.indent-1 { padding-left: 1.2em; }
+                .toc li.indent-2 { padding-left: 2.4em; }
+                .wiki-link { color: #5C625C; }
+            </style>
+        </head>
+        <body>
+            <div class="page-header">
+                <span>{$title}</span>
+                <span>{$date}</span>
+            </div>
+            <div class="page-footer">
+                <span>www.doc</span>
+                <span class="page-number"></span>
+            </div>
+            <h1>{$title}</h1>
+            {$toc}
+            {$body}
+        </body>
+        </html>
+        HTML;
+    }
+
+    private function buildToc(?array $doc): string
+    {
+        if (!$doc) return '';
+
+        $headings = [];
+        $this->collectHeadings($doc, $headings);
+
+        if (count($headings) < 2) return '';
+
+        $items = '';
+        foreach ($headings as $h) {
+            $indent = $h['level'] - 1;
+            $indent = min($indent, 2);
+            $class  = $indent > 0 ? "indent-{$indent}" : '';
+            $text   = e($h['text']);
+            $items .= "<li class=\"{$class}\">{$text}</li>\n";
+        }
+
+        return "<div class=\"toc\"><h2>Contents</h2><ul>{$items}</ul></div>";
+    }
+
+    private function collectHeadings(?array $node, array &$out): void
+    {
+        if (!$node) return;
+
+        if (($node['type'] ?? '') === 'heading') {
+            $level = $node['attrs']['level'] ?? 1;
+            $text  = $this->extractText($node);
+            if ($text !== '') {
+                $out[] = ['level' => $level, 'text' => $text];
+            }
+        }
+
+        foreach ($node['content'] ?? [] as $child) {
+            $this->collectHeadings($child, $out);
+        }
+    }
+
+    private function extractText(?array $node): string
+    {
+        if (!$node) return '';
+        if (($node['type'] ?? '') === 'text') {
+            return $node['text'] ?? '';
+        }
+        return implode('', array_map([$this, 'extractText'], $node['content'] ?? []));
+    }
+}

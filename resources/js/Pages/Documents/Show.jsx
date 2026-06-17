@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
-    ChevronLeft, ChevronRight, Trash2, Edit3, X, Save, FileText,
+    ChevronRight, Trash2, Edit3, X, Save, FileText,
     ArrowRight, User, Calendar, Link2, Tag, CheckCircle2, Clock,
+    Download, Loader2,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -10,12 +11,170 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import TipTapEditor from '@/components/editor/TipTapEditor';
+
+const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+function ExportModal({ documentId, open, onClose }) {
+    const [format, setFormat]   = useState('pdf');
+    const [state, setState]     = useState('idle'); // idle | pending | done | failed
+    const [error, setError]     = useState(null);
+    const pollRef               = useRef(null);
+    const jobIdRef              = useRef(null);
+
+    function reset() {
+        clearInterval(pollRef.current);
+        setState('idle');
+        setError(null);
+        jobIdRef.current = null;
+    }
+
+    function handleClose() {
+        reset();
+        onClose();
+    }
+
+    async function startExport() {
+        setState('pending');
+        setError(null);
+
+        try {
+            const res = await fetch(`/documents/${documentId}/exports`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF() },
+                body: JSON.stringify({ format }),
+            });
+
+            if (!res.ok) throw new Error('Failed to start export');
+            const { id } = await res.json();
+            jobIdRef.current = id;
+
+            pollRef.current = setInterval(async () => {
+                try {
+                    const poll = await fetch(`/documents/${documentId}/exports/${id}`, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await poll.json();
+
+                    if (data.status === 'done') {
+                        clearInterval(pollRef.current);
+                        setState('done');
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollRef.current);
+                        setState('failed');
+                        setError(data.error ?? 'Export failed.');
+                    }
+                } catch {
+                    // keep polling
+                }
+            }, 1500);
+        } catch (e) {
+            setState('failed');
+            setError(e.message);
+        }
+    }
+
+    function triggerDownload() {
+        window.location.href = `/documents/${documentId}/exports/${jobIdRef.current}?download=1`;
+    }
+
+    useEffect(() => () => clearInterval(pollRef.current), []);
+
+    const formats = [
+        { value: 'pdf',  label: 'PDF',  description: 'Print-ready with headers, page numbers & TOC' },
+        { value: 'docx', label: 'DOCX', description: 'Microsoft Word — preserves all formatting' },
+    ];
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Export page</DialogTitle>
+                    <DialogDescription>Choose a format to download this page.</DialogDescription>
+                </DialogHeader>
+
+                {/* Format selector */}
+                {state === 'idle' && (
+                    <div className="space-y-3 py-2">
+                        {formats.map((f) => (
+                            <button
+                                key={f.value}
+                                type="button"
+                                onClick={() => setFormat(f.value)}
+                                className={`w-full rounded-md border px-4 py-3 text-left transition-all ${
+                                    format === f.value
+                                        ? 'border-sage-400 bg-sage-50 ring-[3px] ring-sage-200/60'
+                                        : 'border-border bg-surface hover:bg-surface-hover'
+                                }`}
+                            >
+                                <p className="text-sm font-semibold text-text-primary">{f.label}</p>
+                                <p className="mt-0.5 text-xs text-text-secondary">{f.description}</p>
+                            </button>
+                        ))}
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                            <Button
+                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                onClick={startExport}
+                            >
+                                <Download className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                                Export
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Pending */}
+                {state === 'pending' && (
+                    <div className="flex flex-col items-center gap-3 py-8 text-text-secondary">
+                        <Loader2 className="h-8 w-8 animate-spin text-sage-400" strokeWidth={1.5} />
+                        <p className="text-sm">Generating {format.toUpperCase()}…</p>
+                    </div>
+                )}
+
+                {/* Done */}
+                {state === 'done' && (
+                    <div className="flex flex-col items-center gap-4 py-6">
+                        <CheckCircle2 className="h-10 w-10 text-sage-400" strokeWidth={1.5} />
+                        <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleClose}>Close</Button>
+                            <Button
+                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                onClick={triggerDownload}
+                            >
+                                <Download className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                                Download {format.toUpperCase()}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Failed */}
+                {state === 'failed' && (
+                    <div className="flex flex-col items-center gap-4 py-6">
+                        <p className="text-sm font-medium text-danger">Export failed</p>
+                        {error && <p className="text-xs text-text-secondary">{error}</p>}
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleClose}>Close</Button>
+                            <Button onClick={() => { reset(); startExport(); }}>Retry</Button>
+                        </div>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 const AUTOSAVE_DELAY_MS = 2000;
 
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing, setIsEditing]     = useState(false);
+    const [exportOpen, setExportOpen]   = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
     const [editTags, setEditTags] = useState(document.tags.map((t) => t.id));
@@ -202,6 +361,14 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                             <Button
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
+                                onClick={() => setExportOpen(true)}
+                            >
+                                <Download className="h-4 w-4" strokeWidth={1.5} />
+                                Export
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="border-border hover:bg-surface-hover"
                                 onClick={() => setIsEditing(true)}
                             >
                                 <Edit3 className="h-4 w-4" strokeWidth={1.5} />
@@ -343,6 +510,11 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     </Card>
                 </aside>
             </div>
+            <ExportModal
+                documentId={document.id}
+                open={exportOpen}
+                onClose={() => setExportOpen(false)}
+            />
         </AppLayout>
     );
 }
