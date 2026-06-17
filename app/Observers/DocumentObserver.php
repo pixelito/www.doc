@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Document;
 use App\Models\Link;
+use App\Services\RenderDocument;
 use App\Support\TipTap;
 use Illuminate\Support\Facades\Auth;
 
@@ -38,6 +39,7 @@ class DocumentObserver
 
         $this->snapshotVersion($document);
         $this->syncLinks($document);
+        $this->updateRenderedHtml($document);
     }
 
     /** Snapshot every save into the version history (never destructive). */
@@ -49,6 +51,21 @@ class DocumentObserver
             'content_html' => $document->content_html,
             'created_by_id' => Auth::id(),
         ]);
+    }
+
+    /** Render content JSON → HTML and cache it on the document row. */
+    protected function updateRenderedHtml(Document $document): void
+    {
+        if (! $document->wasChanged('content') && ! $document->wasRecentlyCreated) {
+            return;
+        }
+
+        $html = RenderDocument::toHtml($document->content);
+
+        if ($html !== $document->content_html) {
+            $document->content_html = $html;
+            $document->saveQuietly();
+        }
     }
 
     /**

@@ -29,9 +29,10 @@ class DocumentController extends Controller
         ]);
 
         return Inertia::render('Documents/Show', [
-            'document' => $document,
+            'document'     => $document,
             'versionsCount' => $document->versions()->count(),
-            'allTags' => Tag::orderBy('name')->get(),
+            'allTags'      => Tag::orderBy('name')->get(),
+            'allDocuments' => Document::orderBy('title')->get(['id', 'title', 'slug']),
         ]);
     }
 

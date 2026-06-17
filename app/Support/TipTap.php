@@ -37,15 +37,48 @@ class TipTap
      * Extract the titles referenced by [[Wiki-link]] syntax, de-duplicated and
      * order-preserved.
      *
+     * Handles two storage formats:
+     *  - Legacy: [[Title]] as literal text inside paragraph text nodes.
+     *  - Phase 2+: {type: "wikiLink", attrs: {title: "..."}} custom nodes.
+     *
      * @return list<string>
      */
     public static function wikiLinkTitles(?array $doc): array
     {
-        preg_match_all('/\[\[([^\[\]]+)\]\]/', self::plainText($doc), $matches);
+        $titles = [];
 
-        $titles = array_map('trim', $matches[1] ?? []);
+        // Collect from wikiLink nodes (Phase 2+ format)
+        self::collectWikiLinkNodes($doc, $titles);
+
+        // Collect from [[Title]] text patterns (legacy / plain-text format)
+        preg_match_all('/\[\[([^\[\]]+)\]\]/', self::plainText($doc), $matches);
+        foreach ($matches[1] ?? [] as $t) {
+            $titles[] = trim($t);
+        }
+
         $titles = array_filter($titles, fn (string $t) => $t !== '');
 
         return array_values(array_unique($titles));
+    }
+
+    /** Recursively collect titles from wikiLink node atoms. */
+    private static function collectWikiLinkNodes(?array $node, array &$titles): void
+    {
+        if (! $node) {
+            return;
+        }
+
+        if (($node['type'] ?? '') === 'wikiLink') {
+            $title = trim($node['attrs']['title'] ?? '');
+            if ($title !== '') {
+                $titles[] = $title;
+            }
+        }
+
+        foreach ($node['content'] ?? [] as $child) {
+            if (is_array($child)) {
+                self::collectWikiLinkNodes($child, $titles);
+            }
+        }
     }
 }
