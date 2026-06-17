@@ -45,7 +45,7 @@ class DocumentObserver
     {
         $document->versions()->create([
             'title' => $document->title,
-            'content' => $document->content,
+            'content' => $document->content ?? [],
             'content_html' => $document->content_html,
             'created_by_id' => Auth::id(),
         ]);

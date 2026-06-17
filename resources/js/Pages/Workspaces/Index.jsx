@@ -58,10 +58,10 @@ export default function WorkspacesIndex({ workspaces }) {
                     description="Create your first above."
                 />
             ) : (
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-6">
                     {workspaces.map((w) => (
                         <Link key={w.id} href={`/workspaces/${w.id}`} className="group">
-                            <Card className="p-4 transition-colors duration-150 hover:bg-surface-hover">
+                            <Card className="mt-6 p-4 transition-colors duration-150 hover:bg-surface-hover">
                                 <h3 className="font-semibold text-foreground">{w.name}</h3>
                                 {w.description && <p className="mt-1 line-clamp-2 text-sm text-text-secondary">{w.description}</p>}
                                 <p className="mt-3 text-xs text-text-tertiary">{w.documents_count} {w.documents_count === 1 ? 'page' : 'pages'}</p>

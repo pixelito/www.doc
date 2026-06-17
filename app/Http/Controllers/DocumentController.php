@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDocumentRequest;
 use App\Http\Requests\UpdateDocumentRequest;
 use App\Models\Document;
+use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Show', [
             'document' => $document,
             'versionsCount' => $document->versions()->count(),
+            'allTags' => Tag::orderBy('name')->get(),
         ]);
     }
 
@@ -37,7 +39,12 @@ class DocumentController extends Controller
     {
         $this->authorize('create', Document::class);
 
-        $document = Document::create($request->validated());
+        $validated = $request->validated();
+        $document = Document::create(array_diff_key($validated, ['tags' => '']));
+
+        if ($request->has('tags')) {
+            $document->tags()->sync($request->input('tags'));
+        }
 
         return redirect()->route('documents.show', $document);
     }
@@ -46,7 +53,12 @@ class DocumentController extends Controller
     {
         $this->authorize('update', $document);
 
-        $document->update($request->validated());
+        $validated = $request->validated();
+        $document->update(array_diff_key($validated, ['tags' => '']));
+
+        if ($request->has('tags')) {
+            $document->tags()->sync($request->input('tags'));
+        }
 
         return back();
     }

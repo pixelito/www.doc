@@ -14,6 +14,8 @@ class UpdateDocumentRequest extends FormRequest
             'position' => ['nullable', 'integer'],
             'content' => ['sometimes', 'array'],
             'metadata' => ['sometimes', 'array'],
+            'tags' => ['sometimes', 'array'],
+            'tags.*' => ['integer', 'exists:tags,id'],
         ];
     }
 }

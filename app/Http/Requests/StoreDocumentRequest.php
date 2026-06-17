@@ -15,6 +15,8 @@ class StoreDocumentRequest extends FormRequest
             'position' => ['nullable', 'integer'],
             'content' => ['nullable', 'array'],
             'metadata' => ['nullable', 'array'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['integer', 'exists:tags,id'],
         ];
     }
 }
