@@ -9,6 +9,8 @@ import Placeholder from '@tiptap/extension-placeholder';
 
 import { WikiLink } from '@/extensions/WikiLink';
 import { SlashCommands } from '@/extensions/SlashCommands';
+import { ImageUpload } from '@/extensions/ImageUpload';
+import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
 
@@ -48,6 +50,7 @@ export default function TipTapEditor({
                 class: 'tiptap',
                 spellcheck: 'true',
             },
+            transformPastedHTML: cleanPastedHtml,
         },
         extensions: [
             StarterKit.configure({
@@ -80,6 +83,7 @@ export default function TipTapEditor({
                           onSuggestionExit:    ()  => setSlashSuggestion(null),
                           onSuggestionKeyDown: (e) => slashKeyRef.current?.(e) ?? false,
                       }),
+                      ImageUpload,
                   ]
                 : []),
         ],

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\TagController;
@@ -24,6 +25,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('workspaces', WorkspaceController::class)->except(['create', 'edit']);
     Route::resource('documents', DocumentController::class)->only(['store', 'show', 'update', 'destroy']);
     Route::resource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Asset upload + rehost (must be before any {asset} resource route)
+    Route::post('assets/rehost', [AssetController::class, 'rehost'])->name('assets.rehost');
+    Route::post('assets', [AssetController::class, 'store'])->name('assets.store');
 });
 
 Route::get('/', fn () => redirect()->route('dashboard'));
