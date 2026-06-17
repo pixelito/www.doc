@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
-    ChevronLeft, Trash2, Edit3, X, Save, FileText,
+    ChevronLeft, ChevronRight, Trash2, Edit3, X, Save, FileText,
     ArrowRight, User, Calendar, Link2, Tag, CheckCircle2, Clock,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
@@ -14,7 +14,7 @@ import TipTapEditor from '@/components/editor/TipTapEditor';
 
 const AUTOSAVE_DELAY_MS = 2000;
 
-export default function DocumentShow({ document, versionsCount, allTags = [], allDocuments = [] }) {
+export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
     const [isEditing, setIsEditing] = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
@@ -103,15 +103,31 @@ export default function DocumentShow({ document, versionsCount, allTags = [], al
             <Head title={document.title} />
 
             {/* Breadcrumb */}
-            <div className="flex items-center justify-between">
+            <nav className="flex flex-wrap items-center gap-1 text-sm text-text-secondary">
+                <Link href="/workspaces" className="transition-colors hover:text-foreground">
+                    Workspaces
+                </Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
                 <Link
                     href={`/workspaces/${document.workspace.id}`}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
+                    className="transition-colors hover:text-foreground"
                 >
-                    <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
                     {document.workspace.name}
                 </Link>
-            </div>
+                {breadcrumbs.map((anc) => (
+                    <React.Fragment key={anc.id}>
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                        <Link
+                            href={`/documents/${anc.id}`}
+                            className="transition-colors hover:text-foreground"
+                        >
+                            {anc.title}
+                        </Link>
+                    </React.Fragment>
+                ))}
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                <span className="font-medium text-foreground">{document.title}</span>
+            </nav>
 
             {/* Header */}
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

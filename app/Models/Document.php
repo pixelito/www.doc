@@ -80,4 +80,33 @@ class Document extends Model
     {
         return $this->hasMany(Link::class, 'target_document_id');
     }
+
+    /**
+     * Walk up the parent chain and return ancestors ordered root → immediate parent.
+     * The tree is shallow so the number of queries is bounded and acceptable.
+     *
+     * @return list<array{id: int, title: string, slug: string}>
+     */
+    public function ancestors(): array
+    {
+        $chain = [];
+        $node  = $this;
+
+        while ($node->parent_id !== null) {
+            $node = self::select(['id', 'title', 'slug', 'parent_id'])
+                ->find($node->parent_id);
+
+            if (! $node) {
+                break;
+            }
+
+            array_unshift($chain, [
+                'id'    => $node->id,
+                'title' => $node->title,
+                'slug'  => $node->slug,
+            ]);
+        }
+
+        return $chain;
+    }
 }

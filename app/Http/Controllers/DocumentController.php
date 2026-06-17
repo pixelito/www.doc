@@ -31,6 +31,7 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Show', [
             'document'     => $document,
             'versionsCount' => $document->versions()->count(),
+            'breadcrumbs'  => $document->ancestors(),
             'allTags'      => Tag::orderBy('name')->get(),
             'allDocuments' => Document::orderBy('title')->get(['id', 'title', 'slug']),
         ]);
