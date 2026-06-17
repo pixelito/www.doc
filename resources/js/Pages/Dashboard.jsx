@@ -14,7 +14,7 @@ export default function Dashboard() {
             <div className="min-h-screen bg-gray-50">
                 <header className="bg-white border-b border-gray-200">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-                        <span className="font-semibold text-gray-900">DocsApp</span>
+                        <span className="font-semibold text-gray-900">wwww.doc</span>
                         <form onSubmit={logout}>
                             <button
                                 type="submit"

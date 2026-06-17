@@ -18,7 +18,7 @@ export default function Login() {
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="w-full max-w-md">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-8 py-10">
-                        <h1 className="text-2xl font-semibold text-gray-900 mb-1">DocsApp</h1>
+                        <h1 className="text-2xl font-semibold text-gray-900 mb-1">www.doc</h1>
                         <p className="text-sm text-gray-500 mb-8">Sign in to continue</p>
 
                         <form onSubmit={submit} className="space-y-5">

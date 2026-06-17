@@ -1,10 +1,18 @@
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('../fonts/Lexend-Variable.woff2') format('woff2');
+}
+
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
 @theme inline {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Lexend', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
     --color-background: var(--background);
@@ -22,6 +30,7 @@
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
     --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -39,38 +48,52 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.85 0.12 152);
+    /* Soft light pastel green */
+    --primary-foreground: oklch(0.145 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --accent: oklch(0.95 0.04 152);
+    /* Subtle green tint for light mode hovers */
+    --accent-foreground: oklch(0.145 0 0);
     --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: oklch(0.85 0.12 152);
     --radius: 0.625rem;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-}
+    --background: oklch(0.14 0 0);
+    /* #101010 terminal base wrapper */
+    --foreground: oklch(0.93 0 0);
+    /* High-contrast crisp off-white text */
+    --card: oklch(0.18 0 0);
+    /* #171717 editor canvas / dashboard container */
+    --card-foreground: oklch(0.93 0 0);
+    --popover: oklch(0.18 0 0);
+    /* Slash-command popovers */
+    --popover-foreground: oklch(0.93 0 0);
+    --primary: oklch(0.87 0.13 154);
+    /* Vibrant Claude Code pastel mint green */
+    --primary-foreground: oklch(0.14 0 0);
+    --secondary: oklch(0.24 0 0);
+    /* Muted container accents */
+    --secondary-foreground: oklch(0.93 0 0);
+    --muted: oklch(0.24 0 0);
+    --muted-foreground: oklch(0.65 0 0);
+    /* Soft gray for runbook meta and dates */
+    --accent: oklch(0.24 0 0);
+    /* Clean layout focus states */
+    --accent-foreground: oklch(0.93 0 0);
+    --destructive: oklch(0.60 0.18 25);
+    --destructive-foreground: oklch(0.95 0 0);
+    --border: oklch(0.24 0 0);
+    /* Sleek, thin structural dividers */
+    --input: oklch(0.24 0 0);
+    --ring: oklch(0.87 0.13 154);
+    /* Focused border glow using the pastel green */
+}   
