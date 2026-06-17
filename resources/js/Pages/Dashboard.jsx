@@ -1,4 +1,5 @@
 import { usePage, router, Head } from '@inertiajs/react';
+import { LogOut } from 'lucide-react';
 
 export default function Dashboard() {
     const { auth } = usePage().props;
@@ -11,31 +12,32 @@ export default function Dashboard() {
     return (
         <>
             <Head title="Dashboard" />
-            <div className="min-h-screen bg-gray-50">
-                <header className="bg-white border-b border-gray-200">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-                        <span className="font-semibold text-gray-900">wwww.doc</span>
+            <div className="min-h-screen bg-background">
+                <header className="border-b border-border bg-card">
+                    <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                        <span className="font-semibold text-foreground">www.doc</span>
                         <form onSubmit={logout}>
                             <button
                                 type="submit"
-                                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 text-sm text-text-secondary transition-colors duration-150 hover:text-foreground"
                             >
+                                <LogOut className="h-4 w-4" strokeWidth={1.5} />
                                 Sign out
                             </button>
                         </form>
                     </div>
                 </header>
 
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <h2 className="text-2xl font-semibold text-gray-900">
+                <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                         Welcome, {auth.user.name}
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
+                    </h1>
+                    <p className="mt-1 text-sm text-text-secondary">
                         User #{auth.user.id} &middot; {auth.user.email}
                     </p>
 
-                    <div className="mt-8 rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
-                        <p className="text-gray-400 text-sm">
+                    <div className="mt-8 rounded-md border border-dashed border-border bg-surface p-10 text-center">
+                        <p className="text-sm text-text-tertiary">
                             Phase 0 complete — walking skeleton is up.
                         </p>
                     </div>

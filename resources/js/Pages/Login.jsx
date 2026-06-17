@@ -15,48 +15,60 @@ export default function Login() {
     return (
         <>
             <Head title="Sign in" />
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-background px-4">
                 <div className="w-full max-w-md">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-8 py-10">
-                        <h1 className="text-2xl font-semibold text-gray-900 mb-1">www.doc</h1>
-                        <p className="text-sm text-gray-500 mb-8">Sign in to continue</p>
+                    <div className="bg-card rounded-lg border border-border shadow-sm px-8 py-10">
+                        <h1 className="text-2xl font-semibold tracking-tight text-foreground">www.doc</h1>
+                        <p className="mt-1 mb-8 text-sm text-text-secondary">Sign in to continue</p>
 
                         <form onSubmit={submit} className="space-y-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label
+                                    htmlFor="email"
+                                    className="mb-1.5 block text-sm font-medium text-foreground"
+                                >
                                     Email
                                 </label>
                                 <input
+                                    id="email"
                                     type="email"
                                     value={data.email}
                                     onChange={(e) => setData('email', e.target.value)}
                                     autoComplete="email"
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    placeholder="admin@example.com"
+                                    className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-sage-400 focus-visible:ring-[3px] focus-visible:ring-sage-200"
                                     required
                                 />
                                 {errors.email && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                                    <p className="mt-1.5 text-xs text-danger">{errors.email}</p>
                                 )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label
+                                    htmlFor="password"
+                                    className="mb-1.5 block text-sm font-medium text-foreground"
+                                >
                                     Password
                                 </label>
                                 <input
+                                    id="password"
                                     type="password"
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
                                     autoComplete="current-password"
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-sage-400 focus-visible:ring-[3px] focus-visible:ring-sage-200"
                                     required
                                 />
+                                {errors.password && (
+                                    <p className="mt-1.5 text-xs text-danger">{errors.password}</p>
+                                )}
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg py-2 transition-colors"
+                                className="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-sage-500 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-sage-200 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {processing ? 'Signing in…' : 'Sign in'}
                             </button>

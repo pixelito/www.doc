@@ -3,7 +3,7 @@
     font-style: normal;
     font-weight: 100 900;
     font-display: swap;
-    src: url('../fonts/Lexend-Variable.woff2') format('woff2');
+    src: url('../fonts/lexend.woff2') format('woff2');
 }
 
 @import 'tailwindcss';
@@ -12,88 +12,119 @@
 @source '../../storage/framework/views/*.php';
 
 @theme inline {
-    --font-sans: 'Lexend', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Lexend', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
 
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --color-card: var(--card);
-    --color-card-foreground: var(--card-foreground);
-    --color-popover: var(--popover);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-primary: var(--primary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-secondary: var(--secondary);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-muted: var(--muted);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-accent: var(--accent);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-destructive: var(--destructive);
-    --color-destructive-foreground: var(--destructive-foreground);
+    /* Shadcn semantic tokens — mapped to the sage palette (see UI cheatsheet §8) */
+    --color-background: var(--canvas);
+    --color-foreground: var(--text-primary);
+    --color-card: var(--surface);
+    --color-card-foreground: var(--text-primary);
+    --color-popover: var(--surface);
+    --color-popover-foreground: var(--text-primary);
+    --color-primary: var(--sage-400);
+    --color-primary-foreground: var(--text-inverse);
+    --color-secondary: var(--surface-hover);
+    --color-secondary-foreground: var(--text-primary);
+    --color-muted: var(--surface-hover);
+    --color-muted-foreground: var(--text-secondary);
+    --color-accent: var(--sage-100);
+    --color-accent-foreground: var(--sage-700);
+    --color-destructive: var(--danger);
+    --color-destructive-foreground: var(--text-inverse);
     --color-border: var(--border);
-    --color-input: var(--input);
-    --color-ring: var(--ring);
+    --color-input: var(--border);
+    --color-ring: var(--sage-400);
 
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) + 4px);
+    /* Sage ramp exposed as utilities: bg-sage-400, text-sage-600, ring-sage-200, … */
+    --color-sage-50: var(--sage-50);
+    --color-sage-100: var(--sage-100);
+    --color-sage-200: var(--sage-200);
+    --color-sage-300: var(--sage-300);
+    --color-sage-400: var(--sage-400);
+    --color-sage-500: var(--sage-500);
+    --color-sage-600: var(--sage-600);
+    --color-sage-700: var(--sage-700);
+
+    /* Named surface / text tokens for utilities that need them directly */
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-surface-hover: var(--surface-hover);
+    --color-border-subtle: var(--border-subtle);
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-tertiary: var(--text-tertiary);
+    --color-text-inverse: var(--text-inverse);
+
+    /* Semantic accents */
+    --color-info: var(--info);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-danger: var(--danger);
+
+    /* Radii variables dynamically linked to your parameters */
+    --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
+    --radius-lg: var(--radius-lg);
+    --radius-xl: calc(var(--radius-lg) + 4px);
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.85 0.12 152);
-    /* Soft light pastel green */
-    --primary-foreground: oklch(0.145 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.95 0.04 152);
-    /* Subtle green tint for light mode hovers */
-    --accent-foreground: oklch(0.145 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.985 0 0);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.85 0.12 152);
-    --radius: 0.625rem;
-}
+    /* Surfaces — warm cream foundation */
+    --canvas: #F5F4ED;
+    /* page background */
+    --surface: #FBFAF5;
+    /* cards, panels */
+    --surface-hover: #EFEEE7;
+    /* subtle hover */
+    --border: #E2DFD4;
+    /* default borders */
+    --border-subtle: #ECE9DF;
+    /* dividers inside cards */
 
-.dark {
-    --background: oklch(0.14 0 0);
-    /* #101010 terminal base wrapper */
-    --foreground: oklch(0.93 0 0);
-    /* High-contrast crisp off-white text */
-    --card: oklch(0.18 0 0);
-    /* #171717 editor canvas / dashboard container */
-    --card-foreground: oklch(0.93 0 0);
-    --popover: oklch(0.18 0 0);
-    /* Slash-command popovers */
-    --popover-foreground: oklch(0.93 0 0);
-    --primary: oklch(0.87 0.13 154);
-    /* Vibrant Claude Code pastel mint green */
-    --primary-foreground: oklch(0.14 0 0);
-    --secondary: oklch(0.24 0 0);
-    /* Muted container accents */
-    --secondary-foreground: oklch(0.93 0 0);
-    --muted: oklch(0.24 0 0);
-    --muted-foreground: oklch(0.65 0 0);
-    /* Soft gray for runbook meta and dates */
-    --accent: oklch(0.24 0 0);
-    /* Clean layout focus states */
-    --accent-foreground: oklch(0.93 0 0);
-    --destructive: oklch(0.60 0.18 25);
-    --destructive-foreground: oklch(0.95 0 0);
-    --border: oklch(0.24 0 0);
-    /* Sleek, thin structural dividers */
-    --input: oklch(0.24 0 0);
-    --ring: oklch(0.87 0.13 154);
-    /* Focused border glow using the pastel green */
-}   
+    /* Text */
+    --text-primary: #1F2520;
+    /* body text */
+    --text-secondary: #5C625C;
+    /* meta, captions */
+    --text-tertiary: #8E938E;
+    /* placeholders, timestamps */
+    --text-inverse: #F5F4ED;
+    /* text on dark/sage backgrounds */
+
+    /* Sage — primary accent ramp */
+    --sage-50: #EDF2EA;
+    /* tinted backgrounds (info banners) */
+    --sage-100: #DAE6D4;
+    /* badge backgrounds, soft fills */
+    --sage-200: #BFD2B5;
+    /* borders accenting sage areas */
+    --sage-300: #9FB994;
+    /* hover for primary surfaces */
+    --sage-400: #7E9D72;
+    /* PRIMARY — buttons, key accents */
+    --sage-500: #648354;
+    /* active state, focus rings */
+    --sage-600: #4B6840;
+    /* sage text on light bg (contrast-safe) */
+    --sage-700: #364E2E;
+    /* deep accent, headings on sage-50 */
+
+    /* Semantic */
+    --info: #6E8AA7;
+    /* muted blue */
+    --success: #7E9D72;
+    /* reuse sage-400 */
+    --warning: #C99650;
+    /* warm amber */
+    --danger: #B5573E;
+    /* warm terracotta */
+
+    /* Radii + shadows matching configuration parameters */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 2px rgba(31, 37, 32, 0.04);
+    --shadow-md: 0 4px 12px rgba(31, 37, 32, 0.06);
+    --shadow-lg: 0 16px 32px rgba(31, 37, 32, 0.10);
+}
