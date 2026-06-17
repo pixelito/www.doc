@@ -1,0 +1,33 @@
+name: docsapp-dev
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: docsapp, POSTGRES_USER: docsapp, POSTGRES_PASSWORD: docsapp }
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U docsapp"], interval: 5s, retries: 10 }
+  redis: { image: redis:7-alpine }
+  app:
+    build: { context: ., dockerfile: docker/app/Dockerfile.dev }
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    environment:
+      APP_ENV: local
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: docsapp
+      DB_USERNAME: docsapp
+      DB_PASSWORD: docsapp
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+    volumes: [".:/app"]
+    ports: ["8000:8000"]
+    depends_on: { db: { condition: service_healthy }, redis: { condition: service_started } }
+  vite:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes: [".:/app"]
+    ports: ["5173:5173"]
+volumes: { pgdata: {} }
