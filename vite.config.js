@@ -3,6 +3,10 @@ import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
     plugins: [
@@ -18,7 +22,20 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    resolve: {
+        alias: {
+            '@': resolve(__dirname, 'resources/js'),
+        },
+    },
     server: {
+        host: '0.0.0.0',
+        cors: true,
+        origin: 'https://vite.tay.tf',
+        hmr: {
+            host: 'vite.tay.tf',
+            protocol: 'wss',
+            clientPort: 443,
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
