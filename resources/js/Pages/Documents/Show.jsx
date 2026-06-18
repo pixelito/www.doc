@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
-    IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy, IconFileText,
-    IconArrowRight, IconUser, IconCalendar, IconLink, IconTag, IconCircleCheck, IconClock,
+    IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
+    IconArrowRight, IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory,
 } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -173,8 +173,9 @@ function ExportModal({ documentId, open, onClose }) {
 const AUTOSAVE_DELAY_MS = 2000;
 
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
-    const [isEditing, setIsEditing]     = useState(false);
-    const [exportOpen, setExportOpen]   = useState(false);
+    const [isEditing, setIsEditing]       = useState(false);
+    const [exportOpen, setExportOpen]     = useState(false);
+    const [backlinksOpen, setBacklinksOpen] = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
     const [editTags, setEditTags] = useState(document.tags.map((t) => t.id));
@@ -432,8 +433,8 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 </div>
             )}
 
-            {/* Content + sidebar */}
-            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+            {/* Content — full width */}
+            <div className="mt-6">
                 <Card className="overflow-hidden">
                     <TipTapEditor
                         key={isEditing ? 'edit' : 'view'}
@@ -444,83 +445,48 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         onUpdate={handleEditorUpdate}
                     />
                 </Card>
-
-                <aside className="space-y-6">
-                    <Card className="overflow-hidden">
-                        <CardHeader className="border-b border-border/40 bg-surface-hover py-3 px-4">
-                            <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                                <IconLink className="h-3.5 w-3.5 text-sage-600" stroke={1.5} />
-                                Outgoing Links
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4">
-                            {document.outgoing_links.length === 0 ? (
-                                <p className="py-1 text-xs text-text-tertiary">
-                                    This page links nowhere yet.
-                                </p>
-                            ) : (
-                                <ul className="space-y-2.5">
-                                    {document.outgoing_links.map((link) => (
-                                        <li key={link.id} className="flex items-center text-sm">
-                                            <IconArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                                            {link.target ? (
-                                                <Link
-                                                    href={`/documents/${link.target.id}`}
-                                                    className="truncate font-medium text-sage-600 transition-colors hover:text-sage-800 hover:underline"
-                                                >
-                                                    {link.target.title}
-                                                </Link>
-                                            ) : (
-                                                <span className="truncate italic text-text-secondary">
-                                                    {link.target_title}{' '}
-                                                    <span className="not-italic rounded-sm bg-border-subtle px-1 text-[10px] font-sans text-text-tertiary">
-                                                        broken
-                                                    </span>
-                                                </span>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="overflow-hidden">
-                        <CardHeader className="border-b border-border/40 bg-surface-hover py-3 px-4">
-                            <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                                <IconFileText className="h-3.5 w-3.5 text-sage-600" stroke={1.5} />
-                                Incoming Backlinks
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4">
-                            {document.backlinks.length === 0 ? (
-                                <p className="py-1 text-xs text-text-tertiary">
-                                    No pages link here yet.
-                                </p>
-                            ) : (
-                                <ul className="space-y-3">
-                                    {document.backlinks.map((link) => (
-                                        <li key={link.id}>
-                                            <Link
-                                                href={`/documents/${link.source.id}`}
-                                                className="flex items-center gap-1.5 text-sm font-medium text-sage-600 transition-colors hover:text-sage-800 hover:underline"
-                                            >
-                                                <IconArrowRight className="h-3 w-3 shrink-0" stroke={1.5} />
-                                                {link.source.title}
-                                            </Link>
-                                            {link.context && (
-                                                <p className="mt-0.5 pl-4 text-xs text-text-tertiary leading-relaxed line-clamp-2">
-                                                    {link.context}
-                                                </p>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
-                </aside>
             </div>
+
+            {/* Referenced by — collapsible footer strip */}
+            {document.backlinks.length > 0 && (
+                <div className="mt-6 border-t border-border pt-4">
+                    <button
+                        type="button"
+                        onClick={() => setBacklinksOpen((v) => !v)}
+                        className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-foreground"
+                    >
+                        <IconChevronRight
+                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${backlinksOpen ? 'rotate-90' : ''}`}
+                            stroke={1.5}
+                        />
+                        Referenced by{' '}
+                        <span className="font-medium text-foreground">
+                            {document.backlinks.length} {document.backlinks.length === 1 ? 'page' : 'pages'}
+                        </span>
+                    </button>
+
+                    {backlinksOpen && (
+                        <ul className="mt-3 space-y-2.5 pl-5">
+                            {document.backlinks.map((link) => (
+                                <li key={link.id}>
+                                    <Link
+                                        href={`/documents/${link.source.id}`}
+                                        className="flex items-center gap-1.5 text-sm font-medium text-sage-600 transition-colors hover:text-sage-700 hover:underline"
+                                    >
+                                        <IconArrowRight className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
+                                        {link.source.title}
+                                    </Link>
+                                    {link.context && (
+                                        <p className="mt-0.5 pl-5 text-xs text-text-tertiary leading-relaxed line-clamp-2">
+                                            {link.context}
+                                        </p>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
             <ExportModal
                 documentId={document.id}
                 open={exportOpen}

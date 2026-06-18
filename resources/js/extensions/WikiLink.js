@@ -54,7 +54,7 @@ export const WikiLink = Node.create({
                 'data-title': title,
                 class: 'wiki-link',
             }),
-            `[[${title}]]`,
+            title,
         ];
     },
 
@@ -75,9 +75,11 @@ export const WikiLink = Node.create({
                 dom.className = href ? 'wiki-link resolved' : 'wiki-link unresolved';
             }
 
+            if (editable) dom.classList.add('wiki-link-edit');
+
             dom.setAttribute('data-wiki-link', 'true');
             dom.setAttribute('data-title', title);
-            dom.textContent = `[[${title}]]`;
+            dom.textContent = title;
 
             return { dom };
         };

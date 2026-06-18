@@ -66,6 +66,6 @@ class WikiLinkNode extends Node
     {
         $title = $node->attrs->title ?? '';
 
-        return htmlspecialchars("[[$title]]", ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     }
 }
