@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Pastel sage background -->
-  <rect width="32" height="32" rx="6" fill="#DAE6D4"/>
-  <!-- w (light 300) · dot · d (bold 700) -->
+  <rect width="32" height="32" rx="6" fill="#7E9D72"/>
   <text
     x="16"
     y="16"
-    font-family="Lexend, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    font-size="14"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="17"
     text-anchor="middle"
     dominant-baseline="middle"
-    fill="#364E2E"
+    fill="#FFFFFF"
   ><tspan font-weight="300">w</tspan><tspan font-weight="400">.</tspan><tspan font-weight="700">d</tspan></text>
 </svg>
