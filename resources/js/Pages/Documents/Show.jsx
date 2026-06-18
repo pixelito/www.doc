@@ -193,6 +193,17 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             .map((l) => [l.target_title, `/documents/${l.target.id}`])
     );
 
+    // Warn before browser close/refresh when there are unsaved changes
+    useEffect(() => {
+        if (!isEditing) return;
+        const handler = (e) => {
+            if (!isDirtyRef.current) return;
+            e.preventDefault();
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isEditing]);
+
     // Reset form fields when entering edit mode
     useEffect(() => {
         if (isEditing) {
@@ -447,7 +458,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
 
             {/* Content — full width */}
             <div className="mt-6">
-                <Card className="overflow-hidden">
+                <Card className="overflow-clip">
                     <TipTapEditor
                         key={isEditing ? 'edit' : 'view'}
                         content={document.content}

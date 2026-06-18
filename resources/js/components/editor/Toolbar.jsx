@@ -105,7 +105,7 @@ export default function Toolbar({ editor }) {
                    ?? 'left';
 
     return (
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface px-2 py-1.5">
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-0.5 border-b border-border bg-surface px-2 py-1.5">
 
             {/* ── Inline marks ──────────────────────────────────────── */}
             <ToolbarButton title="Bold (Ctrl+B)" active={editor.isActive('bold')}
