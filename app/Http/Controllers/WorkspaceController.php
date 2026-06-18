@@ -7,6 +7,8 @@ use App\Http\Requests\UpdateWorkspaceRequest;
 use App\Models\Workspace;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,7 +22,7 @@ class WorkspaceController extends Controller
             ->withCount('documents')
             ->orderBy('position')
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'slug', 'description', 'position', 'updated_at']);
 
         return Inertia::render('Workspaces/Index', [
             'workspaces' => $workspaces,
@@ -37,6 +39,17 @@ class WorkspaceController extends Controller
             'workspace' => $workspace->loadCount('documents'),
             'tree'      => DocumentTree::build($documents),
         ]);
+    }
+
+    public function reorder(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Workspace::class);
+
+        foreach ($request->input('ids', []) as $position => $id) {
+            DB::table('workspaces')->where('id', $id)->update(['position' => $position]);
+        }
+
+        return back();
     }
 
     public function store(StoreWorkspaceRequest $request): RedirectResponse

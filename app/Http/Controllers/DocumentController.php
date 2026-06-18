@@ -74,7 +74,12 @@ class DocumentController extends Controller
         $document->update(array_diff_key($validated, ['tags' => '']));
 
         if ($request->has('tags')) {
-            $document->tags()->sync($request->input('tags'));
+            $changes = $document->tags()->sync($request->input('tags'));
+            // Observer handles the workspace touch when content/title changed.
+            // When only tags changed, touch explicitly since pivot ops bypass the observer.
+            if (! $document->wasChanged(['content', 'title']) && array_filter($changes)) {
+                $document->workspace?->touch();
+            }
         }
 
         return back();

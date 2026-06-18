@@ -1,25 +1,119 @@
-import { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { IconFolderOpen, IconFolderPlus, IconPlus } from '@tabler/icons-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import {
+    IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus,
+} from '@tabler/icons-react';
+import {
+    DndContext, PointerSensor, useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core';
+import {
+    SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-export default function WorkspacesIndex({ workspaces }) {
-    const [showForm, setShowForm] = useState(false);
+function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60)      return 'just now';
+    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function SortableRow({ workspace, draggable }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id: String(workspace.id) });
+
+    return (
+        <li
+            ref={setNodeRef}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+            className="group grid grid-cols-[1fr_90px_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+        >
+            <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
+                {draggable ? (
+                    <button
+                        type="button"
+                        {...listeners}
+                        {...attributes}
+                        tabIndex={-1}
+                        aria-label="Drag to reorder"
+                        className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
+                    >
+                        <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
+                    </button>
+                ) : (
+                    <span className="w-4 shrink-0" />
+                )}
+                <IconFolderOpen className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                <Link
+                    href={`/workspaces/${workspace.id}`}
+                    className="min-w-0"
+                >
+                    <p className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
+                        {workspace.name}
+                    </p>
+                    {workspace.description && (
+                        <p className="truncate text-xs text-text-secondary">{workspace.description}</p>
+                    )}
+                </Link>
+            </div>
+            <div className="py-3 pr-4">
+                <span className="text-xs text-text-tertiary">
+                    {workspace.documents_count} {workspace.documents_count === 1 ? 'page' : 'pages'}
+                </span>
+            </div>
+            <div className="py-3 pr-4">
+                <span className="text-xs text-text-tertiary">{timeAgo(workspace.updated_at)}</span>
+            </div>
+        </li>
+    );
+}
+
+export default function WorkspacesIndex({ workspaces: initial }) {
+    const [workspaces, setWorkspaces] = useState(initial);
+    const [showForm, setShowForm]     = useState(false);
+    const [sortBy, setSortBy]         = useState('arranged'); // 'arranged' | 'updated'
+
+    useEffect(() => { setWorkspaces(initial); }, [initial]);
+
+    const displayed = useMemo(() => {
+        if (sortBy === 'updated') {
+            return [...workspaces].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        }
+        return workspaces; // already in position order from server
+    }, [workspaces, sortBy]);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         description: '',
     });
 
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    );
+
+    function handleDragEnd({ active, over }) {
+        if (!over || active.id === over.id) return;
+        const oldIndex = workspaces.findIndex(w => String(w.id) === active.id);
+        const newIndex = workspaces.findIndex(w => String(w.id) === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+        const reordered = arrayMove(workspaces, oldIndex, newIndex);
+        setWorkspaces(reordered);
+        router.patch('/workspaces/reorder', { ids: reordered.map(w => w.id) }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    }
+
     function submit(e) {
         e.preventDefault();
         post('/workspaces', {
-            onSuccess: () => {
-                reset();
-                setShowForm(false);
-            },
+            onSuccess: () => { reset(); setShowForm(false); },
         });
     }
 
@@ -28,54 +122,37 @@ export default function WorkspacesIndex({ workspaces }) {
             <Head title="Workspaces" />
 
             {/* Header */}
-            <div>
-                <h1 className="text-[19px] font-semibold text-foreground">Workspaces</h1>
-                <p className="mt-0.5 text-sm text-text-secondary">
-                    {workspaces.length} {workspaces.length === 1 ? 'workspace' : 'workspaces'}
-                </p>
+            <div className="flex items-baseline justify-between gap-4">
+                <div>
+                    <h1 className="text-[19px] font-semibold text-foreground">Workspaces</h1>
+                    <p className="mt-0.5 text-sm text-text-secondary">
+                        {workspaces.length} {workspaces.length === 1 ? 'workspace' : 'workspaces'}
+                    </p>
+                </div>
+                {workspaces.length > 1 && (
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-sage-400"
+                    >
+                        <option value="arranged">Arranged</option>
+                        <option value="updated">Last updated</option>
+                    </select>
+                )}
             </div>
 
             {/* Table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_110px] border-b border-border bg-surface-hover px-4 py-2.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Workspace</span>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Pages</span>
+                <div className="grid grid-cols-[1fr_90px_110px] border-b border-border bg-surface-hover px-4 py-2.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Workspace</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Pages</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
                 </div>
 
-                {/* Rows */}
-                {workspaces.length > 0 && (
-                    <ul>
-                        {workspaces.map((w) => (
-                            <li
-                                key={w.id}
-                                className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
-                            >
-                                <Link
-                                    href={`/workspaces/${w.id}`}
-                                    className="flex min-w-0 items-center gap-2.5 py-3 pl-4 pr-4"
-                                >
-                                    <IconFolderOpen className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-foreground">{w.name}</p>
-                                        {w.description && (
-                                            <p className="truncate text-xs text-text-secondary">{w.description}</p>
-                                        )}
-                                    </div>
-                                </Link>
-                                <div className="py-3 pr-4">
-                                    <span className="text-xs text-text-tertiary">
-                                        {w.documents_count} {w.documents_count === 1 ? 'page' : 'pages'}
-                                    </span>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-
-                {workspaces.length === 0 && !showForm && (
-                    <div className="flex flex-col items-center gap-3 border-dashed border-border px-6 py-12 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sage-50 border border-sage-200">
+                {workspaces.length === 0 && !showForm ? (
+                    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
                             <IconFolderPlus className="h-6 w-6 text-sage-500" stroke={1.5} />
                         </div>
                         <div>
@@ -90,13 +167,23 @@ export default function WorkspacesIndex({ workspaces }) {
                             Create workspace
                         </button>
                     </div>
+                ) : (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={sortBy === 'arranged' ? handleDragEnd : undefined}>
+                        <SortableContext items={displayed.map(w => String(w.id))} strategy={verticalListSortingStrategy}>
+                            <ul>
+                                {displayed.map(w => (
+                                    <SortableRow key={w.id} workspace={w} draggable={sortBy === 'arranged'} />
+                                ))}
+                            </ul>
+                        </SortableContext>
+                    </DndContext>
                 )}
 
-                {/* New workspace */}
+                {/* Footer */}
                 {showForm ? (
                     <div className="border-t border-border px-4 py-3">
                         <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-                            <div className="flex-1 min-w-45">
+                            <div className="min-w-45 flex-1">
                                 <Input
                                     type="text"
                                     value={data.name}
@@ -107,7 +194,7 @@ export default function WorkspacesIndex({ workspaces }) {
                                 />
                                 {errors.name && <p className="mt-1 text-xs text-danger">{errors.name}</p>}
                             </div>
-                            <div className="flex-2 min-w-45">
+                            <div className="min-w-45 flex-[2]">
                                 <Input
                                     type="text"
                                     value={data.description}
@@ -117,12 +204,8 @@ export default function WorkspacesIndex({ workspaces }) {
                                 />
                             </div>
                             <Button type="submit" size="sm" disabled={processing}>Create</Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => { setShowForm(false); reset(); }}
-                            >
+                            <Button type="button" size="sm" variant="ghost"
+                                onClick={() => { setShowForm(false); reset(); }}>
                                 Cancel
                             </Button>
                         </form>

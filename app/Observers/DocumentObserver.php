@@ -39,10 +39,18 @@ class DocumentObserver
             return;
         }
 
+        // Bubble the activity timestamp up to the workspace.
+        $document->workspace?->touch();
+
         $this->snapshotVersion($document);
         $this->syncLinks($document);
         $html = $this->updateRenderedHtml($document);
         $this->updateSearchVector($document, $html);
+    }
+
+    public function deleted(Document $document): void
+    {
+        $document->workspace?->touch();
     }
 
     /** Snapshot every save into the version history (never destructive). */
