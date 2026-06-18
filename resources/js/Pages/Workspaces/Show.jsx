@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
 import {
     DndContext,
@@ -17,7 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import NewPageModal from '@/components/ui/NewPageModal';
 
 function collectAllTags(nodes) {
     const map = new Map();
@@ -44,7 +44,6 @@ function flatten(nodes, depth = 0, acc = []) {
     return acc;
 }
 
-/** Recursively update the children of a specific parent node in the tree. */
 function updateChildren(nodes, parentId, activeId, overId) {
     return nodes.map(node => {
         if (node.id === parentId) {
@@ -60,7 +59,6 @@ function updateChildren(nodes, parentId, activeId, overId) {
     });
 }
 
-/** Find the children array of a specific parent in the tree. */
 function getChildrenIds(nodes, parentId) {
     for (const node of nodes) {
         if (node.id === parentId) return node.children.map(c => c.id);
@@ -70,7 +68,6 @@ function getChildrenIds(nodes, parentId) {
     return null;
 }
 
-/** Tag pill. */
 function TagPill({ name, active }) {
     return (
         <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
@@ -83,7 +80,6 @@ function TagPill({ name, active }) {
     );
 }
 
-/** Grip handle shared by root and child rows. */
 function GripHandle({ listeners, attributes }) {
     return (
         <button
@@ -99,11 +95,20 @@ function GripHandle({ listeners, attributes }) {
     );
 }
 
-/**
- * Sortable child row (depth ≥ 1). Wraps its own children in a nested
- * SortableContext so they can also be reordered independently.
- */
-function SortableChildRow({ node, depth, parentId }) {
+function AddChildButton({ onClick }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title="Add subpage"
+            className="flex h-5 w-5 items-center justify-center rounded text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-hover hover:text-sage-600"
+        >
+            <IconPlus className="h-3 w-3" stroke={2} />
+        </button>
+    );
+}
+
+function SortableChildRow({ node, depth, parentId, onAddChild }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id: String(node.id), data: { parentId } });
 
@@ -112,7 +117,7 @@ function SortableChildRow({ node, depth, parentId }) {
             <li
                 ref={setNodeRef}
                 style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+                className="group grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div
                     className="flex min-w-0 items-center gap-2 py-2.5 pr-4"
@@ -133,6 +138,9 @@ function SortableChildRow({ node, depth, parentId }) {
                 <div className="py-2.5 pr-4">
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
+                <div className="flex items-center justify-center py-2.5 pr-1.5">
+                    <AddChildButton onClick={() => onAddChild(node.id)} />
+                </div>
             </li>
 
             {node.children.length > 0 && (
@@ -146,6 +154,7 @@ function SortableChildRow({ node, depth, parentId }) {
                             node={child}
                             depth={depth + 1}
                             parentId={node.id}
+                            onAddChild={onAddChild}
                         />
                     ))}
                 </SortableContext>
@@ -154,8 +163,7 @@ function SortableChildRow({ node, depth, parentId }) {
     );
 }
 
-/** Draggable root row (depth 0). Children rendered in their own SortableContext. */
-function SortableRow({ node, activeTagId }) {
+function SortableRow({ node, activeTagId, onAddChild }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id: String(node.id), data: { parentId: null } });
 
@@ -164,7 +172,7 @@ function SortableRow({ node, activeTagId }) {
             <li
                 ref={setNodeRef}
                 style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+                className="group grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
                     <GripHandle listeners={listeners} attributes={attributes} />
@@ -182,6 +190,9 @@ function SortableRow({ node, activeTagId }) {
                 <div className="py-3 pr-4">
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
+                <div className="flex items-center justify-center py-3 pr-1.5">
+                    <AddChildButton onClick={() => onAddChild(node.id)} />
+                </div>
             </li>
 
             {node.children.length > 0 && (
@@ -195,6 +206,7 @@ function SortableRow({ node, activeTagId }) {
                             node={child}
                             depth={1}
                             parentId={node.id}
+                            onAddChild={onAddChild}
                         />
                     ))}
                 </SortableContext>
@@ -203,10 +215,9 @@ function SortableRow({ node, activeTagId }) {
     );
 }
 
-/** Flat read-only row for the filtered tag view. */
 function FilteredRow({ node }) {
     return (
-        <li className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
+        <li className="grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                 <Link
@@ -222,6 +233,7 @@ function FilteredRow({ node }) {
             <div className="py-3 pr-4">
                 <span className="text-xs text-text-tertiary">{node.updated_at}</span>
             </div>
+            <div />
         </li>
     );
 }
@@ -229,7 +241,8 @@ function FilteredRow({ node }) {
 export default function WorkspaceShow({ workspace, tree }) {
     const [rootNodes, setRootNodes] = useState(tree);
     const [activeTag, setActiveTag] = useState(null);
-    const [showForm, setShowForm] = useState(false);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalParentId, setModalParentId] = useState('');
 
     useEffect(() => { setRootNodes(tree); }, [tree]);
 
@@ -241,15 +254,14 @@ export default function WorkspaceShow({ workspace, tree }) {
 
     const options = useMemo(() => flatten(rootNodes), [rootNodes]);
 
-    const { data, setData, post, processing, errors, reset } = useForm({
-        title: '',
-        parent_id: '',
-        workspace_id: workspace.id,
-    });
-
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
     );
+
+    function openModal(parentId = '') {
+        setModalParentId(String(parentId));
+        setModalOpen(true);
+    }
 
     function handleDragEnd({ active, over }) {
         if (!over || active.id === over.id) return;
@@ -257,11 +269,9 @@ export default function WorkspaceShow({ workspace, tree }) {
         const activeParent = active.data.current?.parentId ?? null;
         const overParent   = over.data.current?.parentId ?? null;
 
-        // Disallow cross-group drops (root ↔ child or child ↔ sibling of different parent)
         if (activeParent !== overParent) return;
 
         if (activeParent === null) {
-            // Root-level reorder
             const oldIndex = rootNodes.findIndex(n => String(n.id) === active.id);
             const newIndex = rootNodes.findIndex(n => String(n.id) === over.id);
             if (oldIndex === -1 || newIndex === -1) return;
@@ -269,22 +279,11 @@ export default function WorkspaceShow({ workspace, tree }) {
             setRootNodes(reordered);
             router.patch('/documents/reorder', { ids: reordered.map(n => n.id) }, { preserveState: true, preserveScroll: true });
         } else {
-            // Child-level reorder within a specific parent
             const updated = updateChildren(rootNodes, activeParent, active.id, over.id);
             setRootNodes(updated);
             const ids = getChildrenIds(updated, activeParent);
             if (ids) router.patch('/documents/reorder', { ids }, { preserveState: true, preserveScroll: true });
         }
-    }
-
-    function submit(e) {
-        e.preventDefault();
-        post('/documents', {
-            onSuccess: () => {
-                reset('title', 'parent_id');
-                setShowForm(false);
-            },
-        });
     }
 
     function destroyWorkspace() {
@@ -296,6 +295,7 @@ export default function WorkspaceShow({ workspace, tree }) {
     const pageCount = workspace.documents_count ?? rootNodes.length;
 
     return (
+        <>
         <DocsLayout>
             <Head title={workspace.name} />
 
@@ -358,13 +358,13 @@ export default function WorkspaceShow({ workspace, tree }) {
             {/* Page table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_110px] border-b border-border bg-surface-hover px-4 py-2.5">
+                <div className="grid grid-cols-[1fr_110px_32px] border-b border-border bg-surface-hover px-4 py-2.5">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Page</span>
                     <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
+                    <span />
                 </div>
 
                 {filteredRows ? (
-                    /* Filtered flat list — no drag when a tag filter is active */
                     rootNodes.length === 0 || filteredRows.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">
                             {filteredRows.length === 0 ? 'No pages match this filter.' : 'No pages yet.'}
@@ -377,15 +377,19 @@ export default function WorkspaceShow({ workspace, tree }) {
                         </ul>
                     )
                 ) : (
-                    /* Full tree with drag-reorder at every level */
                     rootNodes.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">No pages yet.</p>
                     ) : (
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                             <SortableContext items={rootNodes.map(n => String(n.id))} strategy={verticalListSortingStrategy}>
-                                <ul className="group">
+                                <ul>
                                     {rootNodes.map(node => (
-                                        <SortableRow key={node.id} node={node} activeTagId={activeTag} />
+                                        <SortableRow
+                                            key={node.id}
+                                            node={node}
+                                            activeTagId={activeTag}
+                                            onAddChild={openModal}
+                                        />
                                     ))}
                                 </ul>
                             </SortableContext>
@@ -393,53 +397,25 @@ export default function WorkspaceShow({ workspace, tree }) {
                     )
                 )}
 
-                {/* Add page */}
-                {showForm ? (
-                    <div className="border-t border-border px-4 py-3">
-                        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-                            <div className="flex-1 min-w-[180px]">
-                                <Input
-                                    type="text"
-                                    value={data.title}
-                                    onChange={e => setData('title', e.target.value)}
-                                    placeholder="Page title"
-                                    className="h-8"
-                                    autoFocus
-                                />
-                                {errors.title && <p className="mt-1 text-xs text-danger">{errors.title}</p>}
-                            </div>
-                            <select
-                                value={data.parent_id}
-                                onChange={e => setData('parent_id', e.target.value)}
-                                className="h-8 rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-sage-400 focus-visible:ring-[3px] focus-visible:ring-sage-200"
-                            >
-                                <option value="">— Top level —</option>
-                                {options.map(o => (
-                                    <option key={o.id} value={o.id}>{o.label}</option>
-                                ))}
-                            </select>
-                            <Button type="submit" size="sm" disabled={processing}>Create</Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => { setShowForm(false); reset('title', 'parent_id'); }}
-                            >
-                                Cancel
-                            </Button>
-                        </form>
-                    </div>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={() => setShowForm(true)}
-                        className="flex w-full items-center gap-1.5 border-t border-border px-4 py-2.5 text-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                    >
-                        <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
-                        New page
-                    </button>
-                )}
+                {/* New page footer button */}
+                <button
+                    type="button"
+                    onClick={() => openModal('')}
+                    className="flex w-full items-center gap-1.5 border-t border-border px-4 py-2.5 text-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                >
+                    <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
+                    New page
+                </button>
             </div>
         </DocsLayout>
+
+        <NewPageModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            workspaceId={workspace.id}
+            parentOptions={options}
+            initialParentId={modalParentId}
+        />
+        </>
     );
 }
