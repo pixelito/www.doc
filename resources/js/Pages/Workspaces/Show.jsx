@@ -44,7 +44,33 @@ function flatten(nodes, depth = 0, acc = []) {
     return acc;
 }
 
-/** Tag pill used in table rows. */
+/** Recursively update the children of a specific parent node in the tree. */
+function updateChildren(nodes, parentId, activeId, overId) {
+    return nodes.map(node => {
+        if (node.id === parentId) {
+            const oldIdx = node.children.findIndex(c => String(c.id) === activeId);
+            const newIdx = node.children.findIndex(c => String(c.id) === overId);
+            if (oldIdx === -1 || newIdx === -1) return node;
+            return { ...node, children: arrayMove(node.children, oldIdx, newIdx) };
+        }
+        if (node.children.length > 0) {
+            return { ...node, children: updateChildren(node.children, parentId, activeId, overId) };
+        }
+        return node;
+    });
+}
+
+/** Find the children array of a specific parent in the tree. */
+function getChildrenIds(nodes, parentId) {
+    for (const node of nodes) {
+        if (node.id === parentId) return node.children.map(c => c.id);
+        const ids = getChildrenIds(node.children, parentId);
+        if (ids) return ids;
+    }
+    return null;
+}
+
+/** Tag pill. */
 function TagPill({ name, active }) {
     return (
         <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
@@ -57,16 +83,47 @@ function TagPill({ name, active }) {
     );
 }
 
-/** Child row (not draggable). */
-function ChildRow({ node, depth }) {
+/** Grip handle shared by root and child rows. */
+function GripHandle({ listeners, attributes }) {
+    return (
+        <button
+            type="button"
+            {...listeners}
+            {...attributes}
+            tabIndex={-1}
+            aria-label="Drag to reorder"
+            className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
+        >
+            <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
+        </button>
+    );
+}
+
+/**
+ * Sortable child row (depth ≥ 1). Wraps its own children in a nested
+ * SortableContext so they can also be reordered independently.
+ */
+function SortableChildRow({ node, depth, parentId }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id: String(node.id), data: { parentId } });
+
     return (
         <>
-            <li className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
-                style={{ paddingLeft: `${depth * 20}px` }}>
-                <div className="flex min-w-0 items-center gap-2 py-2.5 pl-10 pr-4">
+            <li
+                ref={setNodeRef}
+                style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+                className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+            >
+                <div
+                    className="flex min-w-0 items-center gap-2 py-2.5 pr-4"
+                    style={{ paddingLeft: `${depth * 20 + 12}px` }}
+                >
+                    <GripHandle listeners={listeners} attributes={attributes} />
                     <IconFileText className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                    <Link href={`/documents/${node.id}`}
-                        className="truncate text-sm text-text-secondary transition-colors hover:text-sage-600">
+                    <Link
+                        href={`/documents/${node.id}`}
+                        className="truncate text-sm text-text-secondary transition-colors hover:text-sage-600"
+                    >
                         {node.title}
                     </Link>
                     {node.tags.slice(0, 1).map(t => (
@@ -77,17 +134,30 @@ function ChildRow({ node, depth }) {
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
             </li>
-            {node.children.map(child => (
-                <ChildRow key={child.id} node={child} depth={depth + 1} />
-            ))}
+
+            {node.children.length > 0 && (
+                <SortableContext
+                    items={node.children.map(c => String(c.id))}
+                    strategy={verticalListSortingStrategy}
+                >
+                    {node.children.map(child => (
+                        <SortableChildRow
+                            key={child.id}
+                            node={child}
+                            depth={depth + 1}
+                            parentId={node.id}
+                        />
+                    ))}
+                </SortableContext>
+            )}
         </>
     );
 }
 
-/** Draggable root row. */
+/** Draggable root row (depth 0). Children rendered in their own SortableContext. */
 function SortableRow({ node, activeTagId }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: String(node.id) });
+        useSortable({ id: String(node.id), data: { parentId: null } });
 
     return (
         <>
@@ -97,19 +167,12 @@ function SortableRow({ node, activeTagId }) {
                 className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
-                    <button
-                        type="button"
-                        {...listeners}
-                        {...attributes}
-                        tabIndex={-1}
-                        aria-label="Drag to reorder"
-                        className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
-                    >
-                        <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
-                    </button>
+                    <GripHandle listeners={listeners} attributes={attributes} />
                     <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                    <Link href={`/documents/${node.id}`}
-                        className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
+                    <Link
+                        href={`/documents/${node.id}`}
+                        className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600"
+                    >
                         {node.title}
                     </Link>
                     {node.tags.slice(0, 2).map(t => (
@@ -120,21 +183,36 @@ function SortableRow({ node, activeTagId }) {
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
             </li>
-            {node.children.map(child => (
-                <ChildRow key={child.id} node={child} depth={1} />
-            ))}
+
+            {node.children.length > 0 && (
+                <SortableContext
+                    items={node.children.map(c => String(c.id))}
+                    strategy={verticalListSortingStrategy}
+                >
+                    {node.children.map(child => (
+                        <SortableChildRow
+                            key={child.id}
+                            node={child}
+                            depth={1}
+                            parentId={node.id}
+                        />
+                    ))}
+                </SortableContext>
+            )}
         </>
     );
 }
 
-/** Flat read-only row for filtered view. */
+/** Flat read-only row for the filtered tag view. */
 function FilteredRow({ node }) {
     return (
         <li className="grid grid-cols-[1fr_110px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <Link href={`/documents/${node.id}`}
-                    className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
+                <Link
+                    href={`/documents/${node.id}`}
+                    className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600"
+                >
                     {node.title}
                 </Link>
                 {node.tags.map(t => (
@@ -175,12 +253,28 @@ export default function WorkspaceShow({ workspace, tree }) {
 
     function handleDragEnd({ active, over }) {
         if (!over || active.id === over.id) return;
-        const oldIndex = rootNodes.findIndex(n => String(n.id) === active.id);
-        const newIndex = rootNodes.findIndex(n => String(n.id) === over.id);
-        if (oldIndex === -1 || newIndex === -1) return;
-        const reordered = arrayMove(rootNodes, oldIndex, newIndex);
-        setRootNodes(reordered);
-        router.patch('/documents/reorder', { ids: reordered.map(n => n.id) }, { preserveState: true, preserveScroll: true });
+
+        const activeParent = active.data.current?.parentId ?? null;
+        const overParent   = over.data.current?.parentId ?? null;
+
+        // Disallow cross-group drops (root ↔ child or child ↔ sibling of different parent)
+        if (activeParent !== overParent) return;
+
+        if (activeParent === null) {
+            // Root-level reorder
+            const oldIndex = rootNodes.findIndex(n => String(n.id) === active.id);
+            const newIndex = rootNodes.findIndex(n => String(n.id) === over.id);
+            if (oldIndex === -1 || newIndex === -1) return;
+            const reordered = arrayMove(rootNodes, oldIndex, newIndex);
+            setRootNodes(reordered);
+            router.patch('/documents/reorder', { ids: reordered.map(n => n.id) }, { preserveState: true, preserveScroll: true });
+        } else {
+            // Child-level reorder within a specific parent
+            const updated = updateChildren(rootNodes, activeParent, active.id, over.id);
+            setRootNodes(updated);
+            const ids = getChildrenIds(updated, activeParent);
+            if (ids) router.patch('/documents/reorder', { ids }, { preserveState: true, preserveScroll: true });
+        }
     }
 
     function submit(e) {
@@ -270,7 +364,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                 </div>
 
                 {filteredRows ? (
-                    /* Filtered flat list */
+                    /* Filtered flat list — no drag when a tag filter is active */
                     rootNodes.length === 0 || filteredRows.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">
                             {filteredRows.length === 0 ? 'No pages match this filter.' : 'No pages yet.'}
@@ -283,7 +377,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                         </ul>
                     )
                 ) : (
-                    /* Full tree with drag-reorder */
+                    /* Full tree with drag-reorder at every level */
                     rootNodes.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">No pages yet.</p>
                     ) : (
