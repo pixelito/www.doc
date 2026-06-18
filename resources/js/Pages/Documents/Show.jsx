@@ -170,8 +170,6 @@ function ExportModal({ documentId, open, onClose }) {
     );
 }
 
-const AUTOSAVE_DELAY_MS = 5000;
-
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
     const [isEditing, setIsEditing]       = useState(false);
     const [exportOpen, setExportOpen]     = useState(false);
@@ -184,7 +182,6 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     const editorContentRef = useRef(document.content);
 
     const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
-    const autosaveTimer = useRef(null);
 
     // Build resolvedLinks map: { "Page Title": "/documents/id" }
     const resolvedLinks = Object.fromEntries(
@@ -206,20 +203,17 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     // --- Save helpers ---
 
     const performSave = useCallback(
-        (content, { exitEdit = false } = {}) => {
+        (content) => {
             setSaveStatus('saving');
             router.patch(
                 `/documents/${document.id}`,
                 { title: editTitle, content, tags: editTags },
                 {
-                    // preserveState: true keeps React state alive during autosave.
-                    // On explicit save we want a full prop refresh (backlinks, etc.)
-                    // so we let Inertia reset state and then exit edit mode.
-                    preserveState: !exitEdit,
+                    preserveState: false,
                     preserveScroll: true,
                     onSuccess: () => {
                         setSaveStatus('saved');
-                        if (exitEdit) setIsEditing(false);
+                        setIsEditing(false);
                     },
                     onError: () => setSaveStatus(null),
                 }
@@ -228,26 +222,16 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         [document.id, editTitle, editTags]
     );
 
-    const handleEditorUpdate = useCallback(
-        (json) => {
-            editorContentRef.current = json;
-            setSaveStatus('saving');
-            clearTimeout(autosaveTimer.current);
-            autosaveTimer.current = setTimeout(() => {
-                performSave(json);
-            }, AUTOSAVE_DELAY_MS);
-        },
-        [performSave]
-    );
+    const handleEditorUpdate = useCallback((json) => {
+        editorContentRef.current = json;
+    }, []);
 
     function handleExplicitSave(e) {
         e.preventDefault();
-        clearTimeout(autosaveTimer.current);
-        performSave(editorContentRef.current, { exitEdit: true });
+        performSave(editorContentRef.current);
     }
 
     function handleCancelEdit() {
-        clearTimeout(autosaveTimer.current);
         setIsEditing(false);
         setSaveStatus(null);
     }
