@@ -7,7 +7,6 @@ use Tiptap\Editor;
 use Tiptap\Extensions\StarterKit;
 use Tiptap\Marks\Link;
 use Tiptap\Marks\Underline;
-use Tiptap\Nodes\Image;
 use Tiptap\Nodes\Table;
 use Tiptap\Nodes\TableCell;
 use Tiptap\Nodes\TableHeader;
@@ -27,7 +26,7 @@ class RenderDocument
                 new StarterKit,
                 new Underline,
                 new Link,
-                new Image,
+                new ResizableImageNode,
                 new Table,
                 new TableRow,
                 new TableHeader,
@@ -35,6 +34,35 @@ class RenderDocument
                 new WikiLinkNode,
             ],
         ]))->setContent($doc)->getHTML();
+    }
+}
+
+/**
+ * Renders image nodes with width and alignment preserved in exports.
+ * Applies inline styles so PDF/DOCX pipelines see the correct layout.
+ */
+class ResizableImageNode extends Node
+{
+    public static $name = 'image';
+
+    public function renderHTML($node, $HTMLAttributes = [])
+    {
+        $attrs = $node->attrs ?? (object) [];
+        $src   = $attrs->src   ?? '';
+        $alt   = $attrs->alt   ?? '';
+        $width = $attrs->width ?? null;
+        $align = $attrs->align ?? 'left';
+
+        $style = 'max-width:100%;display:block;';
+        if ($width)              $style .= "width:{$width}px;";
+        if ($align === 'center') $style .= 'margin:0 auto;';
+        elseif ($align === 'right') $style .= 'margin-left:auto;';
+
+        return ['img', array_merge($HTMLAttributes, [
+            'src'   => $src,
+            'alt'   => $alt,
+            'style' => $style,
+        ])];
     }
 }
 

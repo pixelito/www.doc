@@ -214,10 +214,57 @@
 }
 .tiptap a:hover { text-decoration-color: var(--sage-600); }
 
+/* Image node view — wrapper, inner container, resize handle */
+.tiptap .image-wrapper {
+    display: block;
+    margin: 0.5em 0;
+    line-height: 1;
+}
+.tiptap .image-wrapper[data-align="center"] { text-align: center; }
+.tiptap .image-wrapper[data-align="right"]  { text-align: right; }
+
+.tiptap .image-inner {
+    display: inline-block;
+    position: relative;
+    max-width: 100%;
+    line-height: 0;
+    vertical-align: bottom;
+}
+
+.tiptap .image-inner img {
+    display: block;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    transition: outline 80ms;
+}
+
+.tiptap .image-wrapper.ProseMirror-selectednode .image-inner img {
+    outline: 2px solid var(--sage-400);
+    outline-offset: 2px;
+}
+
+.tiptap .image-resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    background: var(--surface);
+    border: 2px solid var(--sage-400);
+    border-radius: 2px;
+    cursor: se-resize;
+    opacity: 0;
+    transition: opacity 100ms;
+}
+
+.tiptap .image-wrapper.ProseMirror-selectednode .image-resize-handle {
+    opacity: 1;
+}
+
+/* Fallback for any raw <img> not inside a NodeView wrapper */
 .tiptap img {
     max-width: 100%;
     border-radius: var(--radius-sm);
-    margin: 0.5em 0;
 }
 
 /* Table */

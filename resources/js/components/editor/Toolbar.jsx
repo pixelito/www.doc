@@ -6,6 +6,7 @@ import {
     IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff,
     IconRowInsertBottom, IconRowInsertTop, IconRowRemove,
     IconColumnInsertLeft, IconColumnInsertRight, IconColumnRemove,
+    IconAlignLeft, IconAlignCenter, IconAlignRight,
 } from '@tabler/icons-react';
 import { insertFiles } from '@/extensions/ImageUpload';
 
@@ -388,6 +389,34 @@ export default function Toolbar({ editor }) {
                         </>
                     )}
                 </div>
+            )}
+
+            {/* Image alignment — shown whenever an image node is selected */}
+            {editor.isActive('image') && (
+                <>
+                    <Divider />
+                    <ToolbarButton
+                        title="Align left"
+                        active={!editor.isActive('image', { align: 'center' }) && !editor.isActive('image', { align: 'right' })}
+                        onClick={() => editor.commands.updateAttributes('image', { align: 'left' })}
+                    >
+                        <IconAlignLeft className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Align center"
+                        active={editor.isActive('image', { align: 'center' })}
+                        onClick={() => editor.commands.updateAttributes('image', { align: 'center' })}
+                    >
+                        <IconAlignCenter className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Align right"
+                        active={editor.isActive('image', { align: 'right' })}
+                        onClick={() => editor.commands.updateAttributes('image', { align: 'right' })}
+                    >
+                        <IconAlignRight className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                </>
             )}
 
             {/* Table size picker */}

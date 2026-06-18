@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
 
+import { ResizableImage } from '@/extensions/ResizableImage';
 import { WikiLink } from '@/extensions/WikiLink';
 import { SlashCommands } from '@/extensions/SlashCommands';
 import { ImageUpload } from '@/extensions/ImageUpload';
@@ -61,7 +61,7 @@ export default function TipTapEditor({
                 },
                 underline: {},
             }),
-            Image.configure({ inline: false, allowBase64: false }),
+            ResizableImage.configure({ inline: false, allowBase64: false }),
             Table.configure({ resizable: false }),
             TableRow,
             TableHeader,
