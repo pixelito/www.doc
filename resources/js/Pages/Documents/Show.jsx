@@ -212,7 +212,10 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 `/documents/${document.id}`,
                 { title: editTitle, content, tags: editTags },
                 {
-                    preserveState: false,
+                    // preserveState: true keeps React state alive during autosave.
+                    // On explicit save we want a full prop refresh (backlinks, etc.)
+                    // so we let Inertia reset state and then exit edit mode.
+                    preserveState: !exitEdit,
                     preserveScroll: true,
                     onSuccess: () => {
                         setSaveStatus('saved');
