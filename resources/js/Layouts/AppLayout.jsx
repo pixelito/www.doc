@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { IconBook2, IconSearch, IconPlus } from '@tabler/icons-react';
+import { IconBook2, IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 
 function initials(name) {
@@ -48,7 +48,7 @@ export default function AppLayout({ children }) {
                 <div className="mx-auto max-w-7xl flex h-12 items-center gap-4 px-5">
                     {/* Brand + nav */}
                     <div className="flex shrink-0 items-center gap-5">
-                        <Link href="/workspaces" className="flex items-center gap-2">
+                        <Link href="/dashboard" className="flex items-center gap-2">
                             <IconBook2 className="h-5 w-5 text-sage-600" stroke={1.5} />
                             <span className="text-[15px] font-semibold text-foreground">www.doc</span>
                         </Link>
@@ -74,24 +74,31 @@ export default function AppLayout({ children }) {
                     </form>
 
                     {/* Actions */}
-                    <div className="ml-auto flex shrink-0 items-center gap-2.5">
-                        <Link href="/workspaces">
-                            <Button size="sm" className="gap-1.5 text-[13px]">
-                                <IconPlus className="h-3.5 w-3.5" stroke={2} />
-                                New page
-                            </Button>
-                        </Link>
-                        {auth?.user && (
+                    {auth?.user && (
+                        <div className="ml-auto flex shrink-0 items-center gap-1">
+                            <div
+                                title={auth.user.name}
+                                className="flex h-[28px] w-[28px] items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600"
+                            >
+                                {initials(auth.user.name)}
+                            </div>
+                            <button
+                                type="button"
+                                title="Settings"
+                                className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                <IconSettings className="h-4 w-4" stroke={1.5} />
+                            </button>
                             <button
                                 type="button"
                                 onClick={logout}
-                                title={`Sign out (${auth.user.name})`}
-                                className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600 transition-colors hover:bg-sage-200"
+                                title="Sign out"
+                                className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
                             >
-                                {initials(auth.user.name)}
+                                <IconLogout className="h-4 w-4" stroke={1.5} />
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </header>
             {flash?.success && (
