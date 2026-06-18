@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { IconBook2, IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
-import { Button } from '@/components/ui/button';
 
 function initials(name) {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -78,7 +77,7 @@ export default function AppLayout({ children }) {
                         <div className="ml-auto flex shrink-0 items-center gap-1">
                             <div
                                 title={auth.user.name}
-                                className="flex h-[28px] w-[28px] items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600"
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600"
                             >
                                 {initials(auth.user.name)}
                             </div>
