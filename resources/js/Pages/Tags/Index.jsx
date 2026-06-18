@@ -1,6 +1,6 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { IconPlus, IconTrash, IconTag, IconChevronRight } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ export default function TagsIndex({ tags }) {
     }
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title="Tags" />
             <PageHeader
                 title="Tags"
@@ -84,6 +84,6 @@ export default function TagsIndex({ tags }) {
                     </ul>
                 </Card>
             )}
-        </AppLayout>
+        </DocsLayout>
     );
 }

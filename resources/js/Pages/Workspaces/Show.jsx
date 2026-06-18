@@ -15,7 +15,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -296,7 +296,7 @@ export default function WorkspaceShow({ workspace, tree }) {
     const pageCount = workspace.documents_count ?? rootNodes.length;
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={workspace.name} />
 
             {/* Breadcrumb */}
@@ -440,6 +440,6 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </button>
                 )}
             </div>
-        </AppLayout>
+        </DocsLayout>
     );
 }

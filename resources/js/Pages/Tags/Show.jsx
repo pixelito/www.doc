@@ -1,12 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { IconChevronRight, IconTag, IconFileText, IconFolder } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 
 export default function TagShow({ tag, groups }) {
     const totalDocs = groups.reduce((n, g) => n + g.documents.length, 0);
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={`#${tag.name}`} />
 
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
@@ -71,6 +71,6 @@ export default function TagShow({ tag, groups }) {
                     ))}
                 </div>
             )}
-        </AppLayout>
+        </DocsLayout>
     );
 }

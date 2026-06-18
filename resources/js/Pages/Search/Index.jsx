@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconSearch, IconFileText, IconFolder, IconTag } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 
 function ResultIcon({ type }) {
     const cls = 'mt-0.5 h-4 w-4 shrink-0 text-text-tertiary';
@@ -61,7 +61,7 @@ export default function SearchIndex({ q, results }) {
     }
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={q ? `"${q}" — Search` : 'Search'} />
 
             <div className="mx-auto max-w-2xl">
@@ -93,6 +93,6 @@ export default function SearchIndex({ q, results }) {
                     </div>
                 )}
             </div>
-        </AppLayout>
+        </DocsLayout>
     );
 }

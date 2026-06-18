@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconUpload, IconFileTypePdf, IconFileTypeDocx, IconLoader2, IconCircleCheck, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -138,7 +138,7 @@ export default function Import({ workspace }) {
     const isPdf = file?.name.endsWith('.pdf');
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={`Import — ${workspace.name}`} />
 
             {/* Breadcrumb */}
@@ -232,6 +232,6 @@ export default function Import({ workspace }) {
                     </div>
                 )}
             </div>
-        </AppLayout>
+        </DocsLayout>
     );
 }

@@ -5,7 +5,7 @@ import {
     IconArrowRight, IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory, IconFileText,
 } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -262,7 +262,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     }
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={document.title} />
 
             {/* Breadcrumb */}
@@ -500,6 +500,6 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 open={exportOpen}
                 onClose={() => setExportOpen(false)}
             />
-        </AppLayout>
+        </DocsLayout>
     );
 }

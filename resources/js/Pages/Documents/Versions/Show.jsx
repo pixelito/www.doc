@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { IconChevronRight, IconHistory, IconArrowBack } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
@@ -25,7 +25,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
     }
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={`Version — ${version.title}`} />
 
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
@@ -66,6 +66,6 @@ export default function VersionShow({ document: doc, workspace, version }) {
                 className="prose prose-sage max-w-none"
                 dangerouslySetInnerHTML={{ __html: version.content_html ?? '<p class="text-text-tertiary text-sm">No content.</p>' }}
             />
-        </AppLayout>
+        </DocsLayout>
     );
 }

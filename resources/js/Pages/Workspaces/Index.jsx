@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { IconFolderOpen, IconPlus } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -24,7 +24,7 @@ export default function WorkspacesIndex({ workspaces }) {
     }
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title="Workspaces" />
 
             {/* Header */}
@@ -123,6 +123,6 @@ export default function WorkspacesIndex({ workspaces }) {
                     </button>
                 )}
             </div>
-        </AppLayout>
+        </DocsLayout>
     );
 }

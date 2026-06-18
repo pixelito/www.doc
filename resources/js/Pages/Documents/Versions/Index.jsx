@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { IconChevronRight, IconHistory, IconClock, IconUser } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 
 function timeAgo(ts) {
     const d = new Date(ts.replace(' ', 'T') + 'Z');
@@ -13,7 +13,7 @@ function timeAgo(ts) {
 
 export default function VersionsIndex({ document, workspace, versions }) {
     return (
-        <AppLayout>
+        <DocsLayout>
             <Head title={`History — ${document.title}`} />
 
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
@@ -71,6 +71,6 @@ export default function VersionsIndex({ document, workspace, versions }) {
                     </ul>
                 </div>
             )}
-        </AppLayout>
+        </DocsLayout>
     );
 }
