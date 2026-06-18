@@ -7,7 +7,6 @@ import {
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -317,23 +316,23 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     </div>
                 ) : (
                     <div>
-                        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                        <h1 className="text-2xl font-semibold text-foreground">
                             {document.title}
                         </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-secondary">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
                             <Link
                                 href={`/documents/${document.id}/versions`}
-                                className="flex items-center gap-1 hover:text-sage-600 transition-colors"
+                                className="flex items-center gap-1 transition-colors hover:text-sage-600"
                             >
-                                <IconHistory className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                                <IconHistory className="h-3 w-3" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
                             </Link>
                             {document.updater && (
                                 <>
-                                    <span className="text-text-tertiary">•</span>
+                                    <span>·</span>
                                     <span className="flex items-center gap-1">
-                                        <IconUser className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
-                                        Edited by {document.updater.name}
+                                        <IconUser className="h-3 w-3" stroke={1.5} />
+                                        {document.updater.name}
                                     </span>
                                 </>
                             )}
@@ -432,12 +431,16 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
 
             {/* Tags — read mode */}
             {!isEditing && document.tags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                <div className="mt-3 flex flex-wrap gap-1.5">
                     {document.tags.map((tag) => (
-                        <Badge key={tag.id} variant="default">
-                            <IconTag className="mr-1 h-3 w-3" stroke={1.5} />
+                        <Link
+                            key={tag.id}
+                            href={`/tags/${tag.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-700 transition-colors hover:bg-sage-200"
+                        >
+                            <IconTag className="h-2.5 w-2.5 shrink-0" stroke={2} />
                             {tag.name}
-                        </Badge>
+                        </Link>
                     ))}
                 </div>
             )}

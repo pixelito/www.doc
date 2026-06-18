@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { IconFolderOpen, IconPlus } from '@tabler/icons-react';
+import { IconFolderOpen, IconFolderPlus, IconPlus } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,22 @@ export default function WorkspacesIndex({ workspaces }) {
                 )}
 
                 {workspaces.length === 0 && !showForm && (
-                    <p className="px-4 py-8 text-center text-sm text-text-tertiary">No workspaces yet.</p>
+                    <div className="flex flex-col items-center gap-3 border-dashed border-border px-6 py-12 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sage-50 border border-sage-200">
+                            <IconFolderPlus className="h-6 w-6 text-sage-500" stroke={1.5} />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-foreground">No workspaces yet</p>
+                            <p className="mt-0.5 text-xs text-text-tertiary">Create a workspace to start organising your docs.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowForm(true)}
+                            className="mt-1 rounded-sm bg-primary px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-opacity hover:opacity-90"
+                        >
+                            Create workspace
+                        </button>
+                    </div>
                 )}
 
                 {/* New workspace */}
