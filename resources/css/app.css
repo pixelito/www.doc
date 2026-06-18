@@ -29,7 +29,7 @@
     --color-muted: var(--surface-hover);
     --color-muted-foreground: var(--text-secondary);
     --color-accent: var(--sage-100);
-    --color-accent-foreground: var(--sage-700);
+    --color-accent-foreground: var(--sage-600);
     --color-destructive: var(--danger);
     --color-destructive-foreground: var(--text-inverse);
     --color-border: var(--border);

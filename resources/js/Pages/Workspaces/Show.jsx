@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
 import {
     DndContext,
     PointerSensor,
@@ -300,9 +300,9 @@ export default function WorkspaceShow({ workspace, tree }) {
             <Head title={workspace.name} />
 
             {/* Breadcrumb */}
-            <nav className="text-sm text-text-secondary">
+            <nav className="flex items-center gap-1.5 text-sm text-text-secondary">
                 <Link href="/workspaces" className="transition-colors hover:text-foreground">Workspaces</Link>
-                <span className="mx-1.5 text-text-tertiary">/</span>
+                <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                 <span className="text-foreground">{workspace.name}</span>
             </nav>
 

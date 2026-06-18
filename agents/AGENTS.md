@@ -222,13 +222,13 @@ Right: initials avatar (30px, rounded-full, bg-sage-100, text-sage-600) + Settin
 **DocsLayout** (all docs pages):
 ```
 Same shell + adds:
-Center-left: nav links (Workspaces, Tags) — active = bg-accent text-accent-foreground
+Center-left: nav links (Workspaces, Tags) — active = `bg-sage-100 text-sage-600` (= bg-accent text-accent-foreground)
 Center: search input (bg-canvas, rounded-sm, max-w-xs, IconSearch inset)
 ```
 
 ### Breadcrumbs
 
-`IconChevronRight` (h-3.5 w-3.5, text-tertiary, stroke 1.5) between segments. Ancestors: `text-text-secondary hover:text-foreground`. Current page: `text-foreground`.
+`flex items-center gap-1.5 text-sm text-text-secondary`. Separator: `IconChevronRight` (`h-3.5 w-3.5 shrink-0 text-text-tertiary`, stroke 1.5). Ancestors: `hover:text-foreground`. Current page: `text-foreground font-medium`.
 
 ### Page table (workspace doc list)
 
@@ -302,9 +302,29 @@ Result card rows inside `bg-surface border border-border rounded-md overflow-hid
 - `<mark>` highlights: `bg-sage-100 text-sage-700 px-0.5 rounded-sm`
 - Meta footer: 11px · text-tertiary · "Updated X ago by Y"
 
+### Empty states
+
+Used when a list/table has no rows yet. Pattern:
+```
+<div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sage-50 border border-sage-200">
+        <IconXxx className="h-6 w-6 text-sage-500" stroke={1.5} />
+    </div>
+    <div>
+        <p className="text-sm font-medium text-foreground">Nothing here yet</p>
+        <p className="mt-0.5 text-xs text-text-tertiary">One-line description of what to do.</p>
+    </div>
+    {/* optional primary CTA */}
+    <button className="mt-1 rounded-sm bg-primary px-3.5 py-1.5 text-xs font-medium text-text-inverse ...">
+        Create first item
+    </button>
+</div>
+```
+Icon container: `rounded-xl bg-sage-50 border border-sage-200`, icon `text-sage-500`. Always place the empty state inside the table/list card so borders and padding align.
+
 ### Toolbar buttons
 
-Height `h-7 w-7` · `rounded` · active = `bg-sage-100 text-sage-700` · inactive = `text-text-secondary hover:bg-surface-hover hover:text-foreground`. Divider: `w-px h-5 bg-border mx-1`. Inline pickers (link URL, table size, image mode) appear in-line in the toolbar bar itself.
+Height `h-7 w-7` · `rounded` · active = `bg-sage-100 text-sage-600` · inactive = `text-text-secondary hover:bg-surface-hover hover:text-foreground`. Divider: `w-px h-5 bg-border mx-1`. Inline pickers (link URL, table size, image mode) appear in-line in the toolbar bar itself.
 
 ### Interaction states
 

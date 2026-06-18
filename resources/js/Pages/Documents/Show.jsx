@@ -416,7 +416,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     onClick={() => handleTagToggle(tag.id)}
                                     className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1 text-xs font-medium transition-all ${
                                         selected
-                                            ? 'border-sage-200 bg-sage-100 text-sage-700'
+                                            ? 'border-sage-200 bg-sage-100 text-sage-600'
                                             : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
                                     }`}
                                 >
@@ -436,7 +436,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         <Link
                             key={tag.id}
                             href={`/tags/${tag.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-700 transition-colors hover:bg-sage-200"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600 transition-colors hover:bg-sage-200"
                         >
                             <IconTag className="h-2.5 w-2.5 shrink-0" stroke={2} />
                             {tag.name}
