@@ -109,7 +109,9 @@ class DocumentController extends Controller
         $document->parent_id = $parentId;
         $document->workspace_id = $data['workspace_id'] ?? $document->workspace_id;
         $document->position = $data['position'] ?? $document->position;
-        $document->save();
+
+        // Structural moves must not shift updated_at — only content edits should.
+        Document::withoutTimestamps(fn () => $document->save());
 
         return back();
     }
@@ -127,7 +129,7 @@ class DocumentController extends Controller
         foreach ($data['ids'] as $position => $id) {
             $document = Document::find($id);
             $this->authorize('update', $document);
-            $document->update(['position' => $position]);
+            Document::withoutTimestamps(fn () => $document->update(['position' => $position]));
         }
 
         return back();

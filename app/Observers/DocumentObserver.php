@@ -20,7 +20,9 @@ class DocumentObserver
             $document->created_by_id = $userId;
         }
 
-        if ($userId) {
+        // Only update editor attribution when content or title actually changes —
+        // position/parent changes (drag-reorder, move) must not shift the timestamp.
+        if ($userId && $document->isDirty(['content', 'title'])) {
             $document->updated_by_id = $userId;
         }
     }
