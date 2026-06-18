@@ -270,6 +270,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     }
 
     return (
+        <>
         <DocsLayout>
             <Head title={document.title} />
 
@@ -531,5 +532,6 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             onConfirm={confirmDelete}
             onCancel={() => setDeleteOpen(false)}
         />
+        </>
     );
 }
