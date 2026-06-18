@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Document;
+use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -31,7 +33,23 @@ class AuthController extends Controller
 
     public function dashboard()
     {
-        return Inertia::render('Dashboard');
+        $stats = [
+            'workspaces' => Workspace::count(),
+            'documents'  => Document::count(),
+        ];
+
+        $recent = Document::with('workspace')
+            ->orderByDesc('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(fn (Document $d) => [
+                'id'         => $d->id,
+                'title'      => $d->title,
+                'updated_at' => $d->updated_at->toIso8601String(),
+                'workspace'  => ['name' => $d->workspace->name, 'slug' => $d->workspace->slug],
+            ]);
+
+        return Inertia::render('Dashboard', compact('stats', 'recent'));
     }
 
     public function logout(Request $request)
