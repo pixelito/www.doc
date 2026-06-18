@@ -12,6 +12,7 @@
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "phpoffice/phpword": "^1.1",
+        "smalot/pdfparser": "^2.12",
         "ueberdosis/tiptap-php": "^2.1"
     },
     "require-dev": {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { IconFileText, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
 import {
     DndContext,
     PointerSensor,
@@ -221,15 +221,23 @@ export default function WorkspaceShow({ workspace, tree }) {
                         {workspace.description ? ` · ${workspace.description}` : ''}
                     </p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
-                    onClick={destroyWorkspace}
-                >
-                    <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
-                    Delete
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/workspaces/${workspace.id}/imports/create`}>
+                            <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
+                            Import
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
+                        onClick={destroyWorkspace}
+                    >
+                        <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                        Delete
+                    </Button>
+                </div>
             </div>
 
             {/* Tag filter chips */}
