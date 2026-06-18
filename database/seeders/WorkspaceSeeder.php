@@ -304,18 +304,25 @@ class WorkspaceSeeder extends Seeder
         $content = [];
         foreach ($paragraphs as $paragraph) {
             $content[] = [
-                'type' => 'paragraph',
-                'content' => [
-                    [
-                        'type' => 'text',
-                        'text' => $paragraph,
-                    ]
-                ]
+                'type'    => 'paragraph',
+                'content' => $this->parseParagraphInline($paragraph),
             ];
         }
-        return [
-            'type' => 'doc',
-            'content' => $content,
-        ];
+        return ['type' => 'doc', 'content' => $content];
+    }
+
+    protected function parseParagraphInline(string $text): array
+    {
+        // Split on [[Title]] patterns, keeping the delimiters
+        $parts = preg_split('/(\[\[[^\[\]]+\]\])/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $nodes = [];
+        foreach ($parts as $part) {
+            if (preg_match('/^\[\[([^\[\]]+)\]\]$/', $part, $m)) {
+                $nodes[] = ['type' => 'wikiLink', 'attrs' => ['title' => trim($m[1])]];
+            } elseif ($part !== '') {
+                $nodes[] = ['type' => 'text', 'text' => $part];
+            }
+        }
+        return $nodes ?: [['type' => 'text', 'text' => '']];
     }
 }

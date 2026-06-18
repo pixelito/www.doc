@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconArrowRight, IconUser, IconTag, IconCircleCheck, IconClock,
-    IconDownload, IconLoader2, IconHistory,
+    IconDownload, IconLoader2, IconHistory, IconFileText,
 } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -447,43 +447,51 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 </Card>
             </div>
 
-            {/* Referenced by — collapsible footer strip */}
+            {/* Referenced by — collapsible card */}
             {document.backlinks.length > 0 && (
-                <div className="mt-6 border-t border-border pt-4">
+                <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                     <button
                         type="button"
                         onClick={() => setBacklinksOpen((v) => !v)}
-                        className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-foreground"
+                        className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-surface-hover"
                     >
+                        <div className="flex items-center gap-2">
+                            <IconArrowRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+                                Referenced by
+                            </span>
+                            <span className="rounded-full bg-sage-100 px-2 py-0.5 text-[11px] font-semibold text-sage-600">
+                                {document.backlinks.length}
+                            </span>
+                        </div>
                         <IconChevronRight
-                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${backlinksOpen ? 'rotate-90' : ''}`}
+                            className={`h-3.5 w-3.5 text-text-tertiary transition-transform duration-150 ${backlinksOpen ? 'rotate-90' : ''}`}
                             stroke={1.5}
                         />
-                        Referenced by{' '}
-                        <span className="font-medium text-foreground">
-                            {document.backlinks.length} {document.backlinks.length === 1 ? 'page' : 'pages'}
-                        </span>
                     </button>
 
                     {backlinksOpen && (
-                        <ul className="mt-3 space-y-2.5 pl-5">
-                            {document.backlinks.map((link) => (
-                                <li key={link.id}>
-                                    <Link
-                                        href={`/documents/${link.source.id}`}
-                                        className="flex items-center gap-1.5 text-sm font-medium text-sage-600 transition-colors hover:text-sage-700 hover:underline"
-                                    >
-                                        <IconArrowRight className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
-                                        {link.source.title}
-                                    </Link>
-                                    {link.context && (
-                                        <p className="mt-0.5 pl-5 text-xs text-text-tertiary leading-relaxed line-clamp-2">
-                                            {link.context}
-                                        </p>
-                                    )}
-                                </li>
+                        <div className="border-t border-border">
+                            {document.backlinks.map((link, i) => (
+                                <Link
+                                    key={link.id}
+                                    href={`/documents/${link.source.id}`}
+                                    className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-hover ${
+                                        i < document.backlinks.length - 1 ? 'border-b border-border-subtle' : ''
+                                    }`}
+                                >
+                                    <IconFileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-sage-600">{link.source.title}</p>
+                                        {link.context && (
+                                            <p className="mt-0.5 text-xs text-text-tertiary leading-relaxed line-clamp-2">
+                                                {link.context}
+                                            </p>
+                                        )}
+                                    </div>
+                                </Link>
                             ))}
-                        </ul>
+                        </div>
                     )}
                 </div>
             )}
