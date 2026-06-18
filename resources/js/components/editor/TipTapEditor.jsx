@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
 
@@ -61,6 +62,7 @@ export default function TipTapEditor({
                 },
                 underline: {},
             }),
+            TextAlign.configure({ types: ['heading', 'paragraph'] }),
             ResizableImage.configure({ inline: false, allowBase64: false }),
             Table.configure({ resizable: false }),
             TableRow,

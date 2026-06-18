@@ -170,7 +170,7 @@ function ExportModal({ documentId, open, onClose }) {
     );
 }
 
-const AUTOSAVE_DELAY_MS = 2000;
+const AUTOSAVE_DELAY_MS = 5000;
 
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
     const [isEditing, setIsEditing]       = useState(false);

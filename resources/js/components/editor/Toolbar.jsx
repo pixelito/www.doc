@@ -391,33 +391,45 @@ export default function Toolbar({ editor }) {
                 </div>
             )}
 
-            {/* Image alignment — shown whenever an image node is selected */}
-            {editor.isActive('image') && (
-                <>
-                    <Divider />
-                    <ToolbarButton
-                        title="Align left"
-                        active={!editor.isActive('image', { align: 'center' }) && !editor.isActive('image', { align: 'right' })}
-                        onClick={() => editor.commands.updateAttributes('image', { align: 'left' })}
-                    >
-                        <IconAlignLeft className="h-3.5 w-3.5" stroke={2} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="Align center"
-                        active={editor.isActive('image', { align: 'center' })}
-                        onClick={() => editor.commands.updateAttributes('image', { align: 'center' })}
-                    >
-                        <IconAlignCenter className="h-3.5 w-3.5" stroke={2} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="Align right"
-                        active={editor.isActive('image', { align: 'right' })}
-                        onClick={() => editor.commands.updateAttributes('image', { align: 'right' })}
-                    >
-                        <IconAlignRight className="h-3.5 w-3.5" stroke={2} />
-                    </ToolbarButton>
-                </>
-            )}
+            {/* Alignment — works for text blocks and images */}
+            <Divider />
+            <ToolbarButton
+                title="Align left"
+                active={
+                    editor.isActive('image')
+                        ? !editor.isActive('image', { align: 'center' }) && !editor.isActive('image', { align: 'right' })
+                        : editor.isActive({ textAlign: 'left' }) || (!editor.isActive({ textAlign: 'center' }) && !editor.isActive({ textAlign: 'right' }) && !editor.isActive({ textAlign: 'justify' }))
+                }
+                onClick={() =>
+                    editor.isActive('image')
+                        ? editor.commands.updateAttributes('image', { align: 'left' })
+                        : editor.chain().focus().setTextAlign('left').run()
+                }
+            >
+                <IconAlignLeft className="h-3.5 w-3.5" stroke={2} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Align center"
+                active={editor.isActive('image') ? editor.isActive('image', { align: 'center' }) : editor.isActive({ textAlign: 'center' })}
+                onClick={() =>
+                    editor.isActive('image')
+                        ? editor.commands.updateAttributes('image', { align: 'center' })
+                        : editor.chain().focus().setTextAlign('center').run()
+                }
+            >
+                <IconAlignCenter className="h-3.5 w-3.5" stroke={2} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Align right"
+                active={editor.isActive('image') ? editor.isActive('image', { align: 'right' }) : editor.isActive({ textAlign: 'right' })}
+                onClick={() =>
+                    editor.isActive('image')
+                        ? editor.commands.updateAttributes('image', { align: 'right' })
+                        : editor.chain().focus().setTextAlign('right').run()
+                }
+            >
+                <IconAlignRight className="h-3.5 w-3.5" stroke={2} />
+            </ToolbarButton>
 
             {/* Table size picker */}
             {tablePickerVisible && (
