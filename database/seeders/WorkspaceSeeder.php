@@ -258,13 +258,18 @@ class WorkspaceSeeder extends Seeder
             }
         }
 
-        // 5. Link Syncing: Second pass to trigger observer saved/syncing of [[wiki-links]]
-        // since now all target pages are in the database.
+        // 5. Link resolution: the observer only resolves targets for documents that
+        // existed when each page was first saved. Re-resolve any that were created
+        // before their target page existed.
         $this->command->info('Syncing wiki-links across seeded pages...');
-        foreach (Document::all() as $document) {
-            // Trigger the Observer saved event which parses the TipTap content and syncs Links.
-            $document->save();
-        }
+        \App\Models\Link::whereNull('target_document_id')
+            ->get()
+            ->each(function ($link) {
+                $target = Document::where('title', $link->target_title)->first();
+                if ($target) {
+                    $link->update(['target_document_id' => $target->id]);
+                }
+            });
     }
 
     protected function createPage(int $workspaceId, array $pageData, ?int $parentId, int $adminId, array $tags): void
