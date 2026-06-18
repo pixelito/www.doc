@@ -48,7 +48,19 @@ class SearchController extends Controller
                 d.title,
                 d.slug,
                 d.workspace_id,
+                d.updated_at,
                 w.name  AS workspace_name,
+                u.name  AS updated_by_name,
+                (
+                    SELECT COALESCE(
+                        JSON_AGG(JSON_BUILD_OBJECT('id', t2.id, 'name', t2.name) ORDER BY t2.name),
+                        '[]'::json
+                    )
+                    FROM taggables tg2
+                    JOIN tags t2 ON t2.id = tg2.tag_id
+                    WHERE tg2.taggable_id = d.id
+                      AND tg2.taggable_type = 'App\\Models\\Document'
+                ) AS tags,
                 CASE
                     WHEN d.search_vector IS NOT NULL
                          AND d.search_vector @@ plainto_tsquery('english', ?)
@@ -68,6 +80,7 @@ class SearchController extends Controller
                 END AS excerpt
             FROM documents d
             JOIN workspaces w ON w.id = d.workspace_id
+            LEFT JOIN users u ON u.id = d.updated_by_id
             WHERE
                 (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('english', ?))
                 OR d.title ILIKE ?
@@ -78,7 +91,7 @@ class SearchController extends Controller
         return array_map(function ($row) {
             $row = (array) $row;
             $row['type'] = 'document';
-            // Strip HTML tags from ts_headline output except <mark>
+            $row['tags'] = json_decode($row['tags'] ?? '[]', true) ?? [];
             if ($row['excerpt']) {
                 $row['excerpt'] = preg_replace('/<(?!\/?mark[\s>])[^>]+>/i', '', $row['excerpt']);
             }
