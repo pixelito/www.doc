@@ -206,7 +206,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     // --- Save helpers ---
 
     const performSave = useCallback(
-        (content) => {
+        (content, { exitEdit = false } = {}) => {
             setSaveStatus('saving');
             router.patch(
                 `/documents/${document.id}`,
@@ -216,7 +216,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     preserveScroll: true,
                     onSuccess: () => {
                         setSaveStatus('saved');
-                        setIsEditing(false);
+                        if (exitEdit) setIsEditing(false);
                     },
                     onError: () => setSaveStatus(null),
                 }
@@ -240,7 +240,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     function handleExplicitSave(e) {
         e.preventDefault();
         clearTimeout(autosaveTimer.current);
-        performSave(editorContentRef.current);
+        performSave(editorContentRef.current, { exitEdit: true });
     }
 
     function handleCancelEdit() {
