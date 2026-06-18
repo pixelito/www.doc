@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     IconBold, IconItalic, IconUnderline, IconStrikethrough, IconCode, IconBraces,
     IconH1, IconH2, IconH3,
@@ -7,6 +7,7 @@ import {
     IconRowInsertBottom, IconRowInsertTop, IconRowRemove,
     IconColumnInsertLeft, IconColumnInsertRight, IconColumnRemove,
 } from '@tabler/icons-react';
+import { insertFiles } from '@/extensions/ImageUpload';
 
 function ToolbarButton({ onClick, active, title, children, disabled }) {
     return (
@@ -39,6 +40,10 @@ export default function Toolbar({ editor }) {
     const [tablePickerVisible, setTablePickerVisible] = useState(false);
     const [tableRows, setTableRows] = useState(3);
     const [tableCols, setTableCols] = useState(3);
+    const [imagePickerVisible, setImagePickerVisible] = useState(false);
+    const [imageMode, setImageMode] = useState('upload'); // 'upload' | 'url'
+    const [imageUrl, setImageUrl] = useState('');
+    const fileInputRef = useRef(null);
 
     const applyLink = useCallback(() => {
         if (!linkValue.trim()) {
@@ -49,6 +54,14 @@ export default function Toolbar({ editor }) {
         setLinkInputVisible(false);
         setLinkValue('');
     }, [editor, linkValue]);
+
+    const insertImageUrl = useCallback(() => {
+        if (imageUrl.trim()) {
+            editor.chain().focus().setImage({ src: imageUrl.trim() }).run();
+        }
+        setImagePickerVisible(false);
+        setImageUrl('');
+    }, [editor, imageUrl]);
 
     const insertTable = useCallback(() => {
         const rows = Math.max(1, Math.min(20, tableRows));
@@ -264,17 +277,36 @@ export default function Toolbar({ editor }) {
                 <IconMinus className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
-            {/* Image by URL */}
+            {/* Image — upload or URL */}
             <ToolbarButton
-                title="Insert image by URL"
-                active={false}
+                title="Insert image"
+                active={imagePickerVisible}
                 onClick={() => {
-                    const url = prompt('Image URL:');
-                    if (url) editor.chain().focus().setImage({ src: url }).run();
+                    setLinkInputVisible(false);
+                    setTablePickerVisible(false);
+                    setImagePickerVisible((v) => !v);
+                    setImageMode('upload');
+                    setImageUrl('');
                 }}
             >
                 <IconPhoto className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
+
+            {/* Hidden file input — triggered by the Upload tab button */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []).filter(f =>
+                        f.type.startsWith('image/')
+                    );
+                    if (files.length > 0) insertFiles(editor, editor.view, files);
+                    setImagePickerVisible(false);
+                    e.target.value = '';
+                }}
+            />
 
             {/* Inline link URL input */}
             {linkInputVisible && (
@@ -299,6 +331,62 @@ export default function Toolbar({ editor }) {
                     >
                         Apply
                     </button>
+                </div>
+            )}
+
+            {/* Image picker — upload or URL */}
+            {imagePickerVisible && (
+                <div className="ml-1 flex items-center gap-1">
+                    {/* Mode tabs */}
+                    <div className="flex overflow-hidden rounded border border-border text-xs">
+                        <button
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setImageMode('upload'); }}
+                            className={`px-2 py-0.5 ${imageMode === 'upload' ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover'}`}
+                        >
+                            Upload
+                        </button>
+                        <button
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setImageMode('url'); }}
+                            className={`border-l border-border px-2 py-0.5 ${imageMode === 'url' ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover'}`}
+                        >
+                            URL
+                        </button>
+                    </div>
+
+                    {imageMode === 'upload' ? (
+                        <button
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
+                            className="rounded border border-border bg-canvas px-2 py-0.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
+                        >
+                            Choose file…
+                        </button>
+                    ) : (
+                        <>
+                            <input
+                                autoFocus
+                                type="url"
+                                value={imageUrl}
+                                onChange={(e) => setImageUrl(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') insertImageUrl();
+                                    if (e.key === 'Escape') setImagePickerVisible(false);
+                                }}
+                                placeholder="https://…"
+                                className="h-6 rounded border border-border bg-canvas px-2 text-xs text-text-primary outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                                style={{ width: 200 }}
+                            />
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); insertImageUrl(); }}
+                                className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500"
+                            >
+                                Insert
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 

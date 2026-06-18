@@ -3,7 +3,7 @@ import { Plugin, TextSelection } from 'prosemirror-state';
 
 const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-async function uploadFile(file) {
+export async function uploadFile(file) {
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/assets', {
@@ -47,7 +47,7 @@ function replaceBlobSrc(view, blobUrl, realUrl) {
     URL.revokeObjectURL(blobUrl);
 }
 
-function insertFiles(editor, view, files) {
+export function insertFiles(editor, view, files) {
     files.forEach(file => {
         const preview = URL.createObjectURL(file);
         editor.chain().focus().setImage({ src: preview }).run();
