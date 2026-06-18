@@ -23,7 +23,7 @@ export default function Login() {
                 <div className="w-full max-w-md">
                     <Card>
                         <CardHeader className="px-8 pt-10 pb-0">
-                            <CardTitle className="text-2xl">www.doc</CardTitle>
+                            <CardTitle className="text-2xl"><span className="font-normal">www.</span><span className="font-extrabold">doc</span></CardTitle>
                             <CardDescription>Sign in to continue</CardDescription>
                         </CardHeader>
                         <CardContent className="px-8 pb-10 pt-8">

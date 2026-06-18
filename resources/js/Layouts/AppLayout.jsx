@@ -49,7 +49,7 @@ export default function AppLayout({ children }) {
                     <div className="flex shrink-0 items-center gap-5">
                         <Link href="/dashboard" className="flex items-center gap-2">
                             <IconBook2 className="h-5 w-5 text-sage-600" stroke={1.5} />
-                            <span className="text-[15px] font-semibold text-foreground">www.doc</span>
+                            <span className="text-[15px] font-semibold text-foreground"><span className="font-normal">www.</span><span className="font-extrabold">doc</span></span>
                         </Link>
                         <nav className="hidden items-center gap-0.5 sm:flex">
                             <NavLink href="/workspaces">Workspaces</NavLink>

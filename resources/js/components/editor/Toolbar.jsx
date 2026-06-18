@@ -3,7 +3,9 @@ import {
     IconBold, IconItalic, IconUnderline, IconStrikethrough, IconCode, IconBraces,
     IconH1, IconH2, IconH3,
     IconList, IconListNumbers, IconBlockquote, IconMinus,
-    IconLink, IconLinkOff, IconPhoto, IconTable,
+    IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff,
+    IconRowInsertBottom, IconRowInsertTop, IconRowRemove,
+    IconColumnInsertLeft, IconColumnInsertRight, IconColumnRemove,
 } from '@tabler/icons-react';
 
 function ToolbarButton({ onClick, active, title, children, disabled }) {
@@ -13,7 +15,7 @@ function ToolbarButton({ onClick, active, title, children, disabled }) {
             title={title}
             disabled={disabled}
             onMouseDown={(e) => {
-                e.preventDefault(); // prevent editor blur
+                e.preventDefault();
                 onClick();
             }}
             className={`flex h-7 w-7 items-center justify-center rounded transition-colors duration-100 ${
@@ -34,6 +36,9 @@ function Divider() {
 export default function Toolbar({ editor }) {
     const [linkInputVisible, setLinkInputVisible] = useState(false);
     const [linkValue, setLinkValue] = useState('');
+    const [tablePickerVisible, setTablePickerVisible] = useState(false);
+    const [tableRows, setTableRows] = useState(3);
+    const [tableCols, setTableCols] = useState(3);
 
     const applyLink = useCallback(() => {
         if (!linkValue.trim()) {
@@ -45,7 +50,18 @@ export default function Toolbar({ editor }) {
         setLinkValue('');
     }, [editor, linkValue]);
 
+    const insertTable = useCallback(() => {
+        const rows = Math.max(1, Math.min(20, tableRows));
+        const cols = Math.max(1, Math.min(20, tableCols));
+        editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+        setTablePickerVisible(false);
+        setTableRows(3);
+        setTableCols(3);
+    }, [editor, tableRows, tableCols]);
+
     if (!editor) return null;
+
+    const inTable = editor.isActive('table');
 
     return (
         <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface px-2 py-1.5">
@@ -155,6 +171,7 @@ export default function Toolbar({ editor }) {
                     } else {
                         const existing = editor.getAttributes('link').href ?? '';
                         setLinkValue(existing);
+                        setTablePickerVisible(false);
                         setLinkInputVisible((v) => !v);
                     }
                 }}
@@ -166,18 +183,77 @@ export default function Toolbar({ editor }) {
                 )}
             </ToolbarButton>
 
-            {/* Table */}
-            <ToolbarButton
-                title="Insert table"
-                active={editor.isActive('table')}
-                onClick={() =>
-                    editor.isActive('table')
-                        ? null
-                        : editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-                }
-            >
-                <IconTable className="h-3.5 w-3.5" stroke={2} />
-            </ToolbarButton>
+            {/* Table — insert button (only when not in a table) */}
+            {!inTable && (
+                <ToolbarButton
+                    title="Insert table"
+                    active={tablePickerVisible}
+                    onClick={() => {
+                        setLinkInputVisible(false);
+                        setTablePickerVisible((v) => !v);
+                    }}
+                >
+                    <IconTable className="h-3.5 w-3.5" stroke={2} />
+                </ToolbarButton>
+            )}
+
+            {/* Table context controls — shown only when cursor is inside a table */}
+            {inTable && (
+                <>
+                    <Divider />
+                    <ToolbarButton
+                        title="Add row above"
+                        active={false}
+                        onClick={() => editor.chain().focus().addRowBefore().run()}
+                    >
+                        <IconRowInsertTop className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Add row below"
+                        active={false}
+                        onClick={() => editor.chain().focus().addRowAfter().run()}
+                    >
+                        <IconRowInsertBottom className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Delete row"
+                        active={false}
+                        onClick={() => editor.chain().focus().deleteRow().run()}
+                    >
+                        <IconRowRemove className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <Divider />
+                    <ToolbarButton
+                        title="Add column left"
+                        active={false}
+                        onClick={() => editor.chain().focus().addColumnBefore().run()}
+                    >
+                        <IconColumnInsertLeft className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Add column right"
+                        active={false}
+                        onClick={() => editor.chain().focus().addColumnAfter().run()}
+                    >
+                        <IconColumnInsertRight className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="Delete column"
+                        active={false}
+                        onClick={() => editor.chain().focus().deleteColumn().run()}
+                    >
+                        <IconColumnRemove className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                    <Divider />
+                    <ToolbarButton
+                        title="Delete table"
+                        active={false}
+                        onClick={() => editor.chain().focus().deleteTable().run()}
+                    >
+                        <IconTableOff className="h-3.5 w-3.5" stroke={2} />
+                    </ToolbarButton>
+                </>
+            )}
 
             {/* Divider line */}
             <ToolbarButton
@@ -222,6 +298,46 @@ export default function Toolbar({ editor }) {
                         className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500"
                     >
                         Apply
+                    </button>
+                </div>
+            )}
+
+            {/* Table size picker */}
+            {tablePickerVisible && (
+                <div className="ml-1 flex items-center gap-1.5">
+                    <label className="text-xs text-text-secondary">Rows</label>
+                    <input
+                        autoFocus
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={tableRows}
+                        onChange={(e) => setTableRows(Number(e.target.value))}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') insertTable();
+                            if (e.key === 'Escape') setTablePickerVisible(false);
+                        }}
+                        className="h-6 w-12 rounded border border-border bg-canvas px-1.5 text-center text-xs text-text-primary outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                    />
+                    <label className="text-xs text-text-secondary">Cols</label>
+                    <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={tableCols}
+                        onChange={(e) => setTableCols(Number(e.target.value))}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') insertTable();
+                            if (e.key === 'Escape') setTablePickerVisible(false);
+                        }}
+                        className="h-6 w-12 rounded border border-border bg-canvas px-1.5 text-center text-xs text-text-primary outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                    />
+                    <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); insertTable(); }}
+                        className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500"
+                    >
+                        Insert
                     </button>
                 </div>
             )}

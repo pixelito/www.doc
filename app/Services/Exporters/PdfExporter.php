@@ -26,6 +26,20 @@ class PdfExporter implements ExporterContract
         $pdf->setPaper('A4', 'portrait');
         $pdf->render();
 
+        // Add right-aligned "Page X of Y" via canvas — counter(pages) is not
+        // supported in Dompdf CSS so we use the page_script API instead.
+        $canvas      = $pdf->getCanvas();
+        $font        = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $fontSize    = 8;
+        $rightMargin = 18 / 25.4 * 72; // 18 mm → pt
+
+        $canvas->page_script(function (int $pageNum, int $pageCount, $cvs) use ($font, $fontSize, $rightMargin) {
+            $text  = "Page {$pageNum} of {$pageCount}";
+            $x     = $cvs->get_width() - $rightMargin - $cvs->get_text_width($text, $font, $fontSize);
+            $y     = $cvs->get_height() - (6 / 25.4 * 72); // 6 mm from physical bottom
+            $cvs->text($x, $y, $text, $font, $fontSize, [0.557, 0.576, 0.557]);
+        });
+
         $slug     = $document->slug;
         $filename = "exports/pdf/{$slug}-" . now()->format('YmdHis') . '.pdf';
 
@@ -72,9 +86,6 @@ class PdfExporter implements ExporterContract
                     border-top: 0.5pt solid #E2DFD4;
                     padding-top: 2mm;
                     display: flex; justify-content: space-between;
-                }
-                .page-footer .page-number::after {
-                    content: counter(page) " / " counter(pages);
                 }
                 h1, h2, h3, h4, h5, h6 {
                     font-weight: 600; line-height: 1.25;
@@ -136,7 +147,6 @@ class PdfExporter implements ExporterContract
             </div>
             <div class="page-footer">
                 <span>www.doc</span>
-                <span class="page-number"></span>
             </div>
             <h1>{$title}</h1>
             {$toc}

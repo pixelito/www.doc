@@ -56,9 +56,16 @@ class WikiLinkNode extends Node
         $title = $node->attrs->title ?? '';
 
         return ['span', array_merge($HTMLAttributes, [
-            'class'           => 'wiki-link',
-            'data-wiki-link'  => 'true',
-            'data-title'      => $title,
-        ]), "[[$title]]"];
+            'class'          => 'wiki-link',
+            'data-wiki-link' => 'true',
+            'data-title'     => $title,
+        ]), 0];
+    }
+
+    public function renderText($node): string
+    {
+        $title = $node->attrs->title ?? '';
+
+        return htmlspecialchars("[[$title]]", ENT_QUOTES, 'UTF-8');
     }
 }

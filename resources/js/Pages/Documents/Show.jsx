@@ -211,9 +211,12 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 `/documents/${document.id}`,
                 { title: editTitle, content, tags: editTags },
                 {
-                    preserveState: true,
+                    preserveState: false,
                     preserveScroll: true,
-                    onSuccess: () => setSaveStatus('saved'),
+                    onSuccess: () => {
+                        setSaveStatus('saved');
+                        setIsEditing(false);
+                    },
                     onError: () => setSaveStatus(null),
                 }
             );

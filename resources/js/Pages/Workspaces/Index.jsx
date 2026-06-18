@@ -39,8 +39,8 @@ export default function WorkspacesIndex({ workspaces }) {
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
                 <div className="grid grid-cols-[1fr_110px] border-b border-border bg-surface-hover px-4 py-2.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Workspace</span>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Pages</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Workspace</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Pages</span>
                 </div>
 
                 {/* Rows */}
@@ -81,7 +81,7 @@ export default function WorkspacesIndex({ workspaces }) {
                 {showForm ? (
                     <div className="border-t border-border px-4 py-3">
                         <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-                            <div className="flex-1 min-w-[180px]">
+                            <div className="flex-1 min-w-45">
                                 <Input
                                     type="text"
                                     value={data.name}
@@ -92,7 +92,7 @@ export default function WorkspacesIndex({ workspaces }) {
                                 />
                                 {errors.name && <p className="mt-1 text-xs text-danger">{errors.name}</p>}
                             </div>
-                            <div className="flex-[2] min-w-[180px]">
+                            <div className="flex-2 min-w-45">
                                 <Input
                                     type="text"
                                     value={data.description}
