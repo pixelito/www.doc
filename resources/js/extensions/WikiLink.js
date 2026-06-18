@@ -59,11 +59,11 @@ export const WikiLink = Node.create({
     },
 
     addNodeView() {
-        return ({ node, extension }) => {
+        return ({ node, extension, editor }) => {
             const title = node.attrs.title ?? '';
             const resolvedLinks = extension.options.resolvedLinks ?? {};
             const href = resolvedLinks[title];
-            const editable = extension.editor.isEditable;
+            const editable = editor.isEditable;
 
             let dom;
             if (href && !editable) {
