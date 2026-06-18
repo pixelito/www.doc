@@ -50,7 +50,7 @@ export default function Dashboard({ stats, recent }) {
 
                     {/* Docs — live app tile */}
                     <div className="overflow-hidden rounded-md border border-sage-200 bg-sage-50">
-                        <div className="flex items-start gap-3 px-5 pb-4 pt-5">
+                        <Link href="/workspaces" className="flex items-start gap-3 px-5 pb-4 pt-5 transition-colors hover:bg-sage-100">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-sage-200 bg-surface">
                                 <IconBooks className="h-5 w-5 text-sage-600" stroke={1.5} />
                             </div>
@@ -65,7 +65,7 @@ export default function Dashboard({ stats, recent }) {
                                     Internal knowledge base and documentation hub.
                                 </p>
                             </div>
-                        </div>
+                        </Link>
 
                         {/* Stats bar */}
                         <div className="flex items-center gap-4 border-t border-sage-200 px-5 py-2.5 text-xs text-text-secondary">
