@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
         // Log the admin user in for authorship observation if needed
         auth()->login($admin);
 
-        $this->call(WorkspaceSeeder::class);
+        $this->call([
+            RoleSeeder::class,
+            WorkspaceSeeder::class,
+        ]);
     }
 }

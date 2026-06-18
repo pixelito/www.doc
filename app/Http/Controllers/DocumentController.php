@@ -24,9 +24,11 @@ class DocumentController extends Controller
             'tags',
             'creator',
             'updater',
-            'backlinks.source:id,title,slug',
             'outgoingLinks.target:id,title,slug',
         ]);
+
+        // Backlinks with context snippets — select only needed columns
+        $document->load(['backlinks' => fn ($q) => $q->select(['id', 'target_document_id', 'source_document_id', 'context'])->with('source:id,title,slug')]);
 
         return Inertia::render('Documents/Show', [
             'document'     => $document,

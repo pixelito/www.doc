@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { IconBook2, IconSearch, IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -26,11 +27,19 @@ function NavLink({ href, children }) {
 }
 
 export default function AppLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
+    const [searchQ, setSearchQ] = useState('');
 
     function logout(e) {
         e.preventDefault();
         router.post('/logout');
+    }
+
+    function handleSearch(e) {
+        e.preventDefault();
+        if (searchQ.trim()) {
+            router.get('/search', { q: searchQ.trim() });
+        }
     }
 
     return (
@@ -50,17 +59,19 @@ export default function AppLayout({ children }) {
                     </div>
 
                     {/* Search */}
-                    <div className="relative flex-1 max-w-xs">
+                    <form onSubmit={handleSearch} className="relative flex-1 max-w-xs">
                         <IconSearch
                             className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary"
                             stroke={1.5}
                         />
                         <input
                             type="text"
+                            value={searchQ}
+                            onChange={(e) => setSearchQ(e.target.value)}
                             placeholder="Search docs…"
                             className="h-8 w-full rounded-sm border border-border bg-canvas pl-8 pr-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                         />
-                    </div>
+                    </form>
 
                     {/* Actions */}
                     <div className="ml-auto flex shrink-0 items-center gap-2.5">
@@ -83,6 +94,11 @@ export default function AppLayout({ children }) {
                     </div>
                 </div>
             </header>
+            {flash?.success && (
+                <div className="border-b border-sage-200 bg-sage-50 px-5 py-2.5 text-sm text-sage-700">
+                    {flash.success}
+                </div>
+            )}
             <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
         </div>
     );

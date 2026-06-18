@@ -20,6 +20,29 @@ class TagController extends Controller
         ]);
     }
 
+    public function show(Tag $tag): Response
+    {
+        $this->authorize('view', $tag);
+
+        $documents = $tag->documents()
+            ->with('workspace:id,name', 'tags:id,name')
+            ->select(['documents.id', 'documents.title', 'documents.slug', 'documents.workspace_id', 'documents.updated_at'])
+            ->orderBy('workspace_id')
+            ->orderBy('title')
+            ->get()
+            ->groupBy('workspace_id')
+            ->map(fn ($docs, $wsId) => [
+                'workspace' => $docs->first()->workspace->only('id', 'name'),
+                'documents' => $docs->values(),
+            ])
+            ->values();
+
+        return Inertia::render('Tags/Show', [
+            'tag'     => $tag->only('id', 'name', 'slug'),
+            'groups'  => $documents,
+        ]);
+    }
+
     public function store(StoreTagRequest $request): RedirectResponse
     {
         $this->authorize('create', Tag::class);

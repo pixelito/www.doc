@@ -1,5 +1,5 @@
-import { Head, useForm, router } from '@inertiajs/react';
-import { IconPlus, IconTrash, IconTag } from '@tabler/icons-react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
+import { IconPlus, IconTrash, IconTag, IconChevronRight } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
@@ -58,18 +58,27 @@ export default function TagsIndex({ tags }) {
                         {tags.map((tag) => (
                             <li key={tag.id} className="flex items-center justify-between px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                    <Badge>{tag.name}</Badge>
+                                    <Link href={`/tags/${tag.id}`} className="hover:underline">
+                                        <Badge>{tag.name}</Badge>
+                                    </Link>
                                     <span className="text-xs text-text-tertiary">{tag.documents_count} {tag.documents_count === 1 ? 'page' : 'pages'}</span>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => destroyTag(tag)}
-                                    aria-label={`Delete ${tag.name}`}
-                                    className="text-text-tertiary hover:text-danger"
-                                >
-                                    <IconTrash className="h-4 w-4" stroke={1.5} />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" asChild className="text-text-tertiary">
+                                        <Link href={`/tags/${tag.id}`}>
+                                            <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                                        </Link>
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => destroyTag(tag)}
+                                        aria-label={`Delete ${tag.name}`}
+                                        className="text-text-tertiary hover:text-danger"
+                                    >
+                                        <IconTrash className="h-4 w-4" stroke={1.5} />
+                                    </Button>
+                                </div>
                             </li>
                         ))}
                     </ul>

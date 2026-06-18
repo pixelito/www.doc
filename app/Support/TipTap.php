@@ -61,6 +61,57 @@ class TipTap
         return array_values(array_unique($titles));
     }
 
+    /**
+     * Extract a short context snippet (≤ 200 chars) of plain text surrounding
+     * the [[Wiki-link]] with the given title within the document.
+     */
+    public static function contextAround(?array $doc, string $title): string
+    {
+        if (! $doc) {
+            return '';
+        }
+
+        foreach ($doc['content'] ?? [] as $topNode) {
+            if (! self::nodeContainsWikiLink($topNode, $title)) {
+                continue;
+            }
+
+            $blockText = self::plainText($topNode);
+            $needle    = "[[{$title}]]";
+            $pos       = mb_strpos($blockText, $needle);
+
+            if ($pos === false) {
+                return mb_substr($blockText, 0, 200);
+            }
+
+            $start   = max(0, $pos - 80);
+            $snippet = mb_substr($blockText, $start, 200);
+
+            return ($start > 0 ? '…' : '') . trim($snippet) . (mb_strlen($blockText) > $start + 200 ? '…' : '');
+        }
+
+        return '';
+    }
+
+    private static function nodeContainsWikiLink(?array $node, string $title): bool
+    {
+        if (! $node) {
+            return false;
+        }
+
+        if (($node['type'] ?? '') === 'wikiLink' && trim($node['attrs']['title'] ?? '') === $title) {
+            return true;
+        }
+
+        foreach ($node['content'] ?? [] as $child) {
+            if (is_array($child) && self::nodeContainsWikiLink($child, $title)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Recursively collect titles from wikiLink node atoms. */
     private static function collectWikiLinkNodes(?array $node, array &$titles): void
     {

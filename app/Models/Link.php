@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['source_document_id', 'target_document_id', 'target_title'])]
+#[Fillable(['source_document_id', 'target_document_id', 'target_title', 'context'])]
 class Link extends Model
 {
     /** @use HasFactory<\Database\Factories\LinkFactory> */

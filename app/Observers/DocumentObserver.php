@@ -7,6 +7,7 @@ use App\Models\Link;
 use App\Services\RenderDocument;
 use App\Support\TipTap;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DocumentObserver
 {
@@ -26,9 +27,8 @@ class DocumentObserver
 
     public function saved(Document $document): void
     {
-        // Only snapshot/re-link when the content actually changed — tree
-        // operations (move, reorder) touch position only and shouldn't spam
-        // the version history or rebuild links.
+        // Only snapshot/re-link when content or title actually changed —
+        // tree ops (move, reorder) touch position only.
         $contentChanged = $document->wasRecentlyCreated
             || $document->wasChanged('content')
             || $document->wasChanged('title');
@@ -39,25 +39,29 @@ class DocumentObserver
 
         $this->snapshotVersion($document);
         $this->syncLinks($document);
-        $this->updateRenderedHtml($document);
+        $html = $this->updateRenderedHtml($document);
+        $this->updateSearchVector($document, $html);
     }
 
     /** Snapshot every save into the version history (never destructive). */
     protected function snapshotVersion(Document $document): void
     {
         $document->versions()->create([
-            'title' => $document->title,
-            'content' => $document->content ?? [],
-            'content_html' => $document->content_html,
+            'title'         => $document->title,
+            'content'       => $document->content ?? [],
+            'content_html'  => $document->content_html,
             'created_by_id' => Auth::id(),
         ]);
     }
 
-    /** Render content JSON → HTML and cache it on the document row. */
-    protected function updateRenderedHtml(Document $document): void
+    /**
+     * Render content JSON → HTML and cache it on the document row.
+     * Returns the rendered HTML so updateSearchVector can reuse it.
+     */
+    protected function updateRenderedHtml(Document $document): string
     {
         if (! $document->wasChanged('content') && ! $document->wasRecentlyCreated) {
-            return;
+            return (string) $document->content_html;
         }
 
         $html = RenderDocument::toHtml($document->content);
@@ -66,12 +70,31 @@ class DocumentObserver
             $document->content_html = $html;
             $document->saveQuietly();
         }
+
+        return $html;
+    }
+
+    /**
+     * Maintain the Postgres tsvector column for full-text search.
+     * Title gets weight A, body text weight B — so title matches rank higher.
+     */
+    protected function updateSearchVector(Document $document, string $html): void
+    {
+        $bodyText = strip_tags($html);
+
+        DB::statement(
+            "UPDATE documents
+             SET search_vector =
+                 setweight(to_tsvector('english', ?), 'A') ||
+                 setweight(to_tsvector('english', ?), 'B')
+             WHERE id = ?",
+            [$document->title, $bodyText, $document->getKey()]
+        );
     }
 
     /**
      * Rebuild this document's outgoing links from its [[Wiki-link]] references.
-     * Targets are resolved by title (preferring the same workspace); unresolved
-     * links are kept with a null target so backlinks appear once the page exists.
+     * Stores a short context snippet alongside each link for the backlinks panel.
      */
     protected function syncLinks(Document $document): void
     {
@@ -89,7 +112,8 @@ class DocumentObserver
             Link::create([
                 'source_document_id' => $document->getKey(),
                 'target_document_id' => $target?->getKey(),
-                'target_title' => $title,
+                'target_title'       => $title,
+                'context'            => TipTap::contextAround($document->content, $title),
             ]);
         }
     }

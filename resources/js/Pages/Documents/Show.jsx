@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy, IconFileText,
     IconArrowRight, IconUser, IconCalendar, IconLink, IconTag, IconCircleCheck, IconClock,
-    IconDownload, IconLoader2,
+    IconDownload, IconLoader2, IconHistory,
 } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -308,10 +308,13 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                             {document.title}
                         </h1>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-secondary">
-                            <span className="flex items-center gap-1">
-                                <IconCalendar className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                            <Link
+                                href={`/documents/${document.id}/versions`}
+                                className="flex items-center gap-1 hover:text-sage-600 transition-colors"
+                            >
+                                <IconHistory className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
-                            </span>
+                            </Link>
                             {document.updater && (
                                 <>
                                     <span className="text-text-tertiary">•</span>
@@ -492,16 +495,21 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     No pages link here yet.
                                 </p>
                             ) : (
-                                <ul className="space-y-2.5">
+                                <ul className="space-y-3">
                                     {document.backlinks.map((link) => (
-                                        <li key={link.id} className="flex items-center text-sm">
-                                            <IconArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
+                                        <li key={link.id}>
                                             <Link
                                                 href={`/documents/${link.source.id}`}
-                                                className="truncate font-medium text-sage-600 transition-colors hover:text-sage-800 hover:underline"
+                                                className="flex items-center gap-1.5 text-sm font-medium text-sage-600 transition-colors hover:text-sage-800 hover:underline"
                                             >
+                                                <IconArrowRight className="h-3 w-3 shrink-0" stroke={1.5} />
                                                 {link.source.title}
                                             </Link>
+                                            {link.context && (
+                                                <p className="mt-0.5 pl-4 text-xs text-text-tertiary leading-relaxed line-clamp-2">
+                                                    {link.context}
+                                                </p>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>

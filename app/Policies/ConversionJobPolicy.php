@@ -7,6 +7,6 @@ use App\Models\User;
 
 class ConversionJobPolicy
 {
-    public function create(User $user): bool { return true; }
-    public function view(User $user, ConversionJob $job): bool { return true; }
+    public function create(User $user): bool { return $user->hasAnyRole(['admin', 'editor']); }
+    public function view(User $user, ConversionJob $job): bool { return $user->hasAnyRole(['admin', 'editor', 'viewer']); }
 }
