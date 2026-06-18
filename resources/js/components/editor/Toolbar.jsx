@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-    Bold, Italic, Underline, Strikethrough, Code, Code2,
-    Heading1, Heading2, Heading3,
-    List, ListOrdered, Quote, Minus,
-    Link2, Link2Off, Image, Table,
-} from 'lucide-react';
+    IconBold, IconItalic, IconUnderline, IconStrikethrough, IconCode, IconBraces,
+    IconH1, IconH2, IconH3,
+    IconList, IconListNumbers, IconBlockquote, IconMinus,
+    IconLink, IconLinkOff, IconPhoto, IconTable,
+} from '@tabler/icons-react';
 
 function ToolbarButton({ onClick, active, title, children, disabled }) {
     return (
@@ -55,35 +55,35 @@ export default function Toolbar({ editor }) {
                 active={editor.isActive('bold')}
                 onClick={() => editor.chain().focus().toggleBold().run()}
             >
-                <Bold className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconBold className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Italic (Ctrl+I)"
                 active={editor.isActive('italic')}
                 onClick={() => editor.chain().focus().toggleItalic().run()}
             >
-                <Italic className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconItalic className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Underline (Ctrl+U)"
                 active={editor.isActive('underline')}
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
             >
-                <Underline className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconUnderline className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Strikethrough"
                 active={editor.isActive('strike')}
                 onClick={() => editor.chain().focus().toggleStrike().run()}
             >
-                <Strikethrough className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconStrikethrough className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Inline Code"
                 active={editor.isActive('code')}
                 onClick={() => editor.chain().focus().toggleCode().run()}
             >
-                <Code className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconCode className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             <Divider />
@@ -94,21 +94,21 @@ export default function Toolbar({ editor }) {
                 active={editor.isActive('heading', { level: 1 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             >
-                <Heading1 className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconH1 className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Heading 2"
                 active={editor.isActive('heading', { level: 2 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             >
-                <Heading2 className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconH2 className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Heading 3"
                 active={editor.isActive('heading', { level: 3 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             >
-                <Heading3 className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconH3 className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             <Divider />
@@ -119,28 +119,28 @@ export default function Toolbar({ editor }) {
                 active={editor.isActive('bulletList')}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
             >
-                <List className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconList className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Ordered List"
                 active={editor.isActive('orderedList')}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}
             >
-                <ListOrdered className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconListNumbers className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Blockquote"
                 active={editor.isActive('blockquote')}
                 onClick={() => editor.chain().focus().toggleBlockquote().run()}
             >
-                <Quote className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconBlockquote className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
             <ToolbarButton
                 title="Code Block"
                 active={editor.isActive('codeBlock')}
                 onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             >
-                <Code2 className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconBraces className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             <Divider />
@@ -160,9 +160,9 @@ export default function Toolbar({ editor }) {
                 }}
             >
                 {editor.isActive('link') ? (
-                    <Link2Off className="h-3.5 w-3.5" strokeWidth={2} />
+                    <IconLinkOff className="h-3.5 w-3.5" stroke={2} />
                 ) : (
-                    <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    <IconLink className="h-3.5 w-3.5" stroke={2} />
                 )}
             </ToolbarButton>
 
@@ -176,7 +176,7 @@ export default function Toolbar({ editor }) {
                         : editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
                 }
             >
-                <Table className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconTable className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             {/* Divider line */}
@@ -185,7 +185,7 @@ export default function Toolbar({ editor }) {
                 active={false}
                 onClick={() => editor.chain().focus().setHorizontalRule().run()}
             >
-                <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconMinus className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             {/* Image by URL */}
@@ -197,7 +197,7 @@ export default function Toolbar({ editor }) {
                     if (url) editor.chain().focus().setImage({ src: url }).run();
                 }}
             >
-                <Image className="h-3.5 w-3.5" strokeWidth={2} />
+                <IconPhoto className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             {/* Inline link URL input */}

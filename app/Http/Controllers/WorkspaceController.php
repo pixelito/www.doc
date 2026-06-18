@@ -31,9 +31,11 @@ class WorkspaceController extends Controller
     {
         $this->authorize('view', $workspace);
 
+        $documents = $workspace->documents()->with('tags')->orderBy('position')->get();
+
         return Inertia::render('Workspaces/Show', [
-            'workspace' => $workspace,
-            'tree' => DocumentTree::build($workspace->documents),
+            'workspace' => $workspace->loadCount('documents'),
+            'tree'      => DocumentTree::build($documents),
         ]);
     }
 

@@ -1,5 +1,5 @@
 import { Head, useForm, router } from '@inertiajs/react';
-import { Plus, Trash2, Tag as TagIcon } from 'lucide-react';
+import { IconPlus, IconTrash, IconTag } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
@@ -41,7 +41,7 @@ export default function TagsIndex({ tags }) {
                         {errors.name && <p className="mt-1.5 text-xs text-danger">{errors.name}</p>}
                     </div>
                     <Button type="submit" disabled={processing}>
-                        <Plus className="h-4 w-4" strokeWidth={1.5} />
+                        <IconPlus className="h-4 w-4" stroke={1.5} />
                         Add
                     </Button>
                 </form>
@@ -49,7 +49,7 @@ export default function TagsIndex({ tags }) {
             {tags.length === 0 ? (
                 <EmptyState
                     className="mt-8"
-                    icon={TagIcon}
+                    icon={IconTag}
                     title="No tags yet."
                 />
             ) : (
@@ -68,7 +68,7 @@ export default function TagsIndex({ tags }) {
                                     aria-label={`Delete ${tag.name}`}
                                     className="text-text-tertiary hover:text-danger"
                                 >
-                                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                                    <IconTrash className="h-4 w-4" stroke={1.5} />
                                 </Button>
                             </li>
                         ))}

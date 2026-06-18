@@ -30,11 +30,16 @@ class DocumentTree
     {
         return $byParent->get($parentId, collect())
             ->map(fn ($doc) => [
-                'id' => $doc->id,
-                'title' => $doc->title,
-                'slug' => $doc->slug,
-                'position' => $doc->position,
-                'children' => self::branch($byParent, $doc->id),
+                'id'         => $doc->id,
+                'title'      => $doc->title,
+                'slug'       => $doc->slug,
+                'position'   => $doc->position,
+                'updated_at' => $doc->updated_at?->diffForHumans(),
+                'tags'       => $doc->tags
+                    ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name])
+                    ->values()
+                    ->all(),
+                'children'   => self::branch($byParent, $doc->id),
             ])
             ->values()
             ->all();

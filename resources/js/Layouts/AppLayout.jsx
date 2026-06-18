@@ -1,6 +1,10 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { LogOut } from 'lucide-react';
+import { IconBook2, IconSearch, IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+
+function initials(name) {
+    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
 
 function NavLink({ href, children }) {
     const { url } = usePage();
@@ -10,7 +14,7 @@ function NavLink({ href, children }) {
         <Link
             href={href}
             className={
-                'rounded-md px-2.5 py-1.5 transition-colors duration-150 ' +
+                'rounded-sm px-2.5 py-1.5 text-sm transition-colors duration-150 ' +
                 (active
                     ? 'bg-accent text-accent-foreground'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-foreground')
@@ -32,35 +36,54 @@ export default function AppLayout({ children }) {
     return (
         <div className="min-h-screen bg-background">
             <header className="border-b border-border bg-card">
-                <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center gap-6">
-                        <Link href="/dashboard" className="font-semibold text-foreground">
-                            www.doc
+                <div className="mx-auto max-w-7xl flex h-12 items-center gap-4 px-5">
+                    {/* Brand + nav */}
+                    <div className="flex shrink-0 items-center gap-5">
+                        <Link href="/workspaces" className="flex items-center gap-2">
+                            <IconBook2 className="h-5 w-5 text-sage-600" stroke={1.5} />
+                            <span className="text-[15px] font-semibold text-foreground">www.doc</span>
                         </Link>
-                        <nav className="flex items-center gap-1 text-sm">
+                        <nav className="hidden items-center gap-0.5 sm:flex">
                             <NavLink href="/workspaces">Workspaces</NavLink>
                             <NavLink href="/tags">Tags</NavLink>
                         </nav>
                     </div>
-                    <div className="flex items-center gap-4">
-                        {auth?.user && (
-                            <span className="text-sm text-text-secondary">{auth.user.name}</span>
-                        )}
-                        <form onSubmit={logout}>
-                            <Button
-                                type="submit"
-                                variant="ghost"
-                                size="sm"
-                                className="text-text-secondary"
-                            >
-                                <LogOut className="h-4 w-4" strokeWidth={1.5} />
-                                Sign out
+
+                    {/* Search */}
+                    <div className="relative flex-1 max-w-xs">
+                        <IconSearch
+                            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary"
+                            stroke={1.5}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Search docs…"
+                            className="h-8 w-full rounded-sm border border-border bg-canvas pl-8 pr-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="ml-auto flex shrink-0 items-center gap-2.5">
+                        <Link href="/workspaces">
+                            <Button size="sm" className="gap-1.5 text-[13px]">
+                                <IconPlus className="h-3.5 w-3.5" stroke={2} />
+                                New page
                             </Button>
-                        </form>
+                        </Link>
+                        {auth?.user && (
+                            <button
+                                type="button"
+                                onClick={logout}
+                                title={`Sign out (${auth.user.name})`}
+                                className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600 transition-colors hover:bg-sage-200"
+                            >
+                                {initials(auth.user.name)}
+                            </button>
+                        )}
                     </div>
                 </div>
             </header>
-            <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">{children}</main>
+            <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
         </div>
     );
 }

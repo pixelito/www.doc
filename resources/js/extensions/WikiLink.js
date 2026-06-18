@@ -1,5 +1,8 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
+import { PluginKey } from '@tiptap/pm/state';
+
+const WikiLinkPluginKey = new PluginKey('wikiLink');
 
 /**
  * Inline node representing a [[Wiki Link]].
@@ -85,6 +88,7 @@ export const WikiLink = Node.create({
 
         return [
             Suggestion({
+                pluginKey: WikiLinkPluginKey,
                 editor: this.editor,
                 char: '[[',
                 allowSpaces: true,

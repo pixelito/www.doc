@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -55,11 +53,12 @@ export default function TipTapEditor({
         extensions: [
             StarterKit.configure({
                 heading: { levels: [1, 2, 3] },
-            }),
-            Underline,
-            Link.configure({
-                openOnClick: !editable,
-                HTMLAttributes: { rel: 'noopener noreferrer' },
+                // Link and Underline are now built into StarterKit v3
+                link: {
+                    openOnClick: !editable,
+                    HTMLAttributes: { rel: 'noopener noreferrer' },
+                },
+                underline: {},
             }),
             Image.configure({ inline: false, allowBase64: false }),
             Table.configure({ resizable: false }),

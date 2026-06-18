@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
-    ChevronRight, Trash2, Edit3, X, Save, FileText,
-    ArrowRight, User, Calendar, Link2, Tag, CheckCircle2, Clock,
-    Download, Loader2,
-} from 'lucide-react';
+    IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy, IconFileText,
+    IconArrowRight, IconUser, IconCalendar, IconLink, IconTag, IconCircleCheck, IconClock,
+    IconDownload, IconLoader2,
+} from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -121,7 +121,7 @@ function ExportModal({ documentId, open, onClose }) {
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={startExport}
                             >
-                                <Download className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                                <IconDownload className="mr-1.5 h-4 w-4" stroke={1.5} />
                                 Export
                             </Button>
                         </div>
@@ -131,7 +131,7 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Pending */}
                 {state === 'pending' && (
                     <div className="flex flex-col items-center gap-3 py-8 text-text-secondary">
-                        <Loader2 className="h-8 w-8 animate-spin text-sage-400" strokeWidth={1.5} />
+                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-400" stroke={1.5} />
                         <p className="text-sm">Generating {format.toUpperCase()}…</p>
                     </div>
                 )}
@@ -139,7 +139,7 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Done */}
                 {state === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-6">
-                        <CheckCircle2 className="h-10 w-10 text-sage-400" strokeWidth={1.5} />
+                        <IconCircleCheck className="h-10 w-10 text-sage-400" stroke={1.5} />
                         <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleClose}>Close</Button>
@@ -147,7 +147,7 @@ function ExportModal({ documentId, open, onClose }) {
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={triggerDownload}
                             >
-                                <Download className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                                <IconDownload className="mr-1.5 h-4 w-4" stroke={1.5} />
                                 Download {format.toUpperCase()}
                             </Button>
                         </div>
@@ -266,7 +266,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 <Link href="/workspaces" className="transition-colors hover:text-foreground">
                     Workspaces
                 </Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                 <Link
                     href={`/workspaces/${document.workspace.id}`}
                     className="transition-colors hover:text-foreground"
@@ -275,7 +275,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 </Link>
                 {breadcrumbs.map((anc) => (
                     <React.Fragment key={anc.id}>
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                        <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                         <Link
                             href={`/documents/${anc.id}`}
                             className="transition-colors hover:text-foreground"
@@ -284,7 +284,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         </Link>
                     </React.Fragment>
                 ))}
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                 <span className="font-medium text-foreground">{document.title}</span>
             </nav>
 
@@ -309,14 +309,14 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         </h1>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-secondary">
                             <span className="flex items-center gap-1">
-                                <Calendar className="h-3.5 w-3.5 text-text-tertiary" strokeWidth={1.5} />
+                                <IconCalendar className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
                             </span>
                             {document.updater && (
                                 <>
                                     <span className="text-text-tertiary">•</span>
                                     <span className="flex items-center gap-1">
-                                        <User className="h-3.5 w-3.5 text-text-tertiary" strokeWidth={1.5} />
+                                        <IconUser className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                                         Edited by {document.updater.name}
                                     </span>
                                 </>
@@ -330,13 +330,13 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         <>
                             {saveStatus === 'saving' && (
                                 <span className="flex items-center gap-1 text-xs text-text-tertiary">
-                                    <Clock className="h-3.5 w-3.5 animate-pulse" strokeWidth={1.5} />
+                                    <IconClock className="h-3.5 w-3.5 animate-pulse" stroke={1.5} />
                                     Saving…
                                 </span>
                             )}
                             {saveStatus === 'saved' && (
                                 <span className="flex items-center gap-1 text-xs text-sage-600">
-                                    <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                    <IconCircleCheck className="h-3.5 w-3.5" stroke={1.5} />
                                     Saved
                                 </span>
                             )}
@@ -344,7 +344,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 onClick={handleExplicitSave}
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                             >
-                                <Save className="h-4 w-4" strokeWidth={1.5} />
+                                <IconDeviceFloppy className="h-4 w-4" stroke={1.5} />
                                 Save
                             </Button>
                             <Button
@@ -352,7 +352,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 className="border-border hover:bg-surface-hover"
                                 onClick={handleCancelEdit}
                             >
-                                <X className="h-4 w-4" strokeWidth={1.5} />
+                                <IconX className="h-4 w-4" stroke={1.5} />
                                 Cancel
                             </Button>
                         </>
@@ -363,7 +363,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setExportOpen(true)}
                             >
-                                <Download className="h-4 w-4" strokeWidth={1.5} />
+                                <IconDownload className="h-4 w-4" stroke={1.5} />
                                 Export
                             </Button>
                             <Button
@@ -371,7 +371,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setIsEditing(true)}
                             >
-                                <Edit3 className="h-4 w-4" strokeWidth={1.5} />
+                                <IconPencil className="h-4 w-4" stroke={1.5} />
                                 Edit
                             </Button>
                             <Button
@@ -379,7 +379,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
                                 onClick={destroyDocument}
                             >
-                                <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                                <IconTrash className="h-4 w-4" stroke={1.5} />
                                 Delete
                             </Button>
                         </>
@@ -399,13 +399,13 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     key={tag.id}
                                     type="button"
                                     onClick={() => handleTagToggle(tag.id)}
-                                    className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                                    className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1 text-xs font-medium transition-all ${
                                         selected
                                             ? 'border-sage-200 bg-sage-100 text-sage-700'
                                             : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
                                     }`}
                                 >
-                                    <Tag className="mr-1 h-3 w-3 opacity-60" strokeWidth={1.5} />
+                                    <IconTag className="mr-1 h-3 w-3 opacity-60" stroke={1.5} />
                                     {tag.name}
                                 </button>
                             );
@@ -419,7 +419,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 <div className="mt-4 flex flex-wrap gap-1.5">
                     {document.tags.map((tag) => (
                         <Badge key={tag.id} variant="default">
-                            <Tag className="mr-1 h-3 w-3" strokeWidth={1.5} />
+                            <IconTag className="mr-1 h-3 w-3" stroke={1.5} />
                             {tag.name}
                         </Badge>
                     ))}
@@ -443,7 +443,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     <Card className="overflow-hidden">
                         <CardHeader className="border-b border-border/40 bg-surface-hover py-3 px-4">
                             <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                                <Link2 className="h-3.5 w-3.5 text-sage-600" strokeWidth={1.5} />
+                                <IconLink className="h-3.5 w-3.5 text-sage-600" stroke={1.5} />
                                 Outgoing Links
                             </CardTitle>
                         </CardHeader>
@@ -456,7 +456,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 <ul className="space-y-2.5">
                                     {document.outgoing_links.map((link) => (
                                         <li key={link.id} className="flex items-center text-sm">
-                                            <ArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                                            <IconArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                                             {link.target ? (
                                                 <Link
                                                     href={`/documents/${link.target.id}`}
@@ -482,7 +482,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     <Card className="overflow-hidden">
                         <CardHeader className="border-b border-border/40 bg-surface-hover py-3 px-4">
                             <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                                <FileText className="h-3.5 w-3.5 text-sage-600" strokeWidth={1.5} />
+                                <IconFileText className="h-3.5 w-3.5 text-sage-600" stroke={1.5} />
                                 Incoming Backlinks
                             </CardTitle>
                         </CardHeader>
@@ -495,7 +495,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 <ul className="space-y-2.5">
                                     {document.backlinks.map((link) => (
                                         <li key={link.id} className="flex items-center text-sm">
-                                            <ArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" strokeWidth={1.5} />
+                                            <IconArrowRight className="mr-2 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                                             <Link
                                                 href={`/documents/${link.source.id}`}
                                                 className="truncate font-medium text-sage-600 transition-colors hover:text-sage-800 hover:underline"
