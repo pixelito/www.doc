@@ -81,7 +81,29 @@ export const WikiLink = Node.create({
             dom.setAttribute('data-title', title);
             dom.textContent = title;
 
-            return { dom };
+            // Hover preview — fire after 400 ms, cancel on quick leave
+            let showTimer;
+
+            dom.addEventListener('mouseenter', () => {
+                showTimer = setTimeout(() => {
+                    document.dispatchEvent(new CustomEvent('wiki-link-preview-show', {
+                        detail: { title, href: href ?? null, broken: !href, rect: dom.getBoundingClientRect() },
+                    }));
+                }, 400);
+            });
+
+            dom.addEventListener('mouseleave', () => {
+                clearTimeout(showTimer);
+                document.dispatchEvent(new CustomEvent('wiki-link-preview-hide'));
+            });
+
+            return {
+                dom,
+                destroy() {
+                    clearTimeout(showTimer);
+                    document.dispatchEvent(new CustomEvent('wiki-link-preview-hide'));
+                },
+            };
         };
     },
 

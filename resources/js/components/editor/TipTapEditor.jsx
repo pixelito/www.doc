@@ -11,6 +11,7 @@ import { ImageUpload } from '@/extensions/ImageUpload';
 import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
+import WikiLinkPreview from './WikiLinkPreview';
 
 /**
  * TipTap editor component — used for both edit and read-only view.
@@ -123,6 +124,7 @@ export default function TipTapEditor({
                     renderItem={(item) => item.title}
                 />
             )}
+            <WikiLinkPreview />
         </div>
     );
 }

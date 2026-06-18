@@ -25,6 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('documents/reorder', [DocumentController::class, 'reorder'])->name('documents.reorder');
     Route::get('documents/{document}/children', [DocumentController::class, 'children'])->name('documents.children');
     Route::patch('documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
+    Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
 
     Route::resource('workspaces', WorkspaceController::class)->except(['create', 'edit']);
     Route::resource('documents', DocumentController::class)->only(['store', 'show', 'update', 'destroy']);

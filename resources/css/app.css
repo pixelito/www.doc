@@ -250,8 +250,8 @@
 }
 .tiptap .wiki-link.resolved:hover { color: var(--sage-700); }
 .tiptap .wiki-link.unresolved {
-    color: var(--text-tertiary);
-    border-bottom: 1px dashed var(--text-tertiary);
+    color: var(--warning);
+    border-bottom: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
 }
 /* Edit mode — subtle chip so the author knows it's a linked node */
 .tiptap .wiki-link.wiki-link-edit {

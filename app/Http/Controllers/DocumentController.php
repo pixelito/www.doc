@@ -39,6 +39,19 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function preview(Document $document): JsonResponse
+    {
+        $this->authorize('view', $document);
+
+        $plain = \App\Support\TipTap::plainText($document->content);
+
+        return response()->json([
+            'id'      => $document->id,
+            'title'   => $document->title,
+            'excerpt' => mb_strimwidth(trim($plain), 0, 220, '…'),
+        ]);
+    }
+
     public function store(StoreDocumentRequest $request): RedirectResponse
     {
         $this->authorize('create', Document::class);
