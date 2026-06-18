@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import { PluginKey } from '@tiptap/pm/state';
+import { router } from '@inertiajs/react';
 
 const WikiLinkPluginKey = new PluginKey('wikiLink');
 
@@ -70,6 +71,11 @@ export const WikiLink = Node.create({
                 dom = document.createElement('a');
                 dom.href = href;
                 dom.className = 'wiki-link resolved';
+                dom.addEventListener('click', (e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                    e.preventDefault();
+                    router.visit(href);
+                });
             } else {
                 dom = document.createElement('span');
                 dom.className = href ? 'wiki-link resolved' : 'wiki-link unresolved';
