@@ -15,6 +15,7 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import TipTapEditor from '@/components/editor/TipTapEditor';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -182,6 +183,9 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     const editorContentRef = useRef(document.content);
 
     const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
+    const [discardOpen, setDiscardOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen]   = useState(false);
+    const isDirtyRef = useRef(false);
 
     // Build resolvedLinks map: { "Page Title": "/documents/id" }
     const resolvedLinks = Object.fromEntries(
@@ -197,6 +201,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             setEditTags(document.tags.map((t) => t.id));
             editorContentRef.current = document.content;
             setSaveStatus(null);
+            isDirtyRef.current = false;
         }
     }, [isEditing]);
 
@@ -224,6 +229,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
 
     const handleEditorUpdate = useCallback((json) => {
         editorContentRef.current = json;
+        isDirtyRef.current = true;
     }, []);
 
     function handleExplicitSave(e) {
@@ -232,6 +238,18 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     }
 
     function handleCancelEdit() {
+        const titleChanged = editTitle !== document.title;
+        const tagsChanged  = JSON.stringify([...editTags].sort()) !== JSON.stringify([...document.tags.map(t => t.id)].sort());
+        if (isDirtyRef.current || titleChanged || tagsChanged) {
+            setDiscardOpen(true);
+        } else {
+            setIsEditing(false);
+            setSaveStatus(null);
+        }
+    }
+
+    function confirmDiscard() {
+        setDiscardOpen(false);
         setIsEditing(false);
         setSaveStatus(null);
     }
@@ -243,9 +261,12 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     }
 
     function destroyDocument() {
-        if (confirm(`Delete page "${document.title}"?`)) {
-            router.delete(`/documents/${document.id}`);
-        }
+        setDeleteOpen(true);
+    }
+
+    function confirmDelete() {
+        setDeleteOpen(false);
+        router.delete(`/documents/${document.id}`);
     }
 
     return (
@@ -488,5 +509,27 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 onClose={() => setExportOpen(false)}
             />
         </DocsLayout>
+
+        <ConfirmDialog
+            open={discardOpen}
+            title="Discard changes?"
+            message="You have unsaved changes. Leaving edit mode will discard them permanently."
+            confirmLabel="Discard changes"
+            cancelLabel="Keep editing"
+            variant="danger"
+            onConfirm={confirmDiscard}
+            onCancel={() => setDiscardOpen(false)}
+        />
+
+        <ConfirmDialog
+            open={deleteOpen}
+            title={`Delete "${document.title}"?`}
+            message="This page will be permanently deleted and cannot be recovered."
+            confirmLabel="Delete page"
+            cancelLabel="Cancel"
+            variant="danger"
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteOpen(false)}
+        />
     );
 }
