@@ -1,9 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { IconSettings, IconLogout } from '@tabler/icons-react';
-
-function initials(name) {
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-}
+import { avatarStyle, initials } from '@/lib/avatar';
 
 export default function AppLayout({ children }) {
     const { auth, flash } = usePage().props;
@@ -30,17 +27,18 @@ export default function AppLayout({ children }) {
                         <div className="ml-auto flex shrink-0 items-center gap-1">
                             <div
                                 title={auth.user.name}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-sage-100 text-[11px] font-semibold text-sage-600"
+                                className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold"
+                                style={avatarStyle(auth.user.avatar_color)}
                             >
                                 {initials(auth.user.name)}
                             </div>
-                            <button
-                                type="button"
+                            <Link
+                                href="/settings/profile"
                                 title="Settings"
                                 className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
                             >
                                 <IconSettings className="h-4 w-4" stroke={1.5} />
-                            </button>
+                            </Link>
                             <button
                                 type="button"
                                 onClick={logout}

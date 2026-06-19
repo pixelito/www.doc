@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\VersionController;
@@ -47,6 +48,11 @@ Route::middleware('auth')->group(function () {
 
     // Full-text search
     Route::get('search', [SearchController::class, 'index'])->name('search');
+
+    // Settings
+    Route::get('settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
+    Route::patch('settings/profile', [ProfileController::class, 'update'])->name('settings.profile.update');
+    Route::patch('settings/password', [ProfileController::class, 'updatePassword'])->name('settings.password.update');
 
     // Import pipeline
     Route::get('workspaces/{workspace}/imports/create', [ImportController::class, 'create'])->name('imports.create');
