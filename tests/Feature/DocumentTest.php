@@ -98,7 +98,7 @@ test('a trashed document can be restored with its subtree', function () {
     $child  = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
     $parent->trashSubtree();
 
-    $this->post("/trash/{$parent->id}/restore")->assertRedirect();
+    $this->post("/trash/documents/{$parent->id}/restore")->assertRedirect();
 
     expect(Document::find($parent->id))->not->toBeNull();
     expect(Document::find($child->id))->not->toBeNull();
@@ -109,7 +109,7 @@ test('force-deleting a trashed document destroys it permanently', function () {
     $document = Document::factory()->create();
     $document->trashSubtree();
 
-    $this->delete("/trash/{$document->id}")->assertRedirect();
+    $this->delete("/trash/documents/{$document->id}")->assertRedirect();
 
     $this->assertDatabaseMissing('documents', ['id' => $document->id]);
 });

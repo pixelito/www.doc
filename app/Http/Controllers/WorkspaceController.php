@@ -74,8 +74,9 @@ class WorkspaceController extends Controller
     {
         $this->authorize('delete', $workspace);
 
-        $workspace->delete();
+        $workspace->trashWithDocuments();
 
-        return redirect()->route('workspaces.index');
+        return redirect()->route('workspaces.index')
+            ->with('success', "Moved \"{$workspace->name}\" to trash.");
     }
 }

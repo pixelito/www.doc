@@ -50,10 +50,12 @@ Route::middleware('auth')->group(function () {
     // Full-text search
     Route::get('search', [SearchController::class, 'index'])->name('search');
 
-    // Trash — soft-deleted documents
+    // Trash — soft-deleted workspaces + documents
     Route::get('trash', [TrashController::class, 'index'])->name('trash.index');
-    Route::post('trash/{document}/restore', [TrashController::class, 'restore'])->name('trash.restore');
-    Route::delete('trash/{document}', [TrashController::class, 'forceDelete'])->name('trash.force-delete');
+    Route::post('trash/documents/{document}/restore', [TrashController::class, 'restoreDocument'])->name('trash.documents.restore');
+    Route::delete('trash/documents/{document}', [TrashController::class, 'forceDeleteDocument'])->name('trash.documents.force-delete');
+    Route::post('trash/workspaces/{workspace}/restore', [TrashController::class, 'restoreWorkspace'])->name('trash.workspaces.restore');
+    Route::delete('trash/workspaces/{workspace}', [TrashController::class, 'forceDeleteWorkspace'])->name('trash.workspaces.force-delete');
 
     // Settings
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');

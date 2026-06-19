@@ -83,6 +83,7 @@ class SearchController extends Controller
             LEFT JOIN users u ON u.id = d.updated_by_id
             WHERE
                 d.deleted_at IS NULL
+                AND w.deleted_at IS NULL
                 AND (
                     (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('english', ?))
                     OR d.title ILIKE ?

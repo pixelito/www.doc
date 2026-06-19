@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Document;
 use App\Models\Workspace;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -46,13 +47,39 @@ test('a workspace can be updated', function () {
     expect($workspace->fresh()->name)->toBe('New');
 });
 
-test('a workspace can be deleted', function () {
+test('deleting a workspace soft-deletes it and its documents', function () {
     login();
     $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
 
     $this->delete("/workspaces/{$workspace->id}")->assertRedirect('/workspaces');
 
+    $this->assertSoftDeleted('workspaces', ['id' => $workspace->id]);
+    $this->assertSoftDeleted('documents', ['id' => $document->id]);
+});
+
+test('a trashed workspace can be restored with its documents', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $workspace->trashWithDocuments();
+
+    $this->post("/trash/workspaces/{$workspace->id}/restore")->assertRedirect();
+
+    expect(Workspace::find($workspace->id))->not->toBeNull();
+    expect(Document::find($document->id))->not->toBeNull();
+});
+
+test('force-deleting a trashed workspace destroys it and its documents', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $workspace->trashWithDocuments();
+
+    $this->delete("/trash/workspaces/{$workspace->id}")->assertRedirect();
+
     $this->assertDatabaseMissing('workspaces', ['id' => $workspace->id]);
+    $this->assertDatabaseMissing('documents', ['id' => $document->id]);
 });
 
 test('the workspace show page returns the document tree', function () {

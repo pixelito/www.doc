@@ -31,4 +31,14 @@ class WorkspacePolicy
     {
         return $user->hasRole('admin');
     }
+
+    public function restore(User $user, Workspace $workspace): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    public function forceDelete(User $user, Workspace $workspace): bool
+    {
+        return $user->hasRole('admin');
+    }
 }
