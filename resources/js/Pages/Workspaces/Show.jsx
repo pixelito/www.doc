@@ -379,9 +379,9 @@ export default function WorkspaceShow({ workspace, tree }) {
             {/* Page table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_110px_64px] border-b border-border bg-surface-hover px-4 py-2.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Page</span>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
+                <div className="grid grid-cols-[1fr_110px_64px] border-b border-border bg-surface-hover py-2.5">
+                    <span className="pl-3 pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Page</span>
+                    <span className="pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
                     <span />
                 </div>
 
