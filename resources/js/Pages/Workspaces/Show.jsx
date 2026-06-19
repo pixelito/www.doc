@@ -442,8 +442,8 @@ export default function WorkspaceShow({ workspace, tree }) {
         <ConfirmDialog
             open={deleteOpen}
             title={`Delete "${workspace.name}"?`}
-            message={`This will permanently delete the workspace and all ${pageCount} ${pageCount === 1 ? 'page' : 'pages'} inside it. This cannot be undone.`}
-            confirmLabel="Delete workspace"
+            message={`This workspace and all ${pageCount} ${pageCount === 1 ? 'page' : 'pages'} inside it will be moved to Trash. You can restore them later from there.`}
+            confirmLabel="Move to Trash"
             cancelLabel="Cancel"
             variant="danger"
             onConfirm={destroyWorkspace}

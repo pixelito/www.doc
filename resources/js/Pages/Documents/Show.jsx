@@ -641,8 +641,8 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         <ConfirmDialog
             open={deleteOpen}
             title={`Delete "${document.title}"?`}
-            message="This page will be permanently deleted and cannot be recovered."
-            confirmLabel="Delete page"
+            message="This page, along with any subpages, will be moved to Trash. You can restore it later from there."
+            confirmLabel="Move to Trash"
             cancelLabel="Cancel"
             variant="danger"
             onConfirm={confirmDelete}
