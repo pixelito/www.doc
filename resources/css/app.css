@@ -277,16 +277,19 @@
 .tiptap table { border-collapse: collapse; width: 100%; margin: 1em 0; }
 .tiptap th,
 .tiptap td {
-    border: 1px solid var(--border);
+    border: 1px solid var(--sage-200);
     padding: 0.5em 0.75em;
     vertical-align: top;
 }
 .tiptap th {
-    background: var(--surface-hover);
+    background: var(--sage-100);
+    color: var(--sage-700);
     font-weight: 600;
     text-align: left;
 }
-.tiptap .selectedCell { background: var(--sage-50); }
+.tiptap td { background: var(--surface); }
+.tiptap tbody tr:nth-child(even) td { background: var(--sage-50); }
+.tiptap .selectedCell { background: var(--sage-200); }
 
 /* Wiki-link nodes — view mode */
 .tiptap .wiki-link {
