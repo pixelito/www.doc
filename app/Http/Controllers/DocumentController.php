@@ -87,9 +87,10 @@ class DocumentController extends Controller
         $this->authorize('delete', $document);
 
         $workspace = $document->workspace;
-        $document->delete();
+        $document->trashSubtree();
 
-        return redirect()->route('workspaces.show', $workspace);
+        return redirect()->route('workspaces.show', $workspace)
+            ->with('success', "Moved \"{$document->title}\" to trash.");
     }
 
     /** Immediate children of a document, in display order. */

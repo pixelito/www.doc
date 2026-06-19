@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
@@ -48,6 +49,13 @@ trait HasSlug
     protected function slugExists(string $slug): bool
     {
         $query = static::query()->where('slug', $slug);
+
+        // Trashed rows still occupy the slug's unique space at the DB level, so
+        // they must count here — otherwise a restored row would collide with a
+        // newer one that reused its slug.
+        if (in_array(SoftDeletes::class, class_uses_recursive(static::class), true)) {
+            $query->withTrashed();
+        }
 
         if ($this->exists) {
             $query->whereKeyNot($this->getKey());

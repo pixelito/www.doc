@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Queue;
 it('creates a conversion job and dispatches export', function () {
     Queue::fake();
 
-    $user      = User::factory()->create();
+    $user      = login();
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
 
@@ -31,7 +31,7 @@ it('creates a conversion job and dispatches export', function () {
 });
 
 it('poll returns job status', function () {
-    $user      = User::factory()->create();
+    $user      = login();
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
     $job       = ConversionJob::create([
@@ -49,7 +49,7 @@ it('poll returns job status', function () {
 });
 
 it('rejects invalid format', function () {
-    $user      = User::factory()->create();
+    $user      = login();
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
 

@@ -82,8 +82,11 @@ class SearchController extends Controller
             JOIN workspaces w ON w.id = d.workspace_id
             LEFT JOIN users u ON u.id = d.updated_by_id
             WHERE
-                (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('english', ?))
-                OR d.title ILIKE ?
+                d.deleted_at IS NULL
+                AND (
+                    (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('english', ?))
+                    OR d.title ILIKE ?
+                )
             ORDER BY rank DESC
             LIMIT 20
         ", [$q, $q, $q, $q, $q, $like]);

@@ -8,6 +8,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\TrashController;
 use App\Http\Controllers\VersionController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,11 @@ Route::middleware('auth')->group(function () {
 
     // Full-text search
     Route::get('search', [SearchController::class, 'index'])->name('search');
+
+    // Trash — soft-deleted documents
+    Route::get('trash', [TrashController::class, 'index'])->name('trash.index');
+    Route::post('trash/{document}/restore', [TrashController::class, 'restore'])->name('trash.restore');
+    Route::delete('trash/{document}', [TrashController::class, 'forceDelete'])->name('trash.force-delete');
 
     // Settings
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');

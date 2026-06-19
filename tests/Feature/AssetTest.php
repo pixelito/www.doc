@@ -22,7 +22,7 @@ beforeEach(function () {
 });
 
 it('authenticated user can upload an image', function () {
-    $user = User::factory()->create();
+    $user = login();
     $file = fakePng();
 
     $response = $this->actingAs($user)
@@ -41,7 +41,7 @@ it('authenticated user can upload an image', function () {
 });
 
 it('deduplicates uploads by sha-256 checksum', function () {
-    $user = User::factory()->create();
+    $user = login();
 
     $r1 = $this->actingAs($user)->postJson('/assets', ['file' => fakePng()]);
     $r2 = $this->actingAs($user)->postJson('/assets', ['file' => fakePng()]);
@@ -54,7 +54,7 @@ it('deduplicates uploads by sha-256 checksum', function () {
 });
 
 it('rejects non-image uploads', function () {
-    $user = User::factory()->create();
+    $user = login();
     $file = UploadedFile::fake()->create('malware.exe', 10, 'application/octet-stream');
 
     $this->actingAs($user)
@@ -65,7 +65,7 @@ it('rejects non-image uploads', function () {
 });
 
 it('rejects files over 10 MB', function () {
-    $user = User::factory()->create();
+    $user = login();
     $file = UploadedFile::fake()->create('huge.jpg', 11_001, 'image/jpeg'); // 11 MB in KB
 
     $this->actingAs($user)

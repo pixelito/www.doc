@@ -22,11 +22,18 @@ pest()->extend(TestCase::class)->in('Unit');
 */
 
 /**
- * Create and authenticate a user, returning it.
+ * Create and authenticate a user, returning it. Mirrors the v1 "everyone-admin"
+ * default so policy-gated routes are reachable; pass $role to test a narrower
+ * role. Roles are created on demand since RefreshDatabase doesn't seed them.
  */
-function login(?\App\Models\User $user = null): \App\Models\User
+function login(?\App\Models\User $user = null, string $role = 'admin'): \App\Models\User
 {
+    foreach (['admin', 'editor', 'viewer'] as $name) {
+        \Spatie\Permission\Models\Role::findOrCreate($name, 'web');
+    }
+
     $user ??= \App\Models\User::factory()->create();
+    $user->assignRole($role);
     test()->actingAs($user);
 
     return $user;

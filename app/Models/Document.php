@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy(DocumentObserver::class)]
 #[Fillable(['title', 'slug', 'workspace_id', 'parent_id', 'position', 'content', 'content_html', 'metadata'])]
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 class Document extends Model
 {
     /** @use HasFactory<\Database\Factories\DocumentFactory> */
-    use HasFactory, HasSlug;
+    use HasFactory, HasSlug, SoftDeletes;
 
     protected function casts(): array
     {
@@ -108,5 +109,39 @@ class Document extends Model
         }
 
         return $chain;
+    }
+
+    /**
+     * Soft-delete this document and every live descendant. Cascading keeps the
+     * tree consistent — a trashed parent must not leave its children orphaned
+     * (visible in the DB but unreachable in the tree).
+     */
+    public function trashSubtree(): void
+    {
+        foreach ($this->children()->get() as $child) {
+            $child->trashSubtree();
+        }
+
+        $this->delete();
+    }
+
+    /** Restore this document and its entire trashed subtree. */
+    public function restoreSubtree(): void
+    {
+        $this->restore();
+
+        foreach ($this->children()->onlyTrashed()->get() as $child) {
+            $child->restoreSubtree();
+        }
+    }
+
+    /** Permanently delete this document and every trashed descendant. */
+    public function forceDeleteSubtree(): void
+    {
+        foreach ($this->children()->withTrashed()->get() as $child) {
+            $child->forceDeleteSubtree();
+        }
+
+        $this->forceDelete();
     }
 }

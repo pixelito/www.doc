@@ -31,4 +31,14 @@ class DocumentPolicy
     {
         return $user->hasRole('admin');
     }
+
+    public function restore(User $user, Document $document): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    public function forceDelete(User $user, Document $document): bool
+    {
+        return $user->hasRole('admin');
+    }
 }
