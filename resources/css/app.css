@@ -240,7 +240,7 @@
     transition: outline 80ms;
 }
 
-.tiptap .image-wrapper.ProseMirror-selectednode .image-inner img {
+.tiptap-edit-area .tiptap .image-wrapper.ProseMirror-selectednode .image-inner img {
     outline: 2px solid var(--sage-400);
     outline-offset: 2px;
 }
@@ -259,8 +259,12 @@
     transition: opacity 100ms;
 }
 
-.tiptap .image-wrapper.ProseMirror-selectednode .image-resize-handle {
+.tiptap-edit-area .tiptap .image-wrapper.ProseMirror-selectednode .image-resize-handle {
     opacity: 1;
+}
+
+.tiptap-read-area .tiptap .image-wrapper {
+    pointer-events: none;
 }
 
 /* Fallback for any raw <img> not inside a NodeView wrapper */
