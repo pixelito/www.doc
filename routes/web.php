@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('trash/documents/{document}', [TrashController::class, 'forceDeleteDocument'])->name('trash.documents.force-delete');
     Route::post('trash/workspaces/{workspace}/restore', [TrashController::class, 'restoreWorkspace'])->name('trash.workspaces.restore');
     Route::delete('trash/workspaces/{workspace}', [TrashController::class, 'forceDeleteWorkspace'])->name('trash.workspaces.force-delete');
+    Route::delete('trash', [TrashController::class, 'empty'])->name('trash.empty');
 
     // Settings
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');

@@ -50,6 +50,27 @@ class TrashController extends Controller
         ]);
     }
 
+    /**
+     * Permanently delete everything in the trash. Workspaces are purged with their
+     * documents; any remaining individually-trashed pages are then force-deleted
+     * (their subtrees included). Irreversible.
+     */
+    public function empty(): RedirectResponse
+    {
+        abort_unless(auth()->user()->hasRole('admin'), 403);
+
+        Workspace::onlyTrashed()->get()->each->forceDeleteWithDocuments();
+
+        Document::onlyTrashed()->get()->each(function (Document $doc) {
+            // The model may already be gone if an ancestor was force-deleted above.
+            if (Document::onlyTrashed()->whereKey($doc->getKey())->exists()) {
+                $doc->forceDeleteSubtree();
+            }
+        });
+
+        return back()->with('success', 'Trash emptied.');
+    }
+
     public function restoreDocument(int $document): RedirectResponse
     {
         $doc = Document::onlyTrashed()->findOrFail($document);

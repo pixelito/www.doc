@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import { IconTrash, IconRestore, IconFileText, IconFolder, IconTrashX } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { Button } from '@/components/ui/button';
 
 function timeAgo(iso) {
     if (!iso) return '—';
@@ -36,24 +37,28 @@ function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, 
             </div>
             <span className="text-xs text-text-tertiary">{timeAgo(deletedAt)}</span>
             <div className="flex items-center justify-end gap-1.5">
-                <button
+                <Button
                     type="button"
+                    size="xs"
+                    variant="secondary"
                     disabled={busy}
                     onClick={onRestore}
-                    className="flex items-center gap-1 rounded-sm border border-border bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600 disabled:opacity-50"
+                    className="text-text-secondary hover:border-sage-200 hover:bg-sage-50 hover:text-sage-600"
                 >
-                    <IconRestore className="h-3.5 w-3.5" stroke={1.5} />
+                    <IconRestore stroke={1.5} />
                     Restore
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
+                    size="icon-xs"
+                    variant="secondary"
                     disabled={busy}
                     onClick={onPurge}
                     title="Delete permanently"
-                    className="flex h-7 w-7 items-center justify-center rounded-sm border border-border bg-surface text-text-tertiary transition-colors hover:bg-danger/10 hover:border-danger/20 hover:text-danger disabled:opacity-50"
+                    className="text-text-tertiary hover:border-danger/20 hover:bg-danger/10 hover:text-danger"
                 >
-                    <IconTrashX className="h-3.5 w-3.5" stroke={1.5} />
-                </button>
+                    <IconTrashX stroke={1.5} />
+                </Button>
             </div>
         </li>
     );
@@ -74,9 +79,11 @@ function SectionCard({ label, count, children }) {
 
 export default function TrashIndex({ workspaces = [], documents = [] }) {
     const [purge, setPurge]   = useState(null); // { type, id, title, count }
+    const [emptyOpen, setEmptyOpen] = useState(false);
     const [busyKey, setBusyKey] = useState(null);
 
     const isEmpty = workspaces.length === 0 && documents.length === 0;
+    const totalItems = workspaces.length + documents.length;
 
     function restore(type, item) {
         const key = `${type}-${item.id}`;
@@ -96,13 +103,35 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
         });
     }
 
+    function confirmEmpty() {
+        setBusyKey('empty');
+        router.delete('/trash', {
+            preserveScroll: true,
+            onFinish: () => { setBusyKey(null); setEmptyOpen(false); },
+        });
+    }
+
     return (
         <DocsLayout>
             <Head title="Trash" />
 
-            <div className="mb-4 flex items-center gap-2">
-                <IconTrash className="h-5 w-5 text-sage-500" stroke={1.5} />
-                <h1 className="text-[19px] font-semibold text-foreground">Trash</h1>
+            <div className="mb-1 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                    <IconTrash className="h-5 w-5 text-sage-500" stroke={1.5} />
+                    <h1 className="text-[19px] font-semibold text-foreground">Trash</h1>
+                </div>
+                {!isEmpty && (
+                    <Button
+                        type="button"
+                        size="xs"
+                        variant="secondary"
+                        onClick={() => setEmptyOpen(true)}
+                        className="border-danger/20 text-danger hover:bg-danger/10"
+                    >
+                        <IconTrashX stroke={1.5} />
+                        Empty trash
+                    </Button>
+                )}
             </div>
             <p className="mb-5 text-sm text-text-secondary">
                 Deleted workspaces and pages are kept here. Restoring an item also restores everything inside it.
@@ -174,6 +203,17 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
                 variant="danger"
                 onConfirm={confirmPurge}
                 onCancel={() => setPurge(null)}
+            />
+
+            <ConfirmDialog
+                open={emptyOpen}
+                title="Empty the trash?"
+                message={`This will permanently delete all ${totalItems} item${totalItems !== 1 ? 's' : ''} in the trash, everything inside them, and their version history. This cannot be undone.`}
+                confirmLabel="Empty trash"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmEmpty}
+                onCancel={() => setEmptyOpen(false)}
             />
         </DocsLayout>
     );
