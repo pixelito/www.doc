@@ -219,7 +219,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
                                 <IconUpload className="h-4 w-4" stroke={1.5} />
                                 Import
                             </Button>
-                            <Button variant="ghost" asChild>
+                            <Button variant="outline" asChild>
                                 <Link href={`/workspaces/${workspace.id}`}>Cancel</Link>
                             </Button>
                         </div>
