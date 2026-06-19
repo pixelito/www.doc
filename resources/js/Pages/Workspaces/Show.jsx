@@ -351,6 +351,10 @@ export default function WorkspaceShow({ workspace, tree }) {
                         <IconTrash stroke={1.5} />
                         Delete
                     </Button>
+                    <Button onClick={() => openModal('')}>
+                        <IconPlus stroke={1.5} />
+                        New page
+                    </Button>
                 </div>
             </div>
 
