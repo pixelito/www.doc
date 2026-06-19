@@ -27,9 +27,6 @@ class DocumentController extends Controller
             'outgoingLinks.target:id,title,slug',
         ]);
 
-        // Backlinks with context snippets — select only needed columns
-        $document->load(['backlinks' => fn ($q) => $q->select(['id', 'target_document_id', 'source_document_id', 'context'])->with('source:id,title,slug')]);
-
         return Inertia::render('Documents/Show', [
             'document'     => $document,
             'versionsCount' => $document->versions()->count(),
@@ -63,7 +60,7 @@ class DocumentController extends Controller
             $document->tags()->sync($request->input('tags'));
         }
 
-        return redirect()->route('documents.show', $document);
+        return redirect()->to(route('documents.show', $document) . '?edit=1');
     }
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
@@ -82,7 +79,7 @@ class DocumentController extends Controller
             }
         }
 
-        return back();
+        return redirect()->route('documents.show', $document);
     }
 
     public function destroy(Document $document): RedirectResponse

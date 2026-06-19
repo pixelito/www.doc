@@ -3,9 +3,11 @@ import { IconChevronRight, IconHistory, IconClock, IconUser } from '@tabler/icon
 import DocsLayout from '@/Layouts/DocsLayout';
 
 function timeAgo(ts) {
-    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    if (!ts) return '—';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '—';
     const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60)  return 'just now';
+    if (diff < 60)   return 'just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });

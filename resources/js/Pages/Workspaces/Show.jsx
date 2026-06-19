@@ -102,9 +102,9 @@ function AddChildButton({ onClick }) {
             type="button"
             onClick={onClick}
             title="Add subpage"
-            className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-hover hover:text-sage-600"
+            className="flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600"
         >
-            <IconPlus className="h-3 w-3" stroke={2} />
+            <IconPlus className="h-3.5 w-3.5" stroke={2} />
         </button>
     );
 }

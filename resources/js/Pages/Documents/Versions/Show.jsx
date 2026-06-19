@@ -8,7 +8,9 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
 function timeAgo(ts) {
-    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    if (!ts) return '—';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleString('en-GB', {
         day: 'numeric', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',

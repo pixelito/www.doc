@@ -2,8 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
-    IconArrowRight, IconUser, IconTag, IconCircleCheck, IconClock,
-    IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus,
+    IconUser, IconTag, IconCircleCheck, IconClock,
+    IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,63 @@ import TipTapEditor from '@/components/editor/TipTapEditor';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+function isDocEmpty(content) {
+    const nodes = content?.content ?? [];
+    if (nodes.length === 0) return true;
+    if (nodes.length === 1) {
+        const n = nodes[0];
+        return n.type === 'paragraph' && (!n.content || n.content.length === 0);
+    }
+    return false;
+}
+
+function fmtDate(iso) {
+    if (!iso) return null;
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function timeAgo(iso) {
+    if (!iso) return null;
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60)      return 'just now';
+    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+    return fmtDate(iso);
+}
+
+function MetaItem({ icon: Icon, children }) {
+    return (
+        <span className="flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
+            {children}
+        </span>
+    );
+}
+
+function PageMeta({ document, versionsCount }) {
+    return (
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border-subtle pt-4 text-xs text-text-tertiary">
+            <MetaItem icon={IconCalendar}>
+                Created {fmtDate(document.created_at)}
+                {document.creator && (
+                    <> by <span className="text-text-secondary">{document.creator.name}</span></>
+                )}
+            </MetaItem>
+            <MetaItem icon={IconClock}>
+                Edited {timeAgo(document.updated_at)}
+                {document.updater && (
+                    <> by <span className="text-text-secondary">{document.updater.name}</span></>
+                )}
+            </MetaItem>
+            <MetaItem icon={IconHistory}>
+                <span className="text-text-secondary">{versionsCount}</span>{' '}
+                {versionsCount === 1 ? 'version' : 'versions'}
+            </MetaItem>
+        </div>
+    );
+}
 
 function ExportModal({ documentId, open, onClose }) {
     const [format, setFormat]   = useState('pdf');
@@ -172,9 +229,10 @@ function ExportModal({ documentId, open, onClose }) {
 }
 
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
-    const [isEditing, setIsEditing]       = useState(false);
+    const [isEditing, setIsEditing]       = useState(
+        () => new URLSearchParams(window.location.search).get('edit') === '1'
+    );
     const [exportOpen, setExportOpen]     = useState(false);
-    const [backlinksOpen, setBacklinksOpen] = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
     const [editTags, setEditTags] = useState(document.tags.map((t) => t.id));
@@ -537,65 +595,31 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             {/* Content — full width */}
             <div className="mt-6">
                 <Card className="overflow-clip">
-                    <TipTapEditor
-                        key={isEditing ? 'edit' : 'view'}
-                        content={document.content}
-                        editable={isEditing}
-                        suggestions={allDocuments}
-                        resolvedLinks={resolvedLinks}
-                        onUpdate={handleEditorUpdate}
-                    />
+                    {!isEditing && isDocEmpty(document.content) ? (
+                        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
+                                <IconPencil className="h-6 w-6 text-sage-500" stroke={1.5} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-foreground">This page is empty</p>
+                                <p className="mt-0.5 text-xs text-text-tertiary">Click Edit to start writing.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <TipTapEditor
+                            key={isEditing ? 'edit' : 'view'}
+                            content={document.content}
+                            editable={isEditing}
+                            suggestions={allDocuments}
+                            resolvedLinks={resolvedLinks}
+                            onUpdate={handleEditorUpdate}
+                        />
+                    )}
                 </Card>
             </div>
 
-            {/* Referenced by — collapsible card */}
-            {document.backlinks.length > 0 && (
-                <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
-                    <button
-                        type="button"
-                        onClick={() => setBacklinksOpen((v) => !v)}
-                        className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-surface-hover"
-                    >
-                        <div className="flex items-center gap-2">
-                            <IconArrowRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
-                                Referenced by
-                            </span>
-                            <span className="rounded-full bg-sage-100 px-2 py-0.5 text-[11px] font-semibold text-sage-600">
-                                {document.backlinks.length}
-                            </span>
-                        </div>
-                        <IconChevronRight
-                            className={`h-3.5 w-3.5 text-text-tertiary transition-transform duration-150 ${backlinksOpen ? 'rotate-90' : ''}`}
-                            stroke={1.5}
-                        />
-                    </button>
-
-                    {backlinksOpen && (
-                        <div className="border-t border-border">
-                            {document.backlinks.map((link, i) => (
-                                <Link
-                                    key={link.id}
-                                    href={`/documents/${link.source.id}`}
-                                    className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-hover ${
-                                        i < document.backlinks.length - 1 ? 'border-b border-border-subtle' : ''
-                                    }`}
-                                >
-                                    <IconFileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-sage-600">{link.source.title}</p>
-                                        {link.context && (
-                                            <p className="mt-0.5 text-xs text-text-tertiary leading-relaxed line-clamp-2">
-                                                {link.context}
-                                            </p>
-                                        )}
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Page metadata strip */}
+            <PageMeta document={document} versionsCount={versionsCount} />
             <ExportModal
                 documentId={document.id}
                 open={exportOpen}
