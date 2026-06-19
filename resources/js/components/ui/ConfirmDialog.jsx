@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { IconX } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Custom confirmation dialog matching the project design system.
@@ -38,11 +39,6 @@ export default function ConfirmDialog({
 
     if (!open) return null;
 
-    const confirmCls =
-        variant === 'danger'
-            ? 'bg-danger text-text-inverse hover:opacity-90'
-            : 'bg-primary text-text-inverse hover:opacity-90';
-
     return createPortal(
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -71,20 +67,16 @@ export default function ConfirmDialog({
 
                 {/* Footer */}
                 <div className="flex justify-end gap-2 border-t border-border-subtle bg-canvas px-5 py-3.5">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-surface-hover"
-                    >
+                    <Button type="button" variant="outline" onClick={onCancel}>
                         {cancelLabel}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
+                        variant={variant === 'danger' ? 'destructive' : 'default'}
                         onClick={onConfirm}
-                        className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-opacity ${confirmCls}`}
                     >
                         {confirmLabel}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>,

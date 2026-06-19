@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { router } from '@inertiajs/react';
 import { IconX } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Modal for creating a new page, following the design-system dialog pattern.
@@ -116,20 +117,12 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
 
                     {/* Footer */}
                     <div className="flex justify-end gap-2 border-t border-border-subtle bg-canvas px-5 py-3.5">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-surface-hover"
-                        >
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            className="rounded-lg bg-primary px-3.5 py-1.5 text-[13px] font-medium text-text-inverse transition-opacity hover:opacity-90 disabled:opacity-50"
-                        >
+                        </Button>
+                        <Button type="submit" disabled={busy}>
                             {busy ? 'Creating…' : 'Create page'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
