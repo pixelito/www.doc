@@ -3,13 +3,12 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconArrowRight, IconUser, IconTag, IconCircleCheck, IconClock,
-    IconDownload, IconLoader2, IconHistory, IconFileText,
+    IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -116,12 +115,13 @@ function ExportModal({ documentId, open, onClose }) {
                         ))}
 
                         <div className="flex justify-end gap-2 pt-2">
-                            <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                            <Button size="sm" variant="outline" onClick={handleClose}>Cancel</Button>
                             <Button
+                                size="sm"
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={startExport}
                             >
-                                <IconDownload className="mr-1.5 h-4 w-4" stroke={1.5} />
+                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
                                 Export
                             </Button>
                         </div>
@@ -142,12 +142,13 @@ function ExportModal({ documentId, open, onClose }) {
                         <IconCircleCheck className="h-10 w-10 text-sage-400" stroke={1.5} />
                         <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleClose}>Close</Button>
+                            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
                             <Button
+                                size="sm"
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={triggerDownload}
                             >
-                                <IconDownload className="mr-1.5 h-4 w-4" stroke={1.5} />
+                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
                                 Download {format.toUpperCase()}
                             </Button>
                         </div>
@@ -160,8 +161,8 @@ function ExportModal({ documentId, open, onClose }) {
                         <p className="text-sm font-medium text-danger">Export failed</p>
                         {error && <p className="text-xs text-text-secondary">{error}</p>}
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleClose}>Close</Button>
-                            <Button onClick={() => { reset(); startExport(); }}>Retry</Button>
+                            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
+                            <Button size="sm" onClick={() => { reset(); startExport(); }}>Retry</Button>
                         </div>
                     </div>
                 )}
@@ -186,6 +187,11 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     const [deleteOpen, setDeleteOpen]   = useState(false);
     const isDirtyRef = useRef(false);
 
+    const [showNewTag, setShowNewTag]           = useState(false);
+    const [newTagName, setNewTagName]           = useState('');
+    const [newTagProcessing, setNewTagProcessing] = useState(false);
+    const [newTagError, setNewTagError]         = useState('');
+
     // Build resolvedLinks map: { "Page Title": "/documents/id" }
     const resolvedLinks = Object.fromEntries(
         (document.outgoing_links ?? [])
@@ -204,7 +210,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         return () => window.removeEventListener('beforeunload', handler);
     }, [isEditing]);
 
-    // Reset form fields when entering edit mode
+    // Reset form fields when entering/leaving edit mode
     useEffect(() => {
         if (isEditing) {
             setEditTitle(document.title);
@@ -212,6 +218,10 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             editorContentRef.current = document.content;
             setSaveStatus(null);
             isDirtyRef.current = false;
+        } else {
+            setShowNewTag(false);
+            setNewTagName('');
+            setNewTagError('');
         }
     }, [isEditing]);
 
@@ -270,6 +280,29 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         );
     }
 
+    function submitNewTag(e) {
+        e.preventDefault();
+        const name = newTagName.trim();
+        if (!name || newTagProcessing) return;
+        setNewTagProcessing(true);
+        setNewTagError('');
+        router.post('/tags', { name }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const created = (page.props.allTags ?? []).find(t => t.name === name);
+                if (created) setEditTags(prev => prev.includes(created.id) ? prev : [...prev, created.id]);
+                setNewTagName('');
+                setShowNewTag(false);
+                setNewTagProcessing(false);
+            },
+            onError: (errors) => {
+                setNewTagError(errors.name ?? 'Failed to create tag.');
+                setNewTagProcessing(false);
+            },
+        });
+    }
+
     function destroyDocument() {
         setDeleteOpen(true);
     }
@@ -315,14 +348,14 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 {isEditing ? (
                     <div className="flex-1">
-                        <Label htmlFor="edit-title" className="sr-only">Page title</Label>
-                        <Input
+                        <label htmlFor="edit-title" className="sr-only">Page title</label>
+                        <input
                             id="edit-title"
                             type="text"
                             value={editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
-                            className="text-2xl font-semibold"
                             placeholder="Page title"
+                            className="w-full bg-transparent text-2xl font-semibold text-foreground outline-none placeholder:text-text-tertiary border-b border-border-subtle focus:border-sage-400 transition-colors duration-150"
                         />
                     </div>
                 ) : (
@@ -367,45 +400,50 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 </span>
                             )}
                             <Button
+                                size="sm"
                                 onClick={handleExplicitSave}
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                             >
-                                <IconDeviceFloppy className="h-4 w-4" stroke={1.5} />
+                                <IconDeviceFloppy className="h-3.5 w-3.5" stroke={1.5} />
                                 Save
                             </Button>
                             <Button
+                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={handleCancelEdit}
                             >
-                                <IconX className="h-4 w-4" stroke={1.5} />
+                                <IconX className="h-3.5 w-3.5" stroke={1.5} />
                                 Cancel
                             </Button>
                         </>
                     ) : (
                         <>
                             <Button
+                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setExportOpen(true)}
                             >
-                                <IconDownload className="h-4 w-4" stroke={1.5} />
+                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
                                 Export
                             </Button>
                             <Button
+                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setIsEditing(true)}
                             >
-                                <IconPencil className="h-4 w-4" stroke={1.5} />
+                                <IconPencil className="h-3.5 w-3.5" stroke={1.5} />
                                 Edit
                             </Button>
                             <Button
+                                size="sm"
                                 variant="outline"
                                 className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
                                 onClick={destroyDocument}
                             >
-                                <IconTrash className="h-4 w-4" stroke={1.5} />
+                                <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
                                 Delete
                             </Button>
                         </>
@@ -414,10 +452,10 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             </div>
 
             {/* Tags — edit mode toggle */}
-            {isEditing && allTags.length > 0 && (
+            {isEditing && (
                 <div className="mt-4">
                     <p className="mb-2 text-xs font-medium text-text-secondary">Tags</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                         {allTags.map((tag) => {
                             const selected = editTags.includes(tag.id);
                             return (
@@ -425,7 +463,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     key={tag.id}
                                     type="button"
                                     onClick={() => handleTagToggle(tag.id)}
-                                    className={`inline-flex cursor-pointer items-center rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
+                                    className={`inline-flex cursor-pointer items-center rounded-sm border px-2.5 py-0.5 text-xs font-medium transition-all ${
                                         selected
                                             ? 'border-sage-200 bg-sage-100 text-sage-600'
                                             : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
@@ -436,7 +474,47 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 </button>
                             );
                         })}
+
+                        {showNewTag ? (
+                            <form onSubmit={submitNewTag} className="flex items-center gap-1">
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={newTagName}
+                                    onChange={(e) => { setNewTagName(e.target.value); setNewTagError(''); }}
+                                    onKeyDown={(e) => { if (e.key === 'Escape') { setShowNewTag(false); setNewTagName(''); setNewTagError(''); } }}
+                                    placeholder="Tag name"
+                                    className="h-[22px] w-28 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none placeholder:text-text-tertiary focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!newTagName.trim() || newTagProcessing}
+                                    className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500 disabled:opacity-50"
+                                >
+                                    {newTagProcessing ? '…' : 'Add'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowNewTag(false); setNewTagName(''); setNewTagError(''); }}
+                                    className="rounded-sm px-1.5 py-0.5 text-xs text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+                                >
+                                    Cancel
+                                </button>
+                            </form>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setShowNewTag(true)}
+                                className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-0.5 text-xs text-text-tertiary transition-colors hover:border-sage-300 hover:text-sage-600"
+                            >
+                                <IconPlus className="h-3 w-3" stroke={2} />
+                                New tag
+                            </button>
+                        )}
                     </div>
+                    {newTagError && (
+                        <p className="mt-1 text-[11px] text-danger">{newTagError}</p>
+                    )}
                 </div>
             )}
 

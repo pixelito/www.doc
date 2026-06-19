@@ -143,11 +143,13 @@
 .tiptap-edit-area .tiptap {
     min-height: 400px;
     padding: 1.25rem 1.5rem;
+    font-size: 15px;
     outline: none;
 }
 
 .tiptap-read-area .tiptap {
     padding: 1.5rem 2rem;
+    font-size: 15px;
     outline: none;
 }
 
