@@ -171,7 +171,7 @@ export default function SearchIndex({ q, results }) {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search pages, workspaces, tags…"
-                        className="h-9 w-full rounded-sm border border-border bg-canvas pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-9 w-full rounded-sm border border-border bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     />
                 </form>
 
@@ -200,7 +200,7 @@ export default function SearchIndex({ q, results }) {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => { setSortBy(e.target.value); setShowAll(false); }}
-                                    className="rounded-sm border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="h-[33px] rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                                 >
                                     <option value="relevance">Relevance</option>
                                     <option value="newest">Newest first</option>

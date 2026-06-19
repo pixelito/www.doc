@@ -35,7 +35,7 @@ function PasswordInput({ value, onChange, placeholder, id }) {
 
 function SaveButton({ saving, success, label = 'Save changes' }) {
     return (
-        <Button type="submit" size="sm" disabled={saving}>
+        <Button type="submit" disabled={saving}>
             {saving
                 ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
                 : success

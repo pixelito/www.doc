@@ -337,19 +337,18 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" asChild>
                         <Link href={`/workspaces/${workspace.id}/imports/create`}>
-                            <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
+                            <IconUpload stroke={1.5} />
                             Import
                         </Link>
                     </Button>
                     <Button
                         variant="outline"
-                        size="sm"
                         className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
                         onClick={() => setDeleteOpen(true)}
                     >
-                        <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                        <IconTrash stroke={1.5} />
                         Delete
                     </Button>
                 </div>

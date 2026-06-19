@@ -172,13 +172,12 @@ function ExportModal({ documentId, open, onClose }) {
                         ))}
 
                         <div className="flex justify-end gap-2 pt-2">
-                            <Button size="sm" variant="outline" onClick={handleClose}>Cancel</Button>
+                            <Button variant="outline" onClick={handleClose}>Cancel</Button>
                             <Button
-                                size="sm"
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={startExport}
                             >
-                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconDownload stroke={1.5} />
                                 Export
                             </Button>
                         </div>
@@ -199,13 +198,12 @@ function ExportModal({ documentId, open, onClose }) {
                         <IconCircleCheck className="h-10 w-10 text-sage-400" stroke={1.5} />
                         <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
                         <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
+                            <Button variant="outline" onClick={handleClose}>Close</Button>
                             <Button
-                                size="sm"
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                                 onClick={triggerDownload}
                             >
-                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconDownload stroke={1.5} />
                                 Download {format.toUpperCase()}
                             </Button>
                         </div>
@@ -218,8 +216,8 @@ function ExportModal({ documentId, open, onClose }) {
                         <p className="text-sm font-medium text-danger">Export failed</p>
                         {error && <p className="text-xs text-text-secondary">{error}</p>}
                         <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
-                            <Button size="sm" onClick={() => { reset(); startExport(); }}>Retry</Button>
+                            <Button variant="outline" onClick={handleClose}>Close</Button>
+                            <Button onClick={() => { reset(); startExport(); }}>Retry</Button>
                         </div>
                     </div>
                 )}
@@ -458,50 +456,45 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 </span>
                             )}
                             <Button
-                                size="sm"
                                 onClick={handleExplicitSave}
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                             >
-                                <IconDeviceFloppy className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconDeviceFloppy stroke={1.5} />
                                 Save
                             </Button>
                             <Button
-                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={handleCancelEdit}
                             >
-                                <IconX className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconX stroke={1.5} />
                                 Cancel
                             </Button>
                         </>
                     ) : (
                         <>
                             <Button
-                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setExportOpen(true)}
                             >
-                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconDownload stroke={1.5} />
                                 Export
                             </Button>
                             <Button
-                                size="sm"
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
                                 onClick={() => setIsEditing(true)}
                             >
-                                <IconPencil className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconPencil stroke={1.5} />
                                 Edit
                             </Button>
                             <Button
-                                size="sm"
                                 variant="outline"
                                 className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
                                 onClick={destroyDocument}
                             >
-                                <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                                <IconTrash stroke={1.5} />
                                 Delete
                             </Button>
                         </>
