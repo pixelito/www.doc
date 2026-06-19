@@ -74,48 +74,62 @@ export const ImageUpload = Extension.create({
                         const cd = event.clipboardData;
                         if (!cd) return false;
 
-                        // Direct image files from clipboard (e.g. screenshot paste)
-                        const imageFiles = Array.from(cd.files).filter(f =>
-                            f.type.startsWith('image/')
-                        );
-                        if (imageFiles.length > 0) {
+                        const imageFiles = Array.from(cd.files).filter(f => f.type.startsWith('image/'));
+                        const html       = cd.getData('text/html');
+                        const htmlHasImg = html && /<img/i.test(html);
+
+                        // Pure image file(s) — screenshot or copy-image with no surrounding HTML.
+                        // When HTML with <img> is also present we fall through to preserve text context.
+                        if (imageFiles.length > 0 && !htmlHasImg) {
                             event.preventDefault();
                             insertFiles(editor, view, imageFiles);
                             return true;
                         }
 
-                        // HTML paste containing data: URIs or external <img> srcs
-                        const html = cd.getData('text/html');
-                        if (html && /<img/i.test(html)) {
-                            const hasDataUri = html.includes('data:image/');
-                            const hasExternal = /src=["']https?:\/\//i.test(html);
+                        // HTML paste containing <img> — handles three src formats:
+                        //   data:image/…  → upload directly
+                        //   https?://…    → rehost via asset API
+                        //   file://…      → pair positionally with cd.files and upload
+                        //                   (LibreOffice on Linux puts images as file:// refs
+                        //                    alongside the image file in cd.files)
+                        if (htmlHasImg) {
+                            const parsed = new DOMParser().parseFromString(html, 'text/html');
+                            const imgs   = Array.from(parsed.querySelectorAll('img'));
 
-                            if (hasDataUri || hasExternal) {
-                                // Let TipTap process the HTML normally (transformPastedHTML
-                                // runs first), then async-replace image srcs with hosted URLs.
-                                (async () => {
-                                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                                    await Promise.all(
-                                        Array.from(doc.querySelectorAll('img')).map(async img => {
-                                            const src = img.getAttribute('src') ?? '';
-                                            try {
-                                                if (src.startsWith('data:image/')) {
-                                                    const { url } = await uploadFile(dataUriToFile(src));
-                                                    img.setAttribute('src', url);
-                                                } else if (/^https?:\/\//i.test(src)) {
-                                                    const { url } = await rehostUrl(src);
-                                                    img.setAttribute('src', url);
-                                                }
-                                            } catch {
-                                                // Leave original src on failure
-                                            }
-                                        })
-                                    );
-                                    editor.chain().focus().insertContent(doc.body.innerHTML).run();
-                                })();
-                                // Return true to suppress TipTap's default HTML paste so we
-                                // don't double-insert; our async chain inserts the cleaned HTML.
+                            const hasDataUri  = imgs.some(img => (img.getAttribute('src') ?? '').startsWith('data:image/'));
+                            const hasExternal = imgs.some(img => /^https?:\/\//i.test(img.getAttribute('src') ?? ''));
+                            const hasFileRef  = imgs.some(img => (img.getAttribute('src') ?? '').startsWith('file://'));
+
+                            if (hasDataUri || hasExternal || hasFileRef) {
                                 event.preventDefault();
+                                // fileIdx increments synchronously inside map() before any await,
+                                // so positional pairing with cd.files is deterministic.
+                                let fileIdx = 0;
+                                (async () => {
+                                    await Promise.all(imgs.map(async img => {
+                                        const src = img.getAttribute('src') ?? '';
+                                        try {
+                                            if (src.startsWith('data:image/')) {
+                                                const { url } = await uploadFile(dataUriToFile(src));
+                                                img.setAttribute('src', url);
+                                            } else if (/^https?:\/\//i.test(src)) {
+                                                const { url } = await rehostUrl(src);
+                                                img.setAttribute('src', url);
+                                            } else if (src.startsWith('file://')) {
+                                                const file = imageFiles[fileIdx++];
+                                                if (file) {
+                                                    const { url } = await uploadFile(file);
+                                                    img.setAttribute('src', url);
+                                                } else {
+                                                    img.remove();
+                                                }
+                                            }
+                                        } catch {
+                                            if ((img.getAttribute('src') ?? '').startsWith('file://')) img.remove();
+                                        }
+                                    }));
+                                    editor.chain().focus().insertContent(parsed.body.innerHTML).run();
+                                })();
                                 return true;
                             }
                         }
