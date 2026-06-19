@@ -20,7 +20,7 @@ function ToolbarButton({ onClick, active, title, children, disabled }) {
                 e.preventDefault();
                 onClick();
             }}
-            className={`flex h-7 w-7 items-center justify-center rounded transition-colors duration-100 ${
+            className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors duration-100 ${
                 active
                     ? 'bg-sage-100 text-sage-600'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
@@ -198,11 +198,11 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
                         placeholder="https://..."
-                        className="h-6 rounded border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                        className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                         style={{ width: 200 }}
                     />
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink(); }}
-                        className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                        className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
                         Apply
                     </button>
                 </div>
@@ -225,7 +225,7 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Enter')  insertTable();
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
-                        className="h-6 w-12 rounded border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     />
                     <label className="text-xs text-text-secondary">Cols</label>
                     <input type="number" min={1} max={20} value={tableCols}
@@ -234,10 +234,10 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Enter')  insertTable();
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
-                        className="h-6 w-12 rounded border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     />
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); insertTable(); }}
-                        className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                        className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
                         Insert
                     </button>
                 </div>
@@ -321,7 +321,7 @@ export default function Toolbar({ editor }) {
                     {imageMode === 'upload' ? (
                         <button type="button"
                             onMouseDown={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
-                            className="rounded border border-border bg-canvas px-2 py-0.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover">
+                            className="rounded-sm border border-border bg-canvas px-2 py-0.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover">
                             Choose file…
                         </button>
                     ) : (
@@ -333,11 +333,11 @@ export default function Toolbar({ editor }) {
                                     if (e.key === 'Escape') setOpenPicker(null);
                                 }}
                                 placeholder="https://…"
-                                className="h-6 rounded border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-2 focus:ring-sage-200"
+                                className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                                 style={{ width: 200 }}
                             />
                             <button type="button" onMouseDown={(e) => { e.preventDefault(); insertImageUrl(); }}
-                                className="rounded bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                                className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
                                 Insert
                             </button>
                         </>

@@ -60,7 +60,6 @@ Self-hosted wiki/documentation platform for sysadmin and networking teams. Singl
 ## What's planned (Phase 7+)
 
 - **Deployment hardening** — multi-stage Dockerfile, Caddy edge proxy, Komodo stack, security pass, backups, Sentry
-- **Phase 8 extensions** — syntax-highlighted code blocks (lowlight), callout/admonition nodes, Mermaid diagrams, AI summaries/semantic search, real-time collab (Yjs), encrypted secrets
 
 ---
 

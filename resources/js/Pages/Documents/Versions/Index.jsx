@@ -18,17 +18,17 @@ export default function VersionsIndex({ document, workspace, versions }) {
 
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
                 <Link href="/workspaces" className="hover:text-foreground">Workspaces</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/workspaces/${workspace.id}`} className="hover:text-foreground">{workspace.name}</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/documents/${document.id}`} className="hover:text-foreground">{document.title}</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
-                <span className="text-foreground">History</span>
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                <span className="font-medium text-foreground">History</span>
             </nav>
 
             <div className="mb-4 flex items-center gap-2">
                 <IconHistory className="h-5 w-5 text-sage-500" stroke={1.5} />
-                <h1 className="text-xl font-semibold text-foreground">Version history</h1>
+                <h1 className="text-[19px] font-semibold text-foreground">Version history</h1>
                 <span className="ml-1 text-sm text-text-tertiary">({versions.length})</span>
             </div>
 
@@ -59,11 +59,11 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                                    <IconUser className="h-3 w-3 text-text-tertiary" stroke={1.5} />
+                                    <IconUser className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                                     {v.creator?.name ?? '—'}
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                                    <IconClock className="h-3 w-3" stroke={1.5} />
+                                    <IconClock className="h-3.5 w-3.5" stroke={1.5} />
                                     {timeAgo(v.created_at)}
                                 </div>
                             </li>

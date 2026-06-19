@@ -35,19 +35,19 @@ export default function VersionShow({ document: doc, workspace, version }) {
             {/* Breadcrumb */}
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
                 <Link href="/workspaces" className="hover:text-foreground">Workspaces</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/workspaces/${workspace.id}`} className="hover:text-foreground">{workspace.name}</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/documents/${doc.id}`} className="hover:text-foreground">{doc.title}</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/documents/${doc.id}/versions`} className="hover:text-foreground">History</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
-                <span className="text-foreground">Version</span>
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                <span className="font-medium text-foreground">Version</span>
             </nav>
 
             {/* Snapshot banner */}
-            <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                <div className="text-sm text-amber-800">
+            <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-[#E8C58E] bg-[#FAF1E2] px-4 py-3">
+                <div className="text-sm text-[#7A5520]">
                     <span className="font-medium">Read-only snapshot</span>
                     {' · '}Saved {timeAgo(version.created_at)}
                     {version.creator && <> by <span className="font-medium">{version.creator.name}</span></>}

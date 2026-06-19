@@ -77,9 +77,9 @@ export default function TagsIndex({ tags }) {
                                         type="button"
                                         onClick={() => setTagToDelete(tag)}
                                         title={`Delete ${tag.name}`}
-                                        className="flex h-5 w-5 items-center justify-center rounded text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger/10 hover:text-danger"
+                                        className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger/10 hover:text-danger"
                                     >
-                                        <IconTrash className="h-3 w-3" stroke={1.5} />
+                                        <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
                                     </button>
                                 </div>
                             </li>

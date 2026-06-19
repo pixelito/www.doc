@@ -20,7 +20,7 @@ function Chip({ active, onClick, children }) {
         <button
             type="button"
             onClick={onClick}
-            className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+            className={`rounded-sm px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 active
                     ? 'bg-sage-100 text-sage-600'
                     : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'
@@ -171,7 +171,7 @@ export default function SearchIndex({ q, results }) {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search pages, workspaces, tags…"
-                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-9 w-full rounded-sm border border-border bg-canvas pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     />
                 </form>
 
@@ -200,7 +200,7 @@ export default function SearchIndex({ q, results }) {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => { setSortBy(e.target.value); setShowAll(false); }}
-                                    className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-sage-400"
+                                    className="rounded-sm border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                                 >
                                     <option value="relevance">Relevance</option>
                                     <option value="newest">Newest first</option>
@@ -256,7 +256,7 @@ export default function SearchIndex({ q, results }) {
                                         <button
                                             type="button"
                                             onClick={() => setShowAll(true)}
-                                            className="rounded-md border border-border bg-transparent px-4 py-1.5 text-xs text-foreground transition-colors hover:bg-surface-hover"
+                                            className="rounded-sm border border-border bg-transparent px-4 py-1.5 text-xs text-foreground transition-colors hover:bg-surface-hover"
                                         >
                                             Show {remaining} more result{remaining !== 1 ? 's' : ''}
                                         </button>

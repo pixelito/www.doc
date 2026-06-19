@@ -58,7 +58,7 @@ export default function ConfirmDialog({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="flex h-7 w-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+                        className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
                     >
                         <IconX className="h-4 w-4" stroke={1.5} />
                     </button>

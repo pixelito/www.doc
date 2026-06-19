@@ -83,21 +83,21 @@ export default function Dashboard({ stats, recent }) {
                         <div className="flex items-center gap-1 border-t border-sage-200 px-3 py-1.5">
                             <Link
                                 href="/workspaces"
-                                className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
+                                className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
                             >
                                 <IconLayoutGrid className="h-3.5 w-3.5" stroke={1.5} />
                                 Workspaces
                             </Link>
                             <Link
                                 href="/tags"
-                                className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
+                                className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
                             >
                                 <IconTag className="h-3.5 w-3.5" stroke={1.5} />
                                 Tags
                             </Link>
                             <Link
                                 href="/search"
-                                className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
+                                className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-sage-600 transition-colors hover:bg-sage-100"
                             >
                                 <IconSearch className="h-3.5 w-3.5" stroke={1.5} />
                                 Search

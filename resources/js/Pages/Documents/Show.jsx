@@ -104,7 +104,7 @@ function ExportModal({ documentId, open, onClose }) {
                                 key={f.value}
                                 type="button"
                                 onClick={() => setFormat(f.value)}
-                                className={`w-full rounded-md border px-4 py-3 text-left transition-all ${
+                                className={`w-full rounded-sm border px-4 py-3 text-left transition-all ${
                                     format === f.value
                                         ? 'border-sage-400 bg-sage-50 ring-[3px] ring-sage-200/60'
                                         : 'border-border bg-surface hover:bg-surface-hover'
@@ -285,7 +285,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             <Head title={document.title} />
 
             {/* Breadcrumb */}
-            <nav className="flex flex-wrap items-center gap-1 text-sm text-text-secondary">
+            <nav className="flex flex-wrap items-center gap-1.5 text-sm text-text-secondary">
                 <Link href="/workspaces" className="transition-colors hover:text-foreground">
                     Workspaces
                 </Link>
@@ -335,14 +335,14 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 href={`/documents/${document.id}/versions`}
                                 className="flex items-center gap-1 transition-colors hover:text-sage-600"
                             >
-                                <IconHistory className="h-3 w-3" stroke={1.5} />
+                                <IconHistory className="h-3.5 w-3.5" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
                             </Link>
                             {document.updater && (
                                 <>
                                     <span>·</span>
                                     <span className="flex items-center gap-1">
-                                        <IconUser className="h-3 w-3" stroke={1.5} />
+                                        <IconUser className="h-3.5 w-3.5" stroke={1.5} />
                                         {document.updater.name}
                                     </span>
                                 </>
@@ -425,7 +425,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     key={tag.id}
                                     type="button"
                                     onClick={() => handleTagToggle(tag.id)}
-                                    className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1 text-xs font-medium transition-all ${
+                                    className={`inline-flex cursor-pointer items-center rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
                                         selected
                                             ? 'border-sage-200 bg-sage-100 text-sage-600'
                                             : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
@@ -449,7 +449,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                             href={`/tags/${tag.id}`}
                             className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600 transition-colors hover:bg-sage-200"
                         >
-                            <IconTag className="h-2.5 w-2.5 shrink-0" stroke={2} />
+                            <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
                             {tag.name}
                         </Link>
                     ))}
@@ -480,7 +480,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     >
                         <div className="flex items-center gap-2">
                             <IconArrowRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
                                 Referenced by
                             </span>
                             <span className="rounded-full bg-sage-100 px-2 py-0.5 text-[11px] font-semibold text-sage-600">

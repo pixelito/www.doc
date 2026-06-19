@@ -1,5 +1,5 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { IconBook2, IconSettings, IconLogout } from '@tabler/icons-react';
+import { IconSettings, IconLogout } from '@tabler/icons-react';
 
 function initials(name) {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -19,7 +19,7 @@ export default function AppLayout({ children }) {
                 <div className="mx-auto max-w-7xl flex h-12 items-center px-5">
                     {/* Brand */}
                     <Link href="/dashboard" className="flex items-center gap-2">
-                        <IconBook2 className="h-5 w-5 text-sage-600" stroke={1.5} />
+                        <img src="/favicon.svg" className="h-5 w-5" alt="" />
                         <span className="text-[15px] font-semibold text-foreground">
                             <span className="font-normal">www.</span><span className="font-extrabold">doc</span>
                         </span>

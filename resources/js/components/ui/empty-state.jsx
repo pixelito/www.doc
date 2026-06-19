@@ -2,11 +2,17 @@ import { cn } from '@/lib/utils';
 
 export function EmptyState({ icon: Icon, title, description, children, className }) {
     return (
-        <div className={cn('rounded-md border border-dashed border-border bg-surface p-12 text-center', className)}>
-            {Icon && <Icon className="mx-auto h-6 w-6 text-text-tertiary" stroke={1.5} />}
-            {title && <p className="mt-2 text-sm font-medium text-text-secondary">{title}</p>}
-            {description && <p className="mt-1 text-sm text-text-tertiary">{description}</p>}
-            {children && <div className="mt-4">{children}</div>}
+        <div className={cn('flex flex-col items-center gap-3 px-6 py-12 text-center', className)}>
+            {Icon && (
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
+                    <Icon className="h-6 w-6 text-sage-500" stroke={1.5} />
+                </div>
+            )}
+            <div>
+                {title && <p className="text-sm font-medium text-foreground">{title}</p>}
+                {description && <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>}
+            </div>
+            {children && <div>{children}</div>}
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import {
     DndContext,
     PointerSensor,
@@ -101,7 +102,7 @@ function AddChildButton({ onClick }) {
             type="button"
             onClick={onClick}
             title="Add subpage"
-            className="flex h-5 w-5 items-center justify-center rounded text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-hover hover:text-sage-600"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-hover hover:text-sage-600"
         >
             <IconPlus className="h-3 w-3" stroke={2} />
         </button>
@@ -243,6 +244,7 @@ export default function WorkspaceShow({ workspace, tree }) {
     const [activeTag, setActiveTag] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalParentId, setModalParentId] = useState('');
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     useEffect(() => { setRootNodes(tree); }, [tree]);
 
@@ -287,9 +289,7 @@ export default function WorkspaceShow({ workspace, tree }) {
     }
 
     function destroyWorkspace() {
-        if (confirm(`Delete workspace "${workspace.name}" and all its pages?`)) {
-            router.delete(`/workspaces/${workspace.id}`);
-        }
+        router.delete(`/workspaces/${workspace.id}`);
     }
 
     const pageCount = workspace.documents_count ?? rootNodes.length;
@@ -326,7 +326,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                         variant="outline"
                         size="sm"
                         className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
-                        onClick={destroyWorkspace}
+                        onClick={() => setDeleteOpen(true)}
                     >
                         <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
                         Delete
@@ -343,7 +343,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                             key={tag.id}
                             type="button"
                             onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
-                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                            className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
                                 activeTag === tag.id
                                     ? 'bg-sage-100 text-sage-600'
                                     : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'
@@ -415,6 +415,17 @@ export default function WorkspaceShow({ workspace, tree }) {
             workspaceId={workspace.id}
             parentOptions={options}
             initialParentId={modalParentId}
+        />
+
+        <ConfirmDialog
+            open={deleteOpen}
+            title={`Delete "${workspace.name}"?`}
+            message={`This will permanently delete the workspace and all ${pageCount} ${pageCount === 1 ? 'page' : 'pages'} inside it. This cannot be undone.`}
+            confirmLabel="Delete workspace"
+            cancelLabel="Cancel"
+            variant="danger"
+            onConfirm={destroyWorkspace}
+            onCancel={() => setDeleteOpen(false)}
         />
         </>
     );

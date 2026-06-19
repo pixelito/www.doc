@@ -144,14 +144,14 @@ export default function Import({ workspace }) {
             {/* Breadcrumb */}
             <nav className="mb-5 flex items-center gap-1.5 text-sm text-text-secondary">
                 <Link href="/workspaces" className="hover:text-foreground">Workspaces</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
                 <Link href={`/workspaces/${workspace.id}`} className="hover:text-foreground">{workspace.name}</Link>
-                <IconChevronRight className="h-3.5 w-3.5" stroke={1.5} />
-                <span className="text-foreground">Import</span>
+                <IconChevronRight className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} />
+                <span className="font-medium text-foreground">Import</span>
             </nav>
 
             <div className="mx-auto max-w-xl">
-                <h1 className="mb-1 text-xl font-semibold text-foreground">Import document</h1>
+                <h1 className="mb-1 text-[19px] font-semibold text-foreground">Import document</h1>
                 <p className="mb-6 text-sm text-text-secondary">
                     Upload a <strong>.docx</strong> or <strong>.pdf</strong> file to create a new page in <em>{workspace.name}</em>.
                 </p>
@@ -179,7 +179,7 @@ export default function Import({ workspace }) {
                         </div>
 
                         {isPdf && (
-                            <div className="flex items-start gap-2 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                            <div className="flex items-start gap-2 rounded-sm border border-[#E8C58E] bg-[#FAF1E2] px-3 py-2.5 text-sm text-[#7A5520]">
                                 <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" stroke={1.5} />
                                 <span>PDF import extracts text only — formatting is not preserved.</span>
                             </div>

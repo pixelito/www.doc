@@ -127,15 +127,17 @@ export default function WorkspacesIndex({ workspaces: initial }) {
                     <h1 className="text-[19px] font-semibold text-foreground">Workspaces</h1>
                     <p className="mt-0.5 text-sm text-text-secondary">
                         {workspaces.length} {workspaces.length === 1 ? 'workspace' : 'workspaces'}
+                        {' · '}
+                        {workspaces.reduce((sum, w) => sum + (w.documents_count ?? 0), 0)} pages
                     </p>
                 </div>
                 {workspaces.length > 1 && (
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-sage-400"
+                        className="rounded-sm border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     >
-                        <option value="arranged">Arranged</option>
+                        <option value="arranged">Default</option>
                         <option value="updated">Last updated</option>
                     </select>
                 )}

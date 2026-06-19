@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { IconBook2, IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
+import { IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
 
 function initials(name) {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -48,7 +48,7 @@ export default function DocsLayout({ children }) {
                     {/* Brand + docs nav */}
                     <div className="flex shrink-0 items-center gap-5">
                         <Link href="/dashboard" className="flex items-center gap-2">
-                            <IconBook2 className="h-5 w-5 text-sage-600" stroke={1.5} />
+                            <img src="/favicon.svg" className="h-5 w-5" alt="" />
                             <span className="text-[15px] font-semibold text-foreground">
                                 <span className="font-normal">www.</span><span className="font-extrabold">doc</span>
                             </span>
