@@ -21,6 +21,12 @@ class DocxImporter implements ImporterContract
 
     public function import(string $filePath): array
     {
+        // PhpWord's reader checks numbering before heading style, so a *numbered*
+        // heading (heading style + <w:numPr>, very common in technical docs) is
+        // read as a list item and loses its heading level. Strip the numbering
+        // from heading paragraphs first so they're recognised as headings.
+        $this->unNumberHeadings($filePath);
+
         $phpWord = IOFactory::load($filePath, 'Word2007');
 
         // Extract title from document properties before rendering HTML
@@ -54,6 +60,49 @@ class DocxImporter implements ImporterContract
             'title'   => $title !== '' ? $title : 'Imported document',
             'content' => $doc,
         ];
+    }
+
+    /**
+     * Remove <w:numPr> from heading-styled paragraphs in word/document.xml, in
+     * place. Numbered headings would otherwise be read as list items because
+     * PhpWord's reader matches numbering before heading style. The auto-generated
+     * number prefix is cosmetic and not part of the heading text, so dropping it
+     * is lossless for our purposes. Real lists (no heading style) are untouched.
+     */
+    private function unNumberHeadings(string $filePath): void
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            return;
+        }
+
+        $xml = $zip->getFromName('word/document.xml');
+        if ($xml === false) {
+            $zip->close();
+            return;
+        }
+
+        $patched = preg_replace_callback(
+            '#<w:pPr\b[^>]*>.*?</w:pPr>#s',
+            function (array $m): string {
+                $pPr = $m[0];
+
+                if (! preg_match('/<w:pStyle\b[^>]*w:val="Heading\d"/', $pPr)) {
+                    return $pPr;
+                }
+
+                $pPr = preg_replace('#<w:numPr\b[^>]*>.*?</w:numPr>#s', '', $pPr);
+
+                return preg_replace('#<w:numPr\b[^>]*/>#', '', $pPr);
+            },
+            $xml
+        );
+
+        if (is_string($patched) && $patched !== $xml) {
+            $zip->addFromString('word/document.xml', $patched);
+        }
+
+        $zip->close();
     }
 
     /**
@@ -116,10 +165,11 @@ class DocxImporter implements ImporterContract
     /** Pull just the body content out of a full HTML document. */
     private function extractBody(string $html): string
     {
-        if (preg_match('/<body[^>]*>(.*?)<\/body>/si', $html, $m)) {
-            return $m[1];
-        }
+        $body = preg_match('/<body[^>]*>(.*?)<\/body>/si', $html, $m) ? $m[1] : $html;
 
-        return $html;
+        // PhpWord renders a Title (depth 0) as <h0>, which TipTap doesn't support
+        // and would otherwise flatten into a stray top-level text node. Promote it
+        // to a level-1 heading.
+        return str_ireplace(['<h0>', '</h0>'], ['<h1>', '</h1>'], $body);
     }
 }

@@ -55,6 +55,31 @@ test('docx import preserves heading levels', function () {
     expect($headings[1]['attrs']['level'])->toBe(2);
 });
 
+test('docx import recognises numbered headings', function () {
+    // A PhpWord heading has no numbering; inject a <w:numPr> to mimic a numbered
+    // heading from Word. PhpWord's reader would treat that as a list item and
+    // drop the heading level — the importer must strip the numbering first.
+    $path = makeFormattedDocx();
+
+    $zip = new \ZipArchive();
+    $zip->open($path);
+    $xml = $zip->getFromName('word/document.xml');
+    $xml = preg_replace(
+        '#(<w:pStyle w:val="Heading1"\s*/>)#',
+        '$1<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>',
+        $xml,
+        1
+    );
+    $zip->addFromString('word/document.xml', $xml);
+    $zip->close();
+
+    $result = app(DocxImporter::class)->import($path);
+    unlink($path);
+
+    $levels = collect(collectNodes($result['content'], 'heading'))->pluck('attrs.level');
+    expect($levels)->toContain(1);
+});
+
 test('docx import preserves the underline mark', function () {
     $path = makeFormattedDocx();
 
