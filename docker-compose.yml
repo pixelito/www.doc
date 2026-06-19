@@ -8,9 +8,9 @@ services:
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U docsapp"], interval: 5s, retries: 10 }
   redis: { image: redis:7-alpine }
   app:
-    build: { context: ., dockerfile: docker/app/Dockerfile.dev }
+    build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
     command: php artisan serve --host=0.0.0.0 --port=8000
-    environment:
+    environment: &app-env
       APP_ENV: local
       DB_CONNECTION: pgsql
       DB_HOST: db
@@ -23,7 +23,15 @@ services:
       SESSION_DRIVER: redis
     volumes: [".:/app"]
     ports: ["8000:8000"]
-    depends_on: { db: { condition: service_healthy }, redis: { condition: service_started } }
+    depends_on: &app-deps { db: { condition: service_healthy }, redis: { condition: service_started } }
+  worker:
+    build: *app-build
+    # Processes queued conversion jobs (DOCX/PDF import + export). Longer timeout
+    # so large imports aren't killed mid-parse. Restart on code changes.
+    command: php artisan queue:work --tries=3 --timeout=300
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: *app-deps
   vite:
     image: node:24-alpine
     working_dir: /app
