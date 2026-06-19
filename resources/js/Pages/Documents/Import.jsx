@@ -61,13 +61,14 @@ function FileDrop({ onFile, file }) {
     );
 }
 
-export default function Import({ workspace }) {
-    const [file, setFile]       = useState(null);
-    const [title, setTitle]     = useState('');
-    const [status, setStatus]   = useState('idle'); // idle | uploading | processing | done | failed
-    const [error, setError]     = useState(null);
-    const [docId, setDocId]     = useState(null);
-    const pollRef               = useRef(null);
+export default function Import({ workspace, pages = [], initialParentId = null }) {
+    const [file, setFile]         = useState(null);
+    const [title, setTitle]       = useState('');
+    const [parentId, setParentId] = useState(initialParentId ? String(initialParentId) : '');
+    const [status, setStatus]     = useState('idle'); // idle | uploading | processing | done | failed
+    const [error, setError]       = useState(null);
+    const [docId, setDocId]       = useState(null);
+    const pollRef                 = useRef(null);
 
     function stopPolling() {
         if (pollRef.current) {
@@ -110,6 +111,7 @@ export default function Import({ workspace }) {
         form.append('file', file);
         form.append('_token', CSRF());
         if (title.trim()) form.append('title', title.trim());
+        if (parentId) form.append('parent_id', parentId);
 
         try {
             const res = await fetch(`/workspaces/${workspace.id}/imports`, {
@@ -136,6 +138,7 @@ export default function Import({ workspace }) {
     }
 
     const isPdf = file?.name.endsWith('.pdf');
+    const selectedParent = pages.find(p => String(p.id) === parentId);
 
     return (
         <DocsLayout>
@@ -156,7 +159,6 @@ export default function Import({ workspace }) {
                     Upload a <strong>.docx</strong> or <strong>.pdf</strong> file to create a new page in <em>{workspace.name}</em>.
                 </p>
 
-                {/* Idle / uploading form */}
                 {(status === 'idle' || status === 'failed') && (
                     <form onSubmit={submit} className="space-y-4">
                         <FileDrop file={file} onFile={(f) => {
@@ -178,10 +180,33 @@ export default function Import({ workspace }) {
                             />
                         </div>
 
+                        {pages.length > 0 && (
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-foreground">
+                                    Parent page <span className="text-text-tertiary font-normal">(optional)</span>
+                                </label>
+                                <select
+                                    value={parentId}
+                                    onChange={(e) => setParentId(e.target.value)}
+                                    className="h-9 w-full rounded-sm border border-border bg-surface px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                >
+                                    <option value="">— Root level (no parent)</option>
+                                    {pages.map(p => (
+                                        <option key={p.id} value={String(p.id)}>{p.label}</option>
+                                    ))}
+                                </select>
+                                {selectedParent && (
+                                    <p className="mt-1 text-xs text-text-tertiary">
+                                        Will be created as a subpage of <span className="font-medium text-text-secondary">{selectedParent.label.trim()}</span>.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {isPdf && (
                             <div className="flex items-start gap-2 rounded-sm border border-[#E8C58E] bg-[#FAF1E2] px-3 py-2.5 text-sm text-[#7A5520]">
                                 <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" stroke={1.5} />
-                                <span>PDF import extracts text only — formatting is not preserved.</span>
+                                <span>PDF import extracts text only — formatting and images are not preserved.</span>
                             </div>
                         )}
 
@@ -201,7 +226,6 @@ export default function Import({ workspace }) {
                     </form>
                 )}
 
-                {/* Processing state */}
                 {(status === 'uploading' || status === 'processing') && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
                         <IconLoader2 className="h-8 w-8 animate-spin text-sage-500" stroke={1.5} />
@@ -218,7 +242,6 @@ export default function Import({ workspace }) {
                     </div>
                 )}
 
-                {/* Done state */}
                 {status === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
                         <IconCircleCheck className="h-10 w-10 text-sage-500" stroke={1.5} />

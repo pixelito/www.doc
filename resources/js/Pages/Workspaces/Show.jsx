@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import {
     DndContext,
@@ -96,20 +96,39 @@ function GripHandle({ listeners, attributes }) {
     );
 }
 
-function AddChildButton({ onClick }) {
+function ActionButton({ onClick, href, title, children }) {
+    const cls = "flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600";
+    if (href) {
+        return (
+            <Link href={href} title={title} onClick={(e) => e.stopPropagation()} className={cls}>
+                {children}
+            </Link>
+        );
+    }
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            title="Add subpage"
-            className="flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600"
-        >
-            <IconPlus className="h-3.5 w-3.5" stroke={2} />
+        <button type="button" onClick={onClick} title={title} className={cls}>
+            {children}
         </button>
     );
 }
 
-function SortableChildRow({ node, depth, parentId, onAddChild }) {
+function RowActions({ node, workspaceId, onAddChild }) {
+    return (
+        <div className="flex items-center justify-end gap-1">
+            <ActionButton
+                href={`/workspaces/${workspaceId}/imports/create?parent_id=${node.id}`}
+                title="Import as subpage"
+            >
+                <IconFileImport className="h-3.5 w-3.5" stroke={1.5} />
+            </ActionButton>
+            <ActionButton onClick={() => onAddChild(node.id)} title="Add subpage">
+                <IconPlus className="h-3.5 w-3.5" stroke={2} />
+            </ActionButton>
+        </div>
+    );
+}
+
+function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id: String(node.id), data: { parentId } });
 
@@ -118,7 +137,7 @@ function SortableChildRow({ node, depth, parentId, onAddChild }) {
             <li
                 ref={setNodeRef}
                 style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="group grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+                className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div
                     className="flex min-w-0 items-center gap-2 py-2.5 pr-4"
@@ -139,8 +158,8 @@ function SortableChildRow({ node, depth, parentId, onAddChild }) {
                 <div className="py-2.5 pr-4">
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
-                <div className="flex items-center justify-center py-2.5 pr-1.5">
-                    <AddChildButton onClick={() => onAddChild(node.id)} />
+                <div className="flex items-center justify-end py-2.5 pr-2">
+                    <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />
                 </div>
             </li>
 
@@ -155,6 +174,7 @@ function SortableChildRow({ node, depth, parentId, onAddChild }) {
                             node={child}
                             depth={depth + 1}
                             parentId={node.id}
+                            workspaceId={workspaceId}
                             onAddChild={onAddChild}
                         />
                     ))}
@@ -164,7 +184,7 @@ function SortableChildRow({ node, depth, parentId, onAddChild }) {
     );
 }
 
-function SortableRow({ node, activeTagId, onAddChild }) {
+function SortableRow({ node, activeTagId, workspaceId, onAddChild }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id: String(node.id), data: { parentId: null } });
 
@@ -173,7 +193,7 @@ function SortableRow({ node, activeTagId, onAddChild }) {
             <li
                 ref={setNodeRef}
                 style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="group grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+                className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
                     <GripHandle listeners={listeners} attributes={attributes} />
@@ -191,8 +211,8 @@ function SortableRow({ node, activeTagId, onAddChild }) {
                 <div className="py-3 pr-4">
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
-                <div className="flex items-center justify-center py-3 pr-1.5">
-                    <AddChildButton onClick={() => onAddChild(node.id)} />
+                <div className="flex items-center justify-end py-3 pr-2">
+                    <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />
                 </div>
             </li>
 
@@ -207,6 +227,7 @@ function SortableRow({ node, activeTagId, onAddChild }) {
                             node={child}
                             depth={1}
                             parentId={node.id}
+                            workspaceId={workspaceId}
                             onAddChild={onAddChild}
                         />
                     ))}
@@ -218,7 +239,7 @@ function SortableRow({ node, activeTagId, onAddChild }) {
 
 function FilteredRow({ node }) {
     return (
-        <li className="grid grid-cols-[1fr_110px_32px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
+        <li className="grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                 <Link
@@ -358,7 +379,7 @@ export default function WorkspaceShow({ workspace, tree }) {
             {/* Page table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_110px_32px] border-b border-border bg-surface-hover px-4 py-2.5">
+                <div className="grid grid-cols-[1fr_110px_64px] border-b border-border bg-surface-hover px-4 py-2.5">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Page</span>
                     <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
                     <span />
@@ -388,6 +409,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             key={node.id}
                                             node={node}
                                             activeTagId={activeTag}
+                                            workspaceId={workspace.id}
                                             onAddChild={openModal}
                                         />
                                     ))}
