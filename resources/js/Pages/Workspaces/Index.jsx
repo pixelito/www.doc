@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
-    IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus,
+    IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -75,6 +75,8 @@ function SortableRow({ workspace, draggable }) {
 }
 
 export default function WorkspacesIndex({ workspaces: initial }) {
+    const { auth } = usePage().props;
+    const isAdmin = (auth?.user?.roles ?? []).includes('admin');
     const [workspaces, setWorkspaces] = useState(initial);
     const [showForm, setShowForm]     = useState(false);
     const [sortBy, setSortBy]         = useState('arranged'); // 'arranged' | 'updated'
@@ -131,16 +133,25 @@ export default function WorkspacesIndex({ workspaces: initial }) {
                         {workspaces.reduce((sum, w) => sum + (w.documents_count ?? 0), 0)} pages
                     </p>
                 </div>
-                {workspaces.length > 1 && (
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="rounded-sm border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
-                    >
-                        <option value="arranged">Default</option>
-                        <option value="updated">Last updated</option>
-                    </select>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5 self-center">
+                    {workspaces.length > 1 && (
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="h-7 rounded-sm border border-border bg-surface px-2 text-xs text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        >
+                            <option value="arranged">Default</option>
+                            <option value="updated">Last updated</option>
+                        </select>
+                    )}
+                    {isAdmin && (
+                        <Button asChild size="icon-xs" variant="secondary" title="Trash" className="text-text-secondary">
+                            <Link href="/trash">
+                                <IconTrash stroke={1.5} />
+                            </Link>
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Table */}
@@ -161,13 +172,14 @@ export default function WorkspacesIndex({ workspaces: initial }) {
                             <p className="text-sm font-medium text-foreground">No workspaces yet</p>
                             <p className="mt-0.5 text-xs text-text-tertiary">Create a workspace to start organising your docs.</p>
                         </div>
-                        <button
+                        <Button
                             type="button"
+                            size="xs"
                             onClick={() => setShowForm(true)}
-                            className="mt-1 rounded-sm bg-primary px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-opacity hover:opacity-90"
+                            className="mt-1"
                         >
                             Create workspace
-                        </button>
+                        </Button>
                     </div>
                 ) : (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={sortBy === 'arranged' ? handleDragEnd : undefined}>

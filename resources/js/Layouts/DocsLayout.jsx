@@ -53,9 +53,6 @@ export default function DocsLayout({ children }) {
                         <nav className="hidden items-center gap-0.5 sm:flex">
                             <NavLink href="/workspaces">Workspaces</NavLink>
                             <NavLink href="/tags">Tags</NavLink>
-                            {(auth?.user?.roles ?? []).includes('admin') && (
-                                <NavLink href="/trash">Trash</NavLink>
-                            )}
                         </nav>
                     </div>
 
