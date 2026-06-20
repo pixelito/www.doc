@@ -20,13 +20,21 @@ class WorkspaceSeeder extends Seeder
 
         // ── Tags ──────────────────────────────────────────────────────────────
         $tags = [
-            'guide'    => Tag::firstOrCreate(['name' => 'Guide']),
-            'style'    => Tag::firstOrCreate(['name' => 'Style']),
-            'design'   => Tag::firstOrCreate(['name' => 'Design']),
-            'setup'    => Tag::firstOrCreate(['name' => 'Setup']),
-            'network'  => Tag::firstOrCreate(['name' => 'Network']),
-            'security' => Tag::firstOrCreate(['name' => 'Security']),
-            'ops'      => Tag::firstOrCreate(['name' => 'Ops']),
+            'guide'      => Tag::firstOrCreate(['name' => 'Guide']),
+            'style'      => Tag::firstOrCreate(['name' => 'Style']),
+            'design'     => Tag::firstOrCreate(['name' => 'Design']),
+            'setup'      => Tag::firstOrCreate(['name' => 'Setup']),
+            'network'    => Tag::firstOrCreate(['name' => 'Network']),
+            'security'   => Tag::firstOrCreate(['name' => 'Security']),
+            'ops'        => Tag::firstOrCreate(['name' => 'Ops']),
+            'policy'     => Tag::firstOrCreate(['name' => 'Policy']),
+            'compliance' => Tag::firstOrCreate(['name' => 'Compliance']),
+            'incident'   => Tag::firstOrCreate(['name' => 'Incident']),
+            'support'    => Tag::firstOrCreate(['name' => 'Support']),
+            'sales'      => Tag::firstOrCreate(['name' => 'Sales']),
+            'marketing'  => Tag::firstOrCreate(['name' => 'Marketing']),
+            'finance'    => Tag::firstOrCreate(['name' => 'Finance']),
+            'legal'      => Tag::firstOrCreate(['name' => 'Legal']),
         ];
 
         // ── Workspaces ────────────────────────────────────────────────────────
@@ -629,6 +637,453 @@ class WorkspaceSeeder extends Seeder
                                 "# Force BIND to reload zone files\nrndc reload internal.example.com\n\n# Check current DHCP leases\ncat /var/lib/dhcp/dhcpd.leases | grep 'binding state active' | wc -l",
                             ],
                             'IP addressing for static hosts is in [[IP Addressing Scheme]]. See [[Network Overview]] for the full site summary.',
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── 5. Security & Compliance ──────────────────────────────────────
+            [
+                'name'        => 'Security & Compliance',
+                'description' => 'Security policies, incident response, access control, and data protection.',
+                'position'    => 5,
+                'pages'       => [
+                    [
+                        'title'    => 'Security Policy Overview',
+                        'position' => 1,
+                        'tags'     => ['security', 'policy'],
+                        'content'  => [
+                            'Security is everyone\'s responsibility. This page is the entry point to our policies; all staff must read it during [[Onboarding]].',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/secpolicy/900/420', 'alt' => 'Security policy overview'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Core principles'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Least privilege — grant the minimum access needed, review quarterly',
+                                'Defence in depth — no single control is trusted alone',
+                                'Assume breach — log everything, alert on anomalies',
+                                'Encrypt in transit and at rest — TLS everywhere, encrypted disks',
+                            ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Policy index'],
+                            ['type' => 'bulletList', 'items' => [
+                                '[[Access Control Policy]] — who gets access to what',
+                                '[[Password & MFA Policy]] — credential requirements',
+                                '[[Data Protection & GDPR]] — handling personal data',
+                                '[[Incident Response]] — what to do when something goes wrong',
+                            ]],
+                            ['type' => 'blockquote', 'text' => 'Report anything suspicious to #security immediately. Better a false alarm than a missed breach.'],
+                        ],
+                        'children' => [
+                            [
+                                'title'    => 'Access Control Policy',
+                                'position' => 1,
+                                'tags'     => ['security', 'policy'],
+                                'content'  => [
+                                    'Access to systems is granted by role and reviewed every quarter. All access requests go through the IT team and require manager approval.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Access tiers'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Standard — email, chat, docs (this app), shared drives',
+                                        'Elevated — production read access, monitoring dashboards',
+                                        'Privileged — production write, database, infrastructure (sysadmins only)',
+                                    ]],
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Offboarding'],
+                                    ['type' => 'orderedList', 'items' => [
+                                        'Disable SSO account within 1 hour of departure',
+                                        'Revoke all API tokens and SSH keys',
+                                        'Rotate any shared secrets the person had access to',
+                                        'Reassign owned documents and resources',
+                                    ]],
+                                    'Credential standards are defined in [[Password & MFA Policy]].',
+                                ],
+                            ],
+                            [
+                                'title'    => 'Password & MFA Policy',
+                                'position' => 2,
+                                'tags'     => ['security', 'policy'],
+                                'content'  => [
+                                    'Strong, unique credentials with multi-factor authentication are mandatory on every company account.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Requirements'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Minimum 14 characters, generated by a password manager',
+                                        'Unique per service — never reuse passwords',
+                                        'MFA enabled everywhere it is supported (TOTP or hardware key)',
+                                        'Hardware security keys required for privileged access',
+                                    ]],
+                                    ['type' => 'blockquote', 'text' => 'SMS-based MFA is discouraged — prefer TOTP apps or hardware keys where possible.'],
+                                    'Who qualifies for privileged access is covered in [[Access Control Policy]].',
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Incident Response',
+                        'position' => 2,
+                        'tags'     => ['security', 'incident'],
+                        'content'  => [
+                            'When a security or availability incident occurs, follow this process. Speed and clear communication matter more than perfection.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/incident/900/420', 'alt' => 'Incident response flow'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Severity & response'],
+                            ['type' => 'bulletList', 'items' => [
+                                'SEV1 — active breach or full outage → page on-call, open war room',
+                                'SEV2 — partial outage or contained breach → notify #security, assign lead',
+                                'SEV3 — minor, no customer impact → ticket, handle in business hours',
+                            ]],
+                            'The step-by-step runbook is in [[Incident Runbook]]. After resolution, always complete a [[Post-Mortem Template]]. Infrastructure alerting is described in [[Monitoring & Alerts]].',
+                        ],
+                        'children' => [
+                            [
+                                'title'    => 'Incident Runbook',
+                                'position' => 1,
+                                'tags'     => ['incident', 'ops'],
+                                'content'  => [
+                                    'Follow these steps for any SEV1 or SEV2. Assign one Incident Lead — they coordinate, others execute.',
+                                    ['type' => 'orderedList', 'items' => [
+                                        'Declare the incident in #incidents and assign an Incident Lead',
+                                        'Contain — isolate affected hosts, revoke compromised credentials',
+                                        'Assess scope — what data/systems are affected? See [[Firewall & Security]]',
+                                        'Communicate — post status updates every 30 minutes',
+                                        'Eradicate & recover — remove the cause, restore from known-good',
+                                        'Close — confirm resolution, schedule the post-mortem',
+                                    ]],
+                                    ['type' => 'codeBlock', 'language' => 'bash', 'code' =>
+                                        "# Quickly isolate a compromised host at the firewall\npfctl -t blocklist -T add 10.10.20.34\n\n# Snapshot logs before they rotate\njournalctl --since '1 hour ago' > /var/incident/\$(date +%s).log",
+                                    ],
+                                    ['type' => 'blockquote', 'text' => 'Preserve evidence before remediating where feasible — snapshot disks and logs first.'],
+                                ],
+                            ],
+                            [
+                                'title'    => 'Post-Mortem Template',
+                                'position' => 2,
+                                'tags'     => ['incident'],
+                                'content'  => [
+                                    'Every SEV1/SEV2 gets a blameless post-mortem within 5 business days. Focus on systems and process, never individuals.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Sections to fill in'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Summary — what happened, in two sentences',
+                                        'Impact — who/what was affected and for how long',
+                                        'Timeline — detection → resolution, with timestamps',
+                                        'Root cause — the underlying system failure',
+                                        'Action items — concrete fixes with owners and due dates',
+                                    ]],
+                                    'Link the originating alert and the [[Incident Runbook]] steps that were followed.',
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Data Protection & GDPR',
+                        'position' => 3,
+                        'tags'     => ['compliance', 'policy'],
+                        'content'  => [
+                            'We process personal data lawfully, transparently, and only for clear purposes. This page summarises our obligations under GDPR.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/gdpr/900/400', 'alt' => 'Data protection overview'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Key obligations'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Lawful basis — document why we hold each category of data',
+                                'Data minimisation — collect only what is needed',
+                                'Right to erasure — handle deletion requests within 30 days',
+                                'Breach notification — report qualifying breaches within 72 hours',
+                            ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Subject access requests'],
+                            ['type' => 'orderedList', 'items' => [
+                                'Verify the requester\'s identity',
+                                'Locate all personal data held about them',
+                                'Provide a copy in a portable format within one month',
+                                'Log the request and response for audit',
+                            ]],
+                            'Breaches involving personal data also trigger [[Incident Response]].',
+                        ],
+                    ],
+                    [
+                        'title'    => 'Backup & Disaster Recovery',
+                        'position' => 4,
+                        'tags'     => ['ops', 'security'],
+                        'content'  => [
+                            'We follow a 3-2-1 backup strategy and test restores quarterly. An untested backup is not a backup.',
+                            ['type' => 'heading', 'level' => 2, 'text' => '3-2-1 strategy'],
+                            ['type' => 'bulletList', 'items' => [
+                                '3 copies of data — production + two backups',
+                                '2 different media — local NAS + cloud object storage',
+                                '1 copy off-site — encrypted, in a different region',
+                            ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Recovery objectives'],
+                            ['type' => 'bulletList', 'items' => [
+                                'RPO (max data loss) — 1 hour for the primary database',
+                                'RTO (max downtime) — 4 hours for full service restoration',
+                            ]],
+                            ['type' => 'codeBlock', 'language' => 'bash', 'code' =>
+                                "# Nightly encrypted Postgres backup\npg_dump -Fc app_production | age -r \$BACKUP_KEY > /backups/app-\$(date +%F).dump.age\n\n# Test restore into a scratch database\nage -d -i key.txt /backups/app-2026-06-20.dump.age | pg_restore -d app_restore_test",
+                            ],
+                            ['type' => 'blockquote', 'text' => 'Restore drills are run on the first Monday of each quarter. Results are recorded in this workspace.'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── 6. Customer Support ───────────────────────────────────────────
+            [
+                'name'        => 'Customer Support',
+                'description' => 'Support handbook, ticket triage, escalation paths, and the customer FAQ.',
+                'position'    => 6,
+                'pages'       => [
+                    [
+                        'title'    => 'Support Handbook',
+                        'position' => 1,
+                        'tags'     => ['support', 'guide'],
+                        'content'  => [
+                            'Our support team is the voice of the customer. Be empathetic, be accurate, and never guess — escalate when unsure.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/support/900/420', 'alt' => 'Support team at work'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Principles'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Acknowledge fast — a quick "we\'re on it" beats a slow perfect answer',
+                                'Reproduce before escalating — gather steps, screenshots, account ID',
+                                'Close the loop — confirm the fix worked before resolving',
+                                'Write it down — recurring issues belong in [[Common Issues & FAQ]]',
+                            ]],
+                            'New tickets are handled per [[Ticket Triage]]. When something is beyond first-line, follow the [[Escalation Matrix]].',
+                        ],
+                        'children' => [
+                            [
+                                'title'    => 'Ticket Triage',
+                                'position' => 1,
+                                'tags'     => ['support'],
+                                'content'  => [
+                                    'Every incoming ticket is triaged within the response targets in [[SLA & Response Times]]. Categorise, prioritise, then assign.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Priority guide'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Urgent — customer cannot work, no workaround → escalate immediately',
+                                        'High — major feature broken, workaround exists',
+                                        'Normal — minor bug or how-to question',
+                                        'Low — feature request or cosmetic issue',
+                                    ]],
+                                    ['type' => 'blockquote', 'text' => 'When in doubt about a technical root cause, open an [[Incident Response]] check rather than sitting on it.'],
+                                ],
+                            ],
+                            [
+                                'title'    => 'Escalation Matrix',
+                                'position' => 2,
+                                'tags'     => ['support', 'policy'],
+                                'content'  => [
+                                    'Escalate when an issue exceeds first-line scope or breaches its SLA. Always include reproduction steps and the account ID.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Escalation paths'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Billing question → Finance team (see [[Invoicing Process]])',
+                                        'Suspected bug → Engineering on-call via #eng-support',
+                                        'Outage / data issue → trigger [[Incident Response]]',
+                                        'Security report → #security immediately',
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Common Issues & FAQ',
+                        'position' => 2,
+                        'tags'     => ['support'],
+                        'content'  => [
+                            'A living list of the questions we answer most. Keep it updated — if you answer the same thing twice, add it here.',
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Account & login'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Reset password — Settings → Profile → Change password',
+                                'Locked out — confirm identity, then IT re-enables the SSO account',
+                                'MFA device lost — follow recovery in [[Password & MFA Policy]]',
+                            ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Documents'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Restore a deleted page — admins use the Trash view',
+                                'See older content — open a page\'s version history',
+                                'Export to PDF/DOCX — use the export menu on any document',
+                            ]],
+                            ['type' => 'blockquote', 'text' => 'Found a gap? Add the question and answer here so the whole team benefits.'],
+                        ],
+                    ],
+                    [
+                        'title'    => 'SLA & Response Times',
+                        'position' => 3,
+                        'tags'     => ['support', 'policy'],
+                        'content'  => [
+                            'Our service-level targets by priority. These are commitments to customers — protect them.',
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Targets'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Urgent — first response 1 h, resolution target 4 h',
+                                'High — first response 4 h, resolution target 1 business day',
+                                'Normal — first response 1 business day, resolution 3 business days',
+                                'Low — first response 2 business days, best-effort resolution',
+                            ]],
+                            'Triage decisions that affect these timers are described in [[Ticket Triage]].',
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── 7. Sales & Marketing ──────────────────────────────────────────
+            [
+                'name'        => 'Sales & Marketing',
+                'description' => 'Sales playbooks, brand guidelines, and the content calendar.',
+                'position'    => 7,
+                'pages'       => [
+                    [
+                        'title'    => 'Sales Playbook',
+                        'position' => 1,
+                        'tags'     => ['sales', 'guide'],
+                        'content'  => [
+                            'How we sell: consultative, honest, and focused on the customer\'s problem. We win by being genuinely useful, not pushy.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/sales/900/420', 'alt' => 'Sales pipeline board'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Pipeline stages'],
+                            ['type' => 'orderedList', 'items' => [
+                                'Lead — inbound or outbound contact identified',
+                                'Discovery — understand the need (see [[Discovery Calls]])',
+                                'Demo — tailored to the problems uncovered',
+                                'Proposal — scope and price (see [[Pricing & Quotes]])',
+                                'Close — contract signed, handed to onboarding',
+                            ]],
+                            'All customer-facing material must follow the [[Brand Guidelines]].',
+                        ],
+                        'children' => [
+                            [
+                                'title'    => 'Discovery Calls',
+                                'position' => 1,
+                                'tags'     => ['sales'],
+                                'content'  => [
+                                    'Discovery is about listening, not pitching. Aim for the customer to talk 70% of the time.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Questions to ask'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'What does your current process look like?',
+                                        'Where does it break down or cost you time?',
+                                        'What happens if you do nothing?',
+                                        'Who else is involved in this decision?',
+                                    ]],
+                                    ['type' => 'blockquote', 'text' => 'Log every answer in the CRM the same day — memory fades fast.'],
+                                ],
+                            ],
+                            [
+                                'title'    => 'Pricing & Quotes',
+                                'position' => 2,
+                                'tags'     => ['sales', 'finance'],
+                                'content'  => [
+                                    'Pricing is per-seat with volume tiers. Discounts above 15% require sales-lead approval.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Tiers'],
+                                    ['type' => 'bulletList', 'items' => [
+                                        'Starter — up to 10 seats, monthly billing',
+                                        'Team — 11–50 seats, annual billing, priority support',
+                                        'Business — 50+ seats, custom terms, dedicated contact',
+                                    ]],
+                                    'Once signed, billing setup follows the [[Invoicing Process]].',
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Brand Guidelines',
+                        'position' => 2,
+                        'tags'     => ['marketing', 'design'],
+                        'content'  => [
+                            'Our brand is calm, confident, and human. Warm tones, generous space, no hype.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/brand/900/420', 'alt' => 'Brand mood board'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Voice'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Plain language — explain, don\'t impress',
+                                'Active voice and short sentences',
+                                'Confident, never arrogant; helpful, never salesy',
+                            ]],
+                            'Visual tokens (colour, type) align with the product\'s [[Design System]] and [[Color Palette]].',
+                        ],
+                    ],
+                    [
+                        'title'    => 'Content Calendar',
+                        'position' => 3,
+                        'tags'     => ['marketing'],
+                        'content'  => [
+                            'We publish consistently rather than sporadically. One substantial piece per week beats five rushed ones.',
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Cadence'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Mondays — blog post or changelog',
+                                'Wednesdays — social highlights and customer stories',
+                                'Fridays — newsletter (every other week)',
+                            ]],
+                            ['type' => 'blockquote', 'text' => 'Draft in this workspace, get one review, then schedule. Themes tie back to the [[Product Roadmap 2026]].'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── 8. Finance & Legal ────────────────────────────────────────────
+            [
+                'name'        => 'Finance & Legal',
+                'description' => 'Expenses, procurement, invoicing, contracts, and vendor management.',
+                'position'    => 8,
+                'pages'       => [
+                    [
+                        'title'    => 'Expense & Procurement',
+                        'position' => 1,
+                        'tags'     => ['finance', 'policy'],
+                        'content'  => [
+                            'How to spend company money responsibly. When unsure whether something is reimbursable, ask before you buy.',
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Approval thresholds'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Under €100 — no pre-approval, just submit the receipt',
+                                '€100–€500 — manager approval required',
+                                'Over €500 — manager + finance sign-off, raise a PO',
+                            ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Submitting expenses'],
+                            ['type' => 'orderedList', 'items' => [
+                                'Photograph the receipt at point of purchase',
+                                'Submit via Expensify by the last Friday of the month',
+                                'Categorise correctly (travel, software, learning, etc.)',
+                                'Reimbursed with the next payroll run',
+                            ]],
+                            'Hardware requests are also covered operationally in [[Office Operations]].',
+                        ],
+                    ],
+                    [
+                        'title'    => 'Invoicing Process',
+                        'position' => 2,
+                        'tags'     => ['finance'],
+                        'content'  => [
+                            'How we invoice customers and track payment. Accuracy here protects cash flow and trust.',
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/invoice/900/380', 'alt' => 'Invoicing workflow'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Cycle'],
+                            ['type' => 'orderedList', 'items' => [
+                                'Contract signed → finance creates the customer record',
+                                'Invoice raised on the billing date (see [[Pricing & Quotes]])',
+                                'Sent automatically with a 14-day due window',
+                                'Reconciled against the bank feed weekly',
+                            ]],
+                            'Payment expectations are detailed in [[Payment Terms]].',
+                        ],
+                        'children' => [
+                            [
+                                'title'    => 'Payment Terms',
+                                'position' => 1,
+                                'tags'     => ['finance', 'legal'],
+                                'content'  => [
+                                    'Standard terms are net-14. Longer terms require finance approval and must be written into the contract.',
+                                    ['type' => 'heading', 'level' => 2, 'text' => 'Dunning process'],
+                                    ['type' => 'orderedList', 'items' => [
+                                        'Day 0 — invoice sent',
+                                        'Day 15 — friendly reminder if unpaid',
+                                        'Day 30 — second notice, pause non-critical service',
+                                        'Day 45 — escalate to the account owner and legal',
+                                    ]],
+                                    'Vendor-side agreements are tracked in [[Contracts & Vendor Management]].',
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Contracts & Vendor Management',
+                        'position' => 3,
+                        'tags'     => ['legal'],
+                        'content'  => [
+                            'A central record of who we have agreements with, key dates, and renewal status. Nothing should auto-renew unnoticed.',
+                            ['type' => 'heading', 'level' => 2, 'text' => 'For every contract, track'],
+                            ['type' => 'bulletList', 'items' => [
+                                'Counterparty and primary contact',
+                                'Start date, term, and notice period',
+                                'Renewal date and whether it auto-renews',
+                                'Annual cost and payment terms',
+                                'Where the signed copy is stored',
+                            ]],
+                            ['type' => 'blockquote', 'text' => 'Set a reminder 60 days before every renewal date so we never miss a notice window.'],
+                            'Any vendor handling personal data must meet the standards in [[Data Protection & GDPR]].',
                         ],
                     ],
                 ],
