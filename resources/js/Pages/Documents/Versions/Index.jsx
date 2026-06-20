@@ -49,7 +49,9 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                 className="grid grid-cols-[1fr_140px_140px] items-center border-b border-border-subtle last:border-0 px-4 py-3 transition-colors hover:bg-surface-hover">
                                 <div className="min-w-0">
                                     <Link
-                                        href={`/documents/${document.id}/versions/${v.id}`}
+                                        href={i === 0
+                                            ? `/documents/${document.id}`
+                                            : `/documents/${document.id}/versions/${v.id}`}
                                         className="truncate text-sm font-medium text-sage-600 hover:underline"
                                     >
                                         {v.title}
