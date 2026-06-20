@@ -10,4 +10,8 @@ createInertiaApp({
     setup({ el, App, props }) {
         createRoot(el).render(<App {...props} />);
     },
+    progress: {
+        // Sage primary (--sage-400) so the loading bar matches the palette
+        color: '#7E9D72',
+    },
 });
