@@ -157,6 +157,10 @@
 
 .tiptap p { margin: 0 0 0.875em; line-height: 1.65; }
 .tiptap p:last-child { margin-bottom: 0; }
+/* Blank lines render as empty <p></p> in static HTML (snapshots, exports) and
+   would otherwise collapse. The live ProseMirror editor keeps them open with a
+   trailing <br>; mirror that so the author's spacing is preserved. */
+.tiptap p:empty::before { content: "\00a0"; }
 
 .tiptap h1 { font-size: 1.75rem; font-weight: 600; line-height: 1.25; margin: 1.5em 0 0.5em; }
 .tiptap h2 { font-size: 1.375rem; font-weight: 600; line-height: 1.3; margin: 1.25em 0 0.4em; }
