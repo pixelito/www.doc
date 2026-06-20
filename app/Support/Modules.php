@@ -40,6 +40,7 @@ class Modules
                 'icon'        => $m['icon'] ?? null,
                 'home'        => $m['home'] ?? null,
                 'nav'         => array_values($m['nav'] ?? []),
+                'quickLinks'  => array_values($m['quickLinks'] ?? []),
                 'enabled'     => (bool) ($m['enabled'] ?? false),
             ])
             ->values()

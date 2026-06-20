@@ -29,21 +29,22 @@ function greeting(name) {
 
 function LiveAppTile({ module, stats }) {
     const Icon = MODULE_ICONS[module.icon] ?? IconSparkles;
+    const quickLinks = module.quickLinks?.length ? module.quickLinks : (module.nav ?? []);
 
     return (
-        <div className="overflow-hidden rounded-md border border-sage-200 bg-sage-50">
+        <div className="relative overflow-hidden rounded-md border border-sage-200 bg-sage-50">
+            {/* Status badge — top-right corner */}
+            <span className="pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-sage-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">
+                Active
+            </span>
+
             <Link href={module.home ?? '#'} className="flex items-start gap-3 px-5 pb-4 pt-5 transition-colors hover:bg-sage-100">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-sage-200 bg-surface">
                     <Icon className="h-5 w-5 text-sage-600" stroke={1.5} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-foreground">{module.name}</h3>
-                        <span className="rounded-full bg-sage-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">
-                            Live
-                        </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-text-secondary">{module.description}</p>
+                    <h3 className="font-semibold text-foreground">{module.name}</h3>
+                    <p className="mt-0.5 pr-12 text-xs text-text-secondary">{module.description}</p>
                 </div>
             </Link>
 
@@ -61,10 +62,10 @@ function LiveAppTile({ module, stats }) {
                 </div>
             )}
 
-            {/* Quick links — sourced from the module's nav entries */}
-            {module.nav?.length > 0 && (
+            {/* Quick links — sourced from the module's quickLinks entries */}
+            {quickLinks.length > 0 && (
                 <div className="flex items-center gap-1 border-t border-sage-200 px-3 py-1.5">
-                    {module.nav.map((link) => {
+                    {quickLinks.map((link) => {
                         const LinkIcon = NAV_ICONS[link.icon];
                         return (
                             <Link

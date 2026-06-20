@@ -29,9 +29,16 @@ return [
         'description' => 'Internal knowledge base and documentation hub.',
         'icon'        => 'books',
         'home'        => '/workspaces',
+        // Top-bar links contributed by this module.
         'nav'         => [
             ['label' => 'Workspaces', 'href' => '/workspaces', 'icon' => 'layout-grid'],
             ['label' => 'Tags',       'href' => '/tags',       'icon' => 'tag'],
+        ],
+        // Quick links shown on the dashboard tile (can differ from the nav).
+        'quickLinks'  => [
+            ['label' => 'Workspaces', 'href' => '/workspaces', 'icon' => 'layout-grid'],
+            ['label' => 'Tags',       'href' => '/tags',       'icon' => 'tag'],
+            ['label' => 'Search',     'href' => '/search',     'icon' => 'search'],
         ],
     ],
 
