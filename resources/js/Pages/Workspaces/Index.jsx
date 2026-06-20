@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
+    IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -74,7 +74,7 @@ function SortableRow({ workspace, draggable }) {
     );
 }
 
-export default function WorkspacesIndex({ workspaces: initial }) {
+export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
     const { auth } = usePage().props;
     const isAdmin = (auth?.user?.roles ?? []).includes('admin');
     const [workspaces, setWorkspaces] = useState(initial);
@@ -198,6 +198,35 @@ export default function WorkspacesIndex({ workspaces: initial }) {
                     </button>
                 )}
             </div>
+
+            {/* Recently updated */}
+            {recent.length > 0 && (
+                <section className="mt-8">
+                    <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+                        Recently updated
+                    </h2>
+                    <div className="overflow-hidden rounded-md border border-border bg-card">
+                        {recent.map((doc, idx) => (
+                            <Link
+                                key={doc.id}
+                                href={`/documents/${doc.id}`}
+                                className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
+                            >
+                                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                    {doc.title}
+                                </span>
+                                <span className="shrink-0 text-xs text-text-tertiary">
+                                    {doc.workspace.name}
+                                </span>
+                                <span className="shrink-0 pl-3 text-xs text-text-tertiary">
+                                    {timeAgo(doc.updated_at)}
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             <NewWorkspaceModal open={modalOpen} onClose={() => setModalOpen(false)} />
         </DocsLayout>

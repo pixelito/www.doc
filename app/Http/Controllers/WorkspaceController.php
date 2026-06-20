@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
+use App\Models\Document;
 use App\Models\Workspace;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
@@ -24,8 +25,20 @@ class WorkspaceController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'slug', 'description', 'position', 'updated_at']);
 
+        $recent = Document::with('workspace')
+            ->orderByDesc('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(fn (Document $d) => [
+                'id'         => $d->id,
+                'title'      => $d->title,
+                'updated_at' => $d->updated_at->toIso8601String(),
+                'workspace'  => ['name' => $d->workspace->name, 'slug' => $d->workspace->slug],
+            ]);
+
         return Inertia::render('Workspaces/Index', [
             'workspaces' => $workspaces,
+            'recent'     => $recent,
         ]);
     }
 

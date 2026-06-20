@@ -38,18 +38,7 @@ class AuthController extends Controller
             'documents'  => Document::count(),
         ];
 
-        $recent = Document::with('workspace')
-            ->orderByDesc('updated_at')
-            ->limit(6)
-            ->get()
-            ->map(fn (Document $d) => [
-                'id'         => $d->id,
-                'title'      => $d->title,
-                'updated_at' => $d->updated_at->toIso8601String(),
-                'workspace'  => ['name' => $d->workspace->name, 'slug' => $d->workspace->slug],
-            ]);
-
-        return Inertia::render('Dashboard', compact('stats', 'recent'));
+        return Inertia::render('Dashboard', compact('stats'));
     }
 
     public function logout(Request $request)

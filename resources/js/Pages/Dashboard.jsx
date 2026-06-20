@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
     IconBooks,
-    IconFileText,
     IconLayoutGrid,
     IconSearch,
     IconSparkles,
@@ -9,22 +8,13 @@ import {
 } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 
-function relativeTime(iso) {
-    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (diff < 60)    return 'just now';
-    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 function greeting(name) {
     const h = new Date().getHours();
     const salutation = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     return `${salutation}, ${name}`;
 }
 
-export default function Dashboard({ stats, recent }) {
+export default function Dashboard({ stats }) {
     const { auth } = usePage().props;
 
     return (
@@ -118,35 +108,6 @@ export default function Dashboard({ stats, recent }) {
                     ))}
                 </div>
             </section>
-
-            {/* ── Recently updated ──────────────────────────────────────── */}
-            {recent.length > 0 && (
-                <section className="mt-8">
-                    <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-                        Recently Updated
-                    </h2>
-                    <div className="overflow-hidden rounded-md border border-border bg-card">
-                        {recent.map((doc, idx) => (
-                            <Link
-                                key={doc.id}
-                                href={`/documents/${doc.id}`}
-                                className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
-                            >
-                                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                                    {doc.title}
-                                </span>
-                                <span className="shrink-0 text-xs text-text-tertiary">
-                                    {doc.workspace.name}
-                                </span>
-                                <span className="shrink-0 pl-3 text-xs text-text-tertiary">
-                                    {relativeTime(doc.updated_at)}
-                                </span>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            )}
         </AppLayout>
     );
 }
