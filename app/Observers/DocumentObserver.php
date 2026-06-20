@@ -42,9 +42,11 @@ class DocumentObserver
         // Bubble the activity timestamp up to the workspace.
         $document->workspace?->touch();
 
-        $this->snapshotVersion($document);
+        // Render the HTML first so the snapshot captures THIS save's content,
+        // not the stale html left over from the previous save.
         $this->syncLinks($document);
         $html = $this->updateRenderedHtml($document);
+        $this->snapshotVersion($document, $html);
         $this->updateSearchVector($document, $html);
     }
 
@@ -54,12 +56,18 @@ class DocumentObserver
     }
 
     /** Snapshot every save into the version history (never destructive). */
-    protected function snapshotVersion(Document $document): void
+    protected function snapshotVersion(Document $document, string $html): void
     {
+        // Skip the blank state a page is in the instant it's created, before any
+        // content is written — otherwise the oldest "version" is always empty.
+        if ($document->wasRecentlyCreated && TipTap::isEmpty($document->content)) {
+            return;
+        }
+
         $document->versions()->create([
             'title'         => $document->title,
             'content'       => $document->content ?? [],
-            'content_html'  => $document->content_html,
+            'content_html'  => $html,
             'created_by_id' => Auth::id(),
         ]);
     }

@@ -34,6 +34,30 @@ class TipTap
     }
 
     /**
+     * Whether a document has no meaningful content — i.e. it's null, has no
+     * child nodes, or contains only empty paragraphs. Any other block (heading,
+     * image, table, list, …) or any text counts as content.
+     */
+    public static function isEmpty(?array $doc): bool
+    {
+        if (! $doc || empty($doc['content'])) {
+            return true;
+        }
+
+        foreach ($doc['content'] as $node) {
+            if (($node['type'] ?? null) !== 'paragraph') {
+                return false;
+            }
+
+            if (! empty($node['content'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Extract the titles referenced by [[Wiki-link]] syntax, de-duplicated and
      * order-preserved.
      *
