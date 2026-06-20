@@ -23,8 +23,13 @@ function NavLink({ href, children }) {
 }
 
 export default function DocsLayout({ children }) {
-    const { auth, flash } = usePage().props;
+    const { auth, flash, modules } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
+
+    // Top-bar links are contributed by whichever modules are enabled.
+    const navLinks = (modules ?? [])
+        .filter((m) => m.enabled)
+        .flatMap((m) => m.nav ?? []);
 
     function logout(e) {
         e.preventDefault();
@@ -51,8 +56,9 @@ export default function DocsLayout({ children }) {
                             </span>
                         </Link>
                         <nav className="hidden items-center gap-0.5 sm:flex">
-                            <NavLink href="/workspaces">Workspaces</NavLink>
-                            <NavLink href="/tags">Tags</NavLink>
+                            {navLinks.map((link) => (
+                                <NavLink key={link.href} href={link.href}>{link.label}</NavLink>
+                            ))}
                         </nav>
                     </div>
 
