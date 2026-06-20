@@ -28,11 +28,32 @@ test('creating a document records authorship and an initial version', function (
     $this->post('/documents', [
         'title' => 'Audited Page',
         'workspace_id' => $workspace->id,
+        'content' => DocumentFactory::tiptap('Initial body.'),
     ]);
 
     $document = Document::firstWhere('title', 'Audited Page');
     expect($document->created_by_id)->toBe($user->id);
     expect($document->versions()->count())->toBe(1);
+});
+
+test('creating an empty document records no version until content is added', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+
+    $this->post('/documents', [
+        'title' => 'Blank Page',
+        'workspace_id' => $workspace->id,
+    ]);
+
+    $document = Document::firstWhere('title', 'Blank Page');
+    // The blank initial state is not snapshotted — history starts at first save.
+    expect($document->versions()->count())->toBe(0);
+
+    $this->patch("/documents/{$document->id}", [
+        'content' => DocumentFactory::tiptap('First real content.'),
+    ])->assertRedirect();
+
+    expect($document->fresh()->versions()->count())->toBe(1);
 });
 
 test('editing content snapshots a new version', function () {
@@ -83,7 +104,7 @@ test('deleting a parent cascades to its subtree', function () {
     login();
     $workspace = Workspace::factory()->create();
     $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
-    $child  = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
+    $child = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
 
     $this->delete("/documents/{$parent->id}")->assertRedirect();
 
@@ -95,7 +116,7 @@ test('a trashed document can be restored with its subtree', function () {
     login();
     $workspace = Workspace::factory()->create();
     $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
-    $child  = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
+    $child = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
     $parent->trashSubtree();
 
     $this->post("/trash/documents/{$parent->id}/restore")->assertRedirect();
@@ -119,7 +140,7 @@ test('trashed documents do not appear in search', function () {
     $workspace = Workspace::factory()->create();
     $document = Document::factory()->create([
         'workspace_id' => $workspace->id,
-        'title'        => 'Findable VPN Runbook',
+        'title' => 'Findable VPN Runbook',
     ]);
 
     $this->get('/search?q=Findable')
