@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     IconBold, IconItalic, IconUnderline, IconStrikethrough, IconCode, IconBraces,
+    IconPalette, IconHighlight, IconBan, IconX,
     IconH1, IconH2, IconH3,
     IconList, IconListNumbers, IconBlockquote, IconMinus,
     IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff,
@@ -9,6 +10,121 @@ import {
     IconAlignLeft, IconAlignCenter, IconAlignRight,
 } from '@tabler/icons-react';
 import { insertFiles } from '@/extensions/ImageUpload';
+
+// On-palette swatches. Text colours run deep enough to stay legible on cream;
+// highlight fills are light tints so dark text stays readable on top.
+const TEXT_COLORS = [
+    { name: 'Ink',        value: '#5C625C' },
+    { name: 'Sage',       value: '#4B6840' },
+    { name: 'Blue',       value: '#4F6B86' },
+    { name: 'Amber',      value: '#97702F' },
+    { name: 'Terracotta', value: '#B5573E' },
+];
+
+const HIGHLIGHT_COLORS = [
+    { name: 'Yellow', value: '#FBE7A2' },
+    { name: 'Sage',   value: '#DAE6D4' },
+    { name: 'Blue',   value: '#D7E3EC' },
+    { name: 'Rose',   value: '#F0D6CD' },
+    { name: 'Amber',  value: '#F3E2BE' },
+];
+
+// Normalise to a 6-digit #rrggbb hex (expands #rgb); returns null if invalid.
+function normalizeHex(value) {
+    const v = (value ?? '').trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(v)) return `#${v.toLowerCase()}`;
+    if (/^[0-9a-fA-F]{3}$/.test(v)) return `#${v.split('').map((c) => c + c).join('').toLowerCase()}`;
+    return null;
+}
+
+/**
+ * Swatch + visual/hex picker popover shared by the text-colour and highlight
+ * controls. Offers on-palette swatches, a native colour picker (full
+ * hue/saturation wheel + hex on the OS dialog), a hex field, and a clear button.
+ *   swatches – [{ name, value }]
+ *   current  – currently applied hex (or null)
+ *   onPick(value|null) – apply a colour, or null to clear (stays open)
+ *   onClose  – close the popover (the only thing that dismisses it)
+ *   fallback – seed colour for the native picker when nothing is applied
+ */
+function ColorPicker({ swatches, current, onPick, onClose, clearLabel, fallback = '#7e9d72' }) {
+    const [hex, setHex] = useState(current ?? '');
+
+    const applyHex = () => {
+        const norm = normalizeHex(hex);
+        if (norm) onPick(norm);
+    };
+
+    return (
+        <div className="ml-1 flex items-center gap-1">
+            {swatches.map((c) => (
+                <button
+                    key={c.value}
+                    type="button"
+                    title={c.name}
+                    onMouseDown={(e) => { e.preventDefault(); onPick(c.value); }}
+                    className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                        current?.toLowerCase() === c.value.toLowerCase()
+                            ? 'border-foreground ring-1 ring-foreground'
+                            : 'border-border'
+                    }`}
+                    style={{ backgroundColor: c.value }}
+                />
+            ))}
+            <button
+                type="button"
+                title={clearLabel}
+                onMouseDown={(e) => { e.preventDefault(); onPick(null); }}
+                className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+                <IconBan className="h-3.5 w-3.5" stroke={1.5} />
+            </button>
+
+            <div className="mx-0.5 h-5 w-px bg-border" />
+
+            {/* Native colour picker — opens the OS wheel/hex dialog */}
+            <label
+                title="Pick a custom colour"
+                className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-border"
+                style={{ backgroundColor: normalizeHex(hex) ?? current ?? fallback }}
+            >
+                <input
+                    type="color"
+                    value={normalizeHex(hex) ?? normalizeHex(current) ?? fallback}
+                    onChange={(e) => { setHex(e.target.value); onPick(e.target.value); }}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+            </label>
+            <input
+                type="text"
+                value={hex}
+                onChange={(e) => setHex(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter')  { e.preventDefault(); applyHex(); }
+                    if (e.key === 'Escape') onClose?.();
+                }}
+                placeholder="#hex"
+                className="h-6 w-16 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+            />
+            <button
+                type="button"
+                title="Apply hex"
+                onMouseDown={(e) => { e.preventDefault(); applyHex(); }}
+                className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500"
+            >
+                Apply
+            </button>
+            <button
+                type="button"
+                title="Close"
+                onMouseDown={(e) => { e.preventDefault(); onClose?.(); }}
+                className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+                <IconX className="h-3.5 w-3.5" stroke={1.5} />
+            </button>
+        </div>
+    );
+}
 
 function ToolbarButton({ onClick, active, title, children, disabled }) {
     return (
@@ -36,7 +152,8 @@ function Divider() {
 }
 
 export default function Toolbar({ editor }) {
-    // One exclusive picker at a time — null | 'link' | 'table' | 'image'
+    // One exclusive picker at a time —
+    // null | 'link' | 'table' | 'image' | 'textColor' | 'highlight'
     const [openPicker, setOpenPicker] = useState(null);
     const [linkValue,  setLinkValue]  = useState('');
     const [tableRows,  setTableRows]  = useState(3);
@@ -97,8 +214,10 @@ export default function Toolbar({ editor }) {
 
     if (!editor) return null;
 
-    const inTable   = editor.isActive('table');
-    const inImage   = editor.isActive('image');
+    const inTable        = editor.isActive('table');
+    const inImage        = editor.isActive('image');
+    const textColor      = editor.getAttributes('textStyle').color ?? null;
+    const highlightColor = editor.getAttributes('highlight').color ?? null;
     const imgAlign  = inImage ? (editor.getAttributes('image').align ?? 'left') : null;
     const textAlign = editor.getAttributes('paragraph').textAlign
                    ?? editor.getAttributes('heading').textAlign
@@ -128,6 +247,57 @@ export default function Toolbar({ editor }) {
                 onClick={() => editor.chain().focus().toggleCode().run()}>
                 <IconCode className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
+
+            <Divider />
+
+            {/* ── Text colour & highlight ───────────────────────────── */}
+            <ToolbarButton title="Text colour" active={!!textColor || openPicker === 'textColor'}
+                onClick={() => togglePicker('textColor')}>
+                <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                    <IconPalette className="h-3.5 w-3.5" stroke={2} />
+                    {textColor && (
+                        <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full"
+                            style={{ backgroundColor: textColor }} />
+                    )}
+                </span>
+            </ToolbarButton>
+            {openPicker === 'textColor' && (
+                <ColorPicker
+                    swatches={TEXT_COLORS}
+                    current={textColor}
+                    fallback="#5c625c"
+                    clearLabel="Remove text colour"
+                    onClose={() => setOpenPicker(null)}
+                    onPick={(value) => {
+                        if (value) editor.chain().focus().setColor(value).run();
+                        else       editor.chain().focus().unsetColor().run();
+                    }}
+                />
+            )}
+
+            <ToolbarButton title="Highlight" active={!!highlightColor || openPicker === 'highlight'}
+                onClick={() => togglePicker('highlight')}>
+                <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                    <IconHighlight className="h-3.5 w-3.5" stroke={2} />
+                    {highlightColor && (
+                        <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full"
+                            style={{ backgroundColor: highlightColor }} />
+                    )}
+                </span>
+            </ToolbarButton>
+            {openPicker === 'highlight' && (
+                <ColorPicker
+                    swatches={HIGHLIGHT_COLORS}
+                    current={highlightColor}
+                    fallback="#fbe7a2"
+                    clearLabel="Remove highlight"
+                    onClose={() => setOpenPicker(null)}
+                    onPick={(value) => {
+                        if (value) editor.chain().focus().setHighlight({ color: value }).run();
+                        else       editor.chain().focus().unsetHighlight().run();
+                    }}
+                />
+            )}
 
             <Divider />
 

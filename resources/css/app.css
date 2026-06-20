@@ -216,6 +216,16 @@
 }
 .tiptap a:hover { text-decoration-color: var(--sage-600); }
 
+/* Highlight mark — keep text colour inherited so the fill stays readable, and
+   round the edges slightly so it reads as a highlighter, not a block. */
+.tiptap mark {
+    color: inherit;
+    border-radius: 3px;
+    padding: 0.05em 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
 /* Image node view — wrapper, inner container, resize handle */
 .tiptap .image-wrapper {
     display: block;

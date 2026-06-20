@@ -5,12 +5,15 @@ namespace App\Services;
 use Tiptap\Core\Node;
 use Tiptap\Editor;
 use Tiptap\Extensions\StarterKit;
+use Tiptap\Marks\Highlight;
 use Tiptap\Marks\Link;
+use Tiptap\Marks\TextStyle;
 use Tiptap\Marks\Underline;
 use Tiptap\Nodes\Table;
 use Tiptap\Nodes\TableCell;
 use Tiptap\Nodes\TableHeader;
 use Tiptap\Nodes\TableRow;
+use Tiptap\Utils\InlineStyle;
 
 class RenderDocument
 {
@@ -26,6 +29,8 @@ class RenderDocument
                 new StarterKit,
                 new Underline,
                 new Link,
+                new ColoredTextStyleMark,
+                new Highlight(['multicolor' => true]),
                 new ResizableImageNode,
                 new Table,
                 new TableRow,
@@ -95,5 +100,29 @@ class WikiLinkNode extends Node
         $title = $node->attrs->title ?? '';
 
         return htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/**
+ * tiptap-php's base TextStyle mark carries no attributes; the JS editor's
+ * Color extension stores a `color` attr on it. Mirror that here so text colour
+ * renders as an inline style in the read view and every exporter.
+ */
+class ColoredTextStyleMark extends TextStyle
+{
+    public function addAttributes()
+    {
+        return [
+            'color' => [
+                'parseHTML' => fn ($DOMNode) => InlineStyle::getAttribute($DOMNode, 'color') ?: null,
+                'renderHTML' => function ($attributes) {
+                    if (! ($attributes->color ?? null)) {
+                        return null;
+                    }
+
+                    return ['style' => "color: {$attributes->color}"];
+                },
+            ],
+        ];
     }
 }
