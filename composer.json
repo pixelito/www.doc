@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "www.doc/app",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "www.doc — a self-hosted, wiki-style internal knowledge base.",
+    "keywords": ["wiki", "knowledge-base", "documentation", "self-hosted"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
