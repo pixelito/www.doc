@@ -160,8 +160,12 @@ class DocumentController extends Controller
         }
 
         // Normalise the destination siblings' positions to the given order.
+        // Constrain each update to an actual child of the new parent so a client
+        // can't reposition unrelated pages by smuggling their ids into `order`.
         foreach ($data['order'] ?? [] as $position => $id) {
-            Document::withoutTimestamps(fn () => Document::whereKey($id)->update(['position' => $position]));
+            Document::withoutTimestamps(fn () => Document::whereKey($id)
+                ->where('parent_id', $parentId)
+                ->update(['position' => $position]));
         }
 
         return back();
@@ -193,9 +197,16 @@ class DocumentController extends Controller
             return true;
         }
 
+        $seen = [];
         $ancestor = Document::find($parentId);
 
         while ($ancestor) {
+            // Stop if pre-existing corrupt data already loops, instead of hanging.
+            if (isset($seen[$ancestor->getKey()])) {
+                break;
+            }
+            $seen[$ancestor->getKey()] = true;
+
             if ($ancestor->getKey() === $document->getKey()) {
                 return true;
             }

@@ -91,9 +91,16 @@ class Document extends Model
     public function ancestors(): array
     {
         $chain = [];
+        $seen  = [$this->getKey() => true];
         $node  = $this;
 
         while ($node->parent_id !== null) {
+            // Corrupt/cyclic data must not spin this loop forever.
+            if (isset($seen[$node->parent_id])) {
+                break;
+            }
+            $seen[$node->parent_id] = true;
+
             $node = self::select(['id', 'title', 'slug', 'parent_id'])
                 ->find($node->parent_id);
 
