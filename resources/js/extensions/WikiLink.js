@@ -125,13 +125,19 @@ export const WikiLink = Node.create({
                 startOfLine: false,
 
                 command: ({ editor, range, props }) => {
-                    editor
-                        .chain()
-                        .focus()
-                        .deleteRange(range)
-                        .insertContent({ type: ext.name, attrs: { title: props.title } })
-                        .insertContent(' ')
-                        .run();
+                    // Keep the link from butting against neighbouring words: add a
+                    // space before/after only when one isn't already there.
+                    const { doc } = editor.state;
+                    const before = range.from > 0 ? doc.textBetween(range.from - 1, range.from) : ' ';
+                    const after  = doc.textBetween(range.to, Math.min(doc.content.size, range.to + 1));
+                    const lead   = before === '' || /\s/.test(before) ? '' : ' ';
+                    const trail  = /\s/.test(after) ? '' : ' ';
+
+                    let chain = editor.chain().focus().deleteRange(range);
+                    if (lead) chain = chain.insertContent(lead);
+                    chain = chain.insertContent({ type: ext.name, attrs: { title: props.title } });
+                    if (trail) chain = chain.insertContent(trail);
+                    chain.run();
                 },
 
                 items: ({ query }) => {
