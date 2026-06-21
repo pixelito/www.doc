@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
+import { can } from '@/lib/permissions';
 
 function timeAgo(dateStr) {
     if (!dateStr) return '—';
@@ -76,7 +77,7 @@ function SortableRow({ workspace, draggable }) {
 
 export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
     const { auth } = usePage().props;
-    const isAdmin = (auth?.user?.roles ?? []).includes('admin');
+    const perms = can(auth);
     const [workspaces, setWorkspaces] = useState(initial);
     const [modalOpen, setModalOpen]   = useState(false);
     const [sortBy, setSortBy]         = useState('arranged'); // 'arranged' | 'updated'
@@ -132,7 +133,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             <option value="updated">Last updated</option>
                         </select>
                     )}
-                    {isAdmin && (
+                    {perms.isAdmin && (
                         <Button asChild variant="secondary" className="text-text-secondary hover:text-foreground">
                             <Link href="/trash">
                                 <IconTrash stroke={1.5} />
@@ -140,10 +141,12 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             </Link>
                         </Button>
                     )}
-                    <Button onClick={() => setModalOpen(true)}>
-                        <IconPlus stroke={1.5} />
-                        New workspace
-                    </Button>
+                    {perms.create && (
+                        <Button onClick={() => setModalOpen(true)}>
+                            <IconPlus stroke={1.5} />
+                            New workspace
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -165,21 +168,23 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             <p className="text-sm font-medium text-foreground">No workspaces yet</p>
                             <p className="mt-0.5 text-xs text-text-tertiary">Create a workspace to start organising your docs.</p>
                         </div>
-                        <Button
-                            type="button"
-                            size="xs"
-                            onClick={() => setModalOpen(true)}
-                            className="mt-1"
-                        >
-                            Create workspace
-                        </Button>
+                        {perms.create && (
+                            <Button
+                                type="button"
+                                size="xs"
+                                onClick={() => setModalOpen(true)}
+                                className="mt-1"
+                            >
+                                Create workspace
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={sortBy === 'arranged' ? handleDragEnd : undefined}>
                         <SortableContext items={displayed.map(w => String(w.id))} strategy={verticalListSortingStrategy}>
                             <ul>
                                 {displayed.map(w => (
-                                    <SortableRow key={w.id} workspace={w} draggable={sortBy === 'arranged'} />
+                                    <SortableRow key={w.id} workspace={w} draggable={sortBy === 'arranged' && perms.update} />
                                 ))}
                             </ul>
                         </SortableContext>
@@ -187,7 +192,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                 )}
 
                 {/* Footer */}
-                {workspaces.length > 0 && (
+                {workspaces.length > 0 && perms.create && (
                     <button
                         type="button"
                         onClick={() => setModalOpen(true)}

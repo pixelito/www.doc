@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconPlus, IconTrash, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { can } from '@/lib/permissions';
 
 export default function TagsIndex({ tags }) {
+    const { auth } = usePage().props;
+    const perms = can(auth);
     const [showForm, setShowForm]       = useState(false);
     const [name, setName]               = useState('');
     const [error, setError]             = useState('');
@@ -73,14 +76,16 @@ export default function TagsIndex({ tags }) {
                                     {tag.documents_count} {tag.documents_count === 1 ? 'page' : 'pages'}
                                 </div>
                                 <div className="flex items-center justify-center py-2.5 pr-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setTagToDelete(tag)}
-                                        title={`Delete ${tag.name}`}
-                                        className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger/10 hover:text-danger"
-                                    >
-                                        <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
-                                    </button>
+                                    {perms.delete && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setTagToDelete(tag)}
+                                            title={`Delete ${tag.name}`}
+                                            className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger/10 hover:text-danger"
+                                        >
+                                            <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                                        </button>
+                                    )}
                                 </div>
                             </li>
                         ))}
@@ -88,7 +93,7 @@ export default function TagsIndex({ tags }) {
                 )}
 
                 {/* Footer — new tag */}
-                {showForm ? (
+                {perms.create && (showForm ? (
                     <div className="border-t border-border px-4 py-3">
                         <form onSubmit={submit} className="flex items-center gap-2">
                             <div className="flex-1">
@@ -127,7 +132,7 @@ export default function TagsIndex({ tags }) {
                         <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
                         New tag
                     </button>
-                )}
+                ))}
             </div>
         </DocsLayout>
 

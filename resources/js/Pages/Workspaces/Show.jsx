@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import {
@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import NewPageModal from '@/components/ui/NewPageModal';
+import { can } from '@/lib/permissions';
 
 function collectAllTags(nodes) {
     const map = new Map();
@@ -128,9 +129,9 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
-function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
+function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild, canCreate, canReorder }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: String(node.id), data: { parentId } });
+        useSortable({ id: String(node.id), data: { parentId }, disabled: !canReorder });
 
     return (
         <>
@@ -143,7 +144,7 @@ function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
                     className="flex min-w-0 items-center gap-2 py-2.5 pr-4"
                     style={{ paddingLeft: `${depth * 20 + 12}px` }}
                 >
-                    <GripHandle listeners={listeners} attributes={attributes} />
+                    {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
                     <IconFileText className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
                     <Link
                         href={`/documents/${node.id}`}
@@ -159,7 +160,7 @@ function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
                 <div className="flex items-center justify-end py-2.5 pr-2">
-                    <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />
+                    {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
                 </div>
             </li>
 
@@ -176,6 +177,8 @@ function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
                             parentId={node.id}
                             workspaceId={workspaceId}
                             onAddChild={onAddChild}
+                            canCreate={canCreate}
+                            canReorder={canReorder}
                         />
                     ))}
                 </SortableContext>
@@ -184,9 +187,9 @@ function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild }) {
     );
 }
 
-function SortableRow({ node, activeTagId, workspaceId, onAddChild }) {
+function SortableRow({ node, activeTagId, workspaceId, onAddChild, canCreate, canReorder }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: String(node.id), data: { parentId: null } });
+        useSortable({ id: String(node.id), data: { parentId: null }, disabled: !canReorder });
 
     return (
         <>
@@ -196,7 +199,7 @@ function SortableRow({ node, activeTagId, workspaceId, onAddChild }) {
                 className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
             >
                 <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
-                    <GripHandle listeners={listeners} attributes={attributes} />
+                    {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
                     <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                     <Link
                         href={`/documents/${node.id}`}
@@ -212,7 +215,7 @@ function SortableRow({ node, activeTagId, workspaceId, onAddChild }) {
                     <span className="text-xs text-text-tertiary">{node.updated_at}</span>
                 </div>
                 <div className="flex items-center justify-end py-3 pr-2">
-                    <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />
+                    {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
                 </div>
             </li>
 
@@ -229,6 +232,8 @@ function SortableRow({ node, activeTagId, workspaceId, onAddChild }) {
                             parentId={node.id}
                             workspaceId={workspaceId}
                             onAddChild={onAddChild}
+                            canCreate={canCreate}
+                            canReorder={canReorder}
                         />
                     ))}
                 </SortableContext>
@@ -261,6 +266,8 @@ function FilteredRow({ node }) {
 }
 
 export default function WorkspaceShow({ workspace, tree }) {
+    const { auth } = usePage().props;
+    const perms = can(auth);
     const [rootNodes, setRootNodes] = useState(tree);
     const [activeTag, setActiveTag] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -337,24 +344,30 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    <Button variant="outline" asChild>
-                        <Link href={`/workspaces/${workspace.id}/imports/create`}>
-                            <IconUpload stroke={1.5} />
-                            Import
-                        </Link>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
-                        onClick={() => setDeleteOpen(true)}
-                    >
-                        <IconTrash stroke={1.5} />
-                        Delete
-                    </Button>
-                    <Button onClick={() => openModal('')}>
-                        <IconPlus stroke={1.5} />
-                        New page
-                    </Button>
+                    {perms.create && (
+                        <Button variant="outline" asChild>
+                            <Link href={`/workspaces/${workspace.id}/imports/create`}>
+                                <IconUpload stroke={1.5} />
+                                Import
+                            </Link>
+                        </Button>
+                    )}
+                    {perms.delete && (
+                        <Button
+                            variant="outline"
+                            className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
+                            onClick={() => setDeleteOpen(true)}
+                        >
+                            <IconTrash stroke={1.5} />
+                            Delete
+                        </Button>
+                    )}
+                    {perms.create && (
+                        <Button onClick={() => openModal('')}>
+                            <IconPlus stroke={1.5} />
+                            New page
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -404,7 +417,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                     rootNodes.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">No pages yet.</p>
                     ) : (
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={perms.update ? handleDragEnd : undefined}>
                             <SortableContext items={rootNodes.map(n => String(n.id))} strategy={verticalListSortingStrategy}>
                                 <ul>
                                     {rootNodes.map(node => (
@@ -414,6 +427,8 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             activeTagId={activeTag}
                                             workspaceId={workspace.id}
                                             onAddChild={openModal}
+                                            canCreate={perms.create}
+                                            canReorder={perms.update}
                                         />
                                     ))}
                                 </ul>
@@ -423,14 +438,16 @@ export default function WorkspaceShow({ workspace, tree }) {
                 )}
 
                 {/* New page footer button */}
-                <button
-                    type="button"
-                    onClick={() => openModal('')}
-                    className="flex w-full items-center gap-1.5 border-t border-border px-4 py-2.5 text-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                >
-                    <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
-                    New page
-                </button>
+                {perms.create && (
+                    <button
+                        type="button"
+                        onClick={() => openModal('')}
+                        className="flex w-full items-center gap-1.5 border-t border-border px-4 py-2.5 text-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                    >
+                        <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
+                        New page
+                    </button>
+                )}
             </div>
         </DocsLayout>
 

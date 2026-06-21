@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { can } from '@/lib/permissions';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -227,8 +228,10 @@ function ExportModal({ documentId, open, onClose }) {
 }
 
 export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
+    const { auth } = usePage().props;
+    const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
-        () => new URLSearchParams(window.location.search).get('edit') === '1'
+        () => perms.update && new URLSearchParams(window.location.search).get('edit') === '1'
     );
     const [exportOpen, setExportOpen]     = useState(false);
 
@@ -473,30 +476,36 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         </>
                     ) : (
                         <>
-                            <Button
-                                variant="outline"
-                                className="border-border hover:bg-surface-hover"
-                                onClick={() => setExportOpen(true)}
-                            >
-                                <IconDownload stroke={1.5} />
-                                Export
-                            </Button>
-                            <Button
-                                variant="outline"
-                                className="border-border hover:bg-surface-hover"
-                                onClick={() => setIsEditing(true)}
-                            >
-                                <IconPencil stroke={1.5} />
-                                Edit
-                            </Button>
-                            <Button
-                                variant="outline"
-                                className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
-                                onClick={destroyDocument}
-                            >
-                                <IconTrash stroke={1.5} />
-                                Delete
-                            </Button>
+                            {perms.create && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border hover:bg-surface-hover"
+                                    onClick={() => setExportOpen(true)}
+                                >
+                                    <IconDownload stroke={1.5} />
+                                    Export
+                                </Button>
+                            )}
+                            {perms.update && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border hover:bg-surface-hover"
+                                    onClick={() => setIsEditing(true)}
+                                >
+                                    <IconPencil stroke={1.5} />
+                                    Edit
+                                </Button>
+                            )}
+                            {perms.delete && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
+                                    onClick={destroyDocument}
+                                >
+                                    <IconTrash stroke={1.5} />
+                                    Delete
+                                </Button>
+                            )}
                         </>
                     )}
                 </div>
