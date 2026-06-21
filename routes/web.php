@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\ModuleController as AdminModuleController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
@@ -27,6 +29,18 @@ Route::middleware('auth')->group(function () {
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('settings.profile.update');
     Route::patch('settings/password', [ProfileController::class, 'updatePassword'])->name('settings.password.update');
+
+    // Admin — instance administration (admins only), shell-level so it stays
+    // reachable no matter which app modules are on/off.
+    Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::redirect('/', '/admin/apps');
+        Route::get('apps', [AdminModuleController::class, 'index'])->name('apps.index');
+        Route::patch('apps/{module}', [AdminModuleController::class, 'update'])->name('apps.update');
+        Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+    });
 
     // ── Docs module — 404s entirely when MODULE_DOCS is off ──────────────
     Route::middleware('module:docs')->group(function () {

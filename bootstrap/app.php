@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
+            'admin'  => \App\Http\Middleware\EnsureAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

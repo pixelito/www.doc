@@ -20,10 +20,17 @@ class Modules
             ->map(fn (array $module, string $key) => ['key' => $key] + $module);
     }
 
-    /** Whether a given module is enabled. */
+    /**
+     * Whether a given module is enabled. A DB setting (toggled in the admin
+     * panel) wins; absent that, the config/env default applies.
+     */
     public static function enabled(string $key): bool
     {
-        return (bool) config("modules.{$key}.enabled", false);
+        $override = Settings::get("module.{$key}.enabled");
+
+        return $override !== null
+            ? (bool) $override
+            : (bool) config("modules.{$key}.enabled", false);
     }
 
     /**
@@ -41,7 +48,7 @@ class Modules
                 'home'        => $m['home'] ?? null,
                 'nav'         => array_values($m['nav'] ?? []),
                 'quickLinks'  => array_values($m['quickLinks'] ?? []),
-                'enabled'     => (bool) ($m['enabled'] ?? false),
+                'enabled'     => self::enabled($m['key']),
             ])
             ->values()
             ->all();

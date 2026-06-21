@@ -1,9 +1,10 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { IconSettings, IconLogout } from '@tabler/icons-react';
+import { IconSettings, IconLogout, IconShieldLock } from '@tabler/icons-react';
 import { avatarStyle, initials } from '@/lib/avatar';
 
 export default function AppLayout({ children }) {
     const { auth, flash } = usePage().props;
+    const isAdmin = auth?.user?.roles?.includes('admin');
 
     function logout(e) {
         e.preventDefault();
@@ -32,6 +33,15 @@ export default function AppLayout({ children }) {
                             >
                                 {initials(auth.user.name)}
                             </div>
+                            {isAdmin && (
+                                <Link
+                                    href="/admin/apps"
+                                    title="Administration"
+                                    className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                                >
+                                    <IconShieldLock className="h-4 w-4" stroke={1.5} />
+                                </Link>
+                            )}
                             <Link
                                 href="/settings/profile"
                                 title="Settings"
