@@ -67,10 +67,14 @@ function PageMeta({ document, versionsCount }) {
                     <> by <span className="text-text-secondary">{document.updater.name}</span></>
                 )}
             </MetaItem>
-            <MetaItem icon={IconHistory}>
-                <span className="text-text-secondary">{versionsCount}</span>{' '}
-                {versionsCount === 1 ? 'version' : 'versions'}
-            </MetaItem>
+            <Link
+                href={`/documents/${document.id}/versions`}
+                title="View version history"
+                className="flex items-center gap-1.5 text-sage-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-sage-700"
+            >
+                <IconHistory className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
+                <span>{versionsCount} {versionsCount === 1 ? 'version' : 'versions'} · View history</span>
+            </Link>
         </div>
     );
 }
@@ -453,7 +457,8 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
                             <Link
                                 href={`/documents/${document.id}/versions`}
-                                className="flex items-center gap-1 transition-colors hover:text-sage-600"
+                                title="View version history"
+                                className="flex items-center gap-1 text-sage-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-sage-700"
                             >
                                 <IconHistory className="h-3.5 w-3.5" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
