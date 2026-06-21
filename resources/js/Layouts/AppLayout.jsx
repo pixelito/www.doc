@@ -56,6 +56,11 @@ export default function AppLayout({ children }) {
                     {flash.success}
                 </div>
             )}
+            {flash?.error && (
+                <div className="border-b border-danger/30 bg-danger/5 px-5 py-2.5 text-sm text-danger">
+                    {flash.error}
+                </div>
+            )}
             <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
         </div>
     );

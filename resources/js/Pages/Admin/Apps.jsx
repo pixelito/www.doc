@@ -21,7 +21,7 @@ function Switch({ checked, disabled, onChange }) {
         >
             <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow-sm transition-transform ${
-                    checked ? 'translate-x-4' : 'translate-x-0.5'
+                    checked ? 'translate-x-[18px]' : 'translate-x-0.5'
                 }`}
             />
         </button>

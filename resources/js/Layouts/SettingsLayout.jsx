@@ -2,6 +2,8 @@ import { Link, usePage } from '@inertiajs/react';
 import { IconUser, IconApps, IconUsers } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 
+// Flash banners are rendered once, by the shell (AppLayout) — don't repeat them here.
+
 // Settings tabs. Personal ones show for everyone; admin ones only for admins.
 // Adding a section later (e.g. a General admin tab) is one entry here + its page.
 const TABS = [
@@ -13,7 +15,6 @@ const TABS = [
 export default function SettingsLayout({ children }) {
     const { url, props } = usePage();
     const isAdmin = props.auth?.user?.roles?.includes('admin');
-    const flash = props.flash ?? {};
 
     const tabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
@@ -46,18 +47,6 @@ export default function SettingsLayout({ children }) {
                                 </Link>
                             );
                         })}
-                    </div>
-                )}
-
-                {/* Flash (admin actions); profile forms surface their own success inline. */}
-                {flash.success && (
-                    <div className="mt-5 rounded-sm border border-sage-200 bg-sage-50 px-4 py-2.5 text-sm text-sage-700">
-                        {flash.success}
-                    </div>
-                )}
-                {flash.error && (
-                    <div className="mt-5 rounded-sm border border-danger/30 bg-danger/5 px-4 py-2.5 text-sm text-danger">
-                        {flash.error}
                     </div>
                 )}
 
