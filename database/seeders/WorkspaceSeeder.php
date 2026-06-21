@@ -18,6 +18,10 @@ class WorkspaceSeeder extends Seeder
             'password' => bcrypt('password'),
         ]);
 
+        // Pages are attributed to a spread of content authors (admins + editors);
+        // viewers never author. Falls back to the admin if no roles are seeded.
+        $authorIds = User::role(['admin', 'editor'])->pluck('id')->all() ?: [$admin->id];
+
         // ── Tags ──────────────────────────────────────────────────────────────
         $tags = [
             'guide'      => Tag::firstOrCreate(['name' => 'Guide']),
@@ -1099,7 +1103,7 @@ class WorkspaceSeeder extends Seeder
             ]);
 
             foreach ($wData['pages'] as $pageData) {
-                $this->createPage($workspace->id, $pageData, null, $admin->id, $tags);
+                $this->createPage($workspace->id, $pageData, null, $authorIds, $tags);
             }
         }
 
@@ -1117,7 +1121,7 @@ class WorkspaceSeeder extends Seeder
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    protected function createPage(int $workspaceId, array $pageData, ?int $parentId, int $adminId, array $tags): void
+    protected function createPage(int $workspaceId, array $pageData, ?int $parentId, array $authorIds, array $tags): void
     {
         $document = Document::create([
             'workspace_id'   => $workspaceId,
@@ -1125,8 +1129,8 @@ class WorkspaceSeeder extends Seeder
             'title'          => $pageData['title'],
             'position'       => $pageData['position'],
             'content'        => $this->buildContent($pageData['content']),
-            'created_by_id'  => $adminId,
-            'updated_by_id'  => $adminId,
+            'created_by_id'  => $authorIds[array_rand($authorIds)],
+            'updated_by_id'  => $authorIds[array_rand($authorIds)],
         ]);
 
         foreach ($pageData['tags'] ?? [] as $tagKey) {
@@ -1136,7 +1140,7 @@ class WorkspaceSeeder extends Seeder
         }
 
         foreach ($pageData['children'] ?? [] as $childData) {
-            $this->createPage($workspaceId, $childData, $document->id, $adminId, $tags);
+            $this->createPage($workspaceId, $childData, $document->id, $authorIds, $tags);
         }
     }
 

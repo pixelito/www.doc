@@ -12,18 +12,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $admin = User::factory()->create([
-            'name'     => 'Admin',
-            'email'    => 'admin@example.com',
-            'password' => bcrypt('password'),
-        ]);
-
-        // Log the admin user in for authorship observation if needed
-        auth()->login($admin);
-
+        // Roles first, then the demo accounts that get assigned to them.
         $this->call([
             RoleSeeder::class,
-            WorkspaceSeeder::class,
+            UserSeeder::class,
         ]);
+
+        // Log the primary admin in so seeded pages and their version snapshots
+        // are attributed to a real user (the observer stamps Auth::id()).
+        auth()->login(User::where('email', 'admin@example.com')->firstOrFail());
+
+        $this->call(WorkspaceSeeder::class);
     }
 }
