@@ -4,9 +4,8 @@ use App\Models\Document;
 use App\Models\Tag;
 use App\Models\Workspace;
 
-// v1 is everyone-admin, but every route is still gated by auth + policies. The
-// boundary that exists today is guest vs. authenticated; Phase 6 will tighten
-// the policy bodies without touching controllers.
+// Guest vs. authenticated boundary. The per-role rules (viewer/editor/admin)
+// are exercised in RolePermissionTest.
 
 test('guests cannot reach any resource route', function (string $method, string $uri) {
     $this->call($method, $uri)->assertRedirect('/login');
