@@ -21,61 +21,97 @@ import { Button } from '@/components/ui/button';
 import NewPageModal from '@/components/ui/NewPageModal';
 import { can } from '@/lib/permissions';
 
+const INDENT = 20; // px of left padding per nesting level
+
+// ── Tree <-> flat-list helpers (for the drag tree) ──────────────────────────
+
+function flattenForDnd(nodes, parentId = null, depth = 0) {
+    return nodes.flatMap((node) => [
+        { id: node.id, parentId, depth, node },
+        ...flattenForDnd(node.children, node.id, depth + 1),
+    ]);
+}
+
+function getDescendantIds(flat, id) {
+    const out = [];
+    const stack = [id];
+    while (stack.length) {
+        const current = stack.pop();
+        for (const item of flat) {
+            if (item.parentId === current) { out.push(item.id); stack.push(item.id); }
+        }
+    }
+    return out;
+}
+
+/** Rebuild the nested tree from a flat list, preserving array order for siblings. */
+function buildTree(flat) {
+    const builtById = new Map(flat.map((item) => [item.id, { ...item.node, children: [] }]));
+    const roots = [];
+    for (const item of flat) {
+        const built = builtById.get(item.id);
+        const parent = item.parentId != null ? builtById.get(item.parentId) : null;
+        (parent ? parent.children : roots).push(built);
+    }
+    return roots;
+}
+
+/** Where would the dragged row land — its depth and new parent — given the cursor offset. */
+function getProjection(items, activeId, overId, dragOffset, indent) {
+    const overIndex = items.findIndex((i) => i.id === overId);
+    const activeIndex = items.findIndex((i) => i.id === activeId);
+    if (overIndex === -1 || activeIndex === -1) return null;
+
+    const activeItem = items[activeIndex];
+    const newItems = arrayMove(items, activeIndex, overIndex);
+    const prevItem = newItems[overIndex - 1];
+    const nextItem = newItems[overIndex + 1];
+
+    const projectedDepth = activeItem.depth + Math.round(dragOffset / indent);
+    const maxDepth = prevItem ? prevItem.depth + 1 : 0;
+    const minDepth = nextItem ? nextItem.depth : 0;
+    const depth = Math.max(minDepth, Math.min(projectedDepth, maxDepth));
+
+    const parentId = (() => {
+        if (depth === 0 || !prevItem) return null;
+        if (depth === prevItem.depth) return prevItem.parentId;
+        if (depth > prevItem.depth) return prevItem.id;
+        return newItems.slice(0, overIndex).reverse().find((i) => i.depth === depth)?.parentId ?? null;
+    })();
+
+    return { depth, parentId };
+}
+
+// ── Static helpers (filtered view, modal options) ───────────────────────────
+
 function collectAllTags(nodes) {
     const map = new Map();
     function walk(n) {
-        n.tags.forEach(t => map.set(t.id, t));
+        n.tags.forEach((t) => map.set(t.id, t));
         n.children.forEach(walk);
     }
     nodes.forEach(walk);
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function flattenTree(nodes, depth = 0) {
-    return nodes.flatMap(n => [
-        { ...n, depth },
-        ...flattenTree(n.children, depth + 1),
-    ]);
+function flattenAll(nodes, depth = 0) {
+    return nodes.flatMap((n) => [{ ...n, depth }, ...flattenAll(n.children, depth + 1)]);
 }
 
-function flatten(nodes, depth = 0, acc = []) {
+function flattenOptions(nodes, depth = 0, acc = []) {
     for (const node of nodes) {
         acc.push({ id: node.id, label: `${'  '.repeat(depth)}${node.title}` });
-        flatten(node.children, depth + 1, acc);
+        flattenOptions(node.children, depth + 1, acc);
     }
     return acc;
 }
 
-function updateChildren(nodes, parentId, activeId, overId) {
-    return nodes.map(node => {
-        if (node.id === parentId) {
-            const oldIdx = node.children.findIndex(c => String(c.id) === activeId);
-            const newIdx = node.children.findIndex(c => String(c.id) === overId);
-            if (oldIdx === -1 || newIdx === -1) return node;
-            return { ...node, children: arrayMove(node.children, oldIdx, newIdx) };
-        }
-        if (node.children.length > 0) {
-            return { ...node, children: updateChildren(node.children, parentId, activeId, overId) };
-        }
-        return node;
-    });
-}
-
-function getChildrenIds(nodes, parentId) {
-    for (const node of nodes) {
-        if (node.id === parentId) return node.children.map(c => c.id);
-        const ids = getChildrenIds(node.children, parentId);
-        if (ids) return ids;
-    }
-    return null;
-}
+// ── Row components ──────────────────────────────────────────────────────────
 
 function TagPill({ name, active }) {
     return (
         <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-            active
-                ? 'bg-sage-100 text-sage-600'
-                : 'bg-surface border border-border text-text-secondary'
+            active ? 'bg-sage-100 text-sage-600' : 'bg-surface border border-border text-text-secondary'
         }`}>
             {name}
         </span>
@@ -89,7 +125,7 @@ function GripHandle({ listeners, attributes }) {
             {...listeners}
             {...attributes}
             tabIndex={-1}
-            aria-label="Drag to reorder"
+            aria-label="Drag to move or nest"
             className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
         >
             <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
@@ -99,27 +135,15 @@ function GripHandle({ listeners, attributes }) {
 
 function ActionButton({ onClick, href, title, children }) {
     const cls = "flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600";
-    if (href) {
-        return (
-            <Link href={href} title={title} onClick={(e) => e.stopPropagation()} className={cls}>
-                {children}
-            </Link>
-        );
-    }
-    return (
-        <button type="button" onClick={onClick} title={title} className={cls}>
-            {children}
-        </button>
-    );
+    return href
+        ? <Link href={href} title={title} onClick={(e) => e.stopPropagation()} className={cls}>{children}</Link>
+        : <button type="button" onClick={onClick} title={title} className={cls}>{children}</button>;
 }
 
 function RowActions({ node, workspaceId, onAddChild }) {
     return (
         <div className="flex items-center justify-end gap-1">
-            <ActionButton
-                href={`/workspaces/${workspaceId}/imports/create?parent_id=${node.id}`}
-                title="Import as subpage"
-            >
+            <ActionButton href={`/workspaces/${workspaceId}/imports/create?parent_id=${node.id}`} title="Import as subpage">
                 <IconFileImport className="h-3.5 w-3.5" stroke={1.5} />
             </ActionButton>
             <ActionButton onClick={() => onAddChild(node.id)} title="Add subpage">
@@ -129,116 +153,38 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
-function SortableChildRow({ node, depth, parentId, workspaceId, onAddChild, canCreate, canReorder }) {
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: String(node.id), data: { parentId }, disabled: !canReorder });
+        useSortable({ id, disabled: !canReorder });
+
+    const isRoot = depth === 0;
 
     return (
-        <>
-            <li
-                ref={setNodeRef}
-                style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
-            >
-                <div
-                    className="flex min-w-0 items-center gap-2 py-2.5 pr-4"
-                    style={{ paddingLeft: `${depth * 20 + 12}px` }}
+        <li
+            ref={setNodeRef}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
+            className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+        >
+            <div className="flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
+                {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
+                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                <Link
+                    href={`/documents/${node.id}`}
+                    className={`truncate text-sm transition-colors hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
                 >
-                    {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
-                    <IconFileText className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                    <Link
-                        href={`/documents/${node.id}`}
-                        className="truncate text-sm text-text-secondary transition-colors hover:text-sage-600"
-                    >
-                        {node.title}
-                    </Link>
-                    {node.tags.slice(0, 1).map(t => (
-                        <TagPill key={t.id} name={t.name} active={false} />
-                    ))}
-                </div>
-                <div className="py-2.5 pr-4">
-                    <span className="text-xs text-text-tertiary">{node.updated_at}</span>
-                </div>
-                <div className="flex items-center justify-end py-2.5 pr-2">
-                    {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
-                </div>
-            </li>
-
-            {node.children.length > 0 && (
-                <SortableContext
-                    items={node.children.map(c => String(c.id))}
-                    strategy={verticalListSortingStrategy}
-                >
-                    {node.children.map(child => (
-                        <SortableChildRow
-                            key={child.id}
-                            node={child}
-                            depth={depth + 1}
-                            parentId={node.id}
-                            workspaceId={workspaceId}
-                            onAddChild={onAddChild}
-                            canCreate={canCreate}
-                            canReorder={canReorder}
-                        />
-                    ))}
-                </SortableContext>
-            )}
-        </>
-    );
-}
-
-function SortableRow({ node, activeTagId, workspaceId, onAddChild, canCreate, canReorder }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: String(node.id), data: { parentId: null }, disabled: !canReorder });
-
-    return (
-        <>
-            <li
-                ref={setNodeRef}
-                style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-                className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
-            >
-                <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
-                    {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
-                    <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                    <Link
-                        href={`/documents/${node.id}`}
-                        className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600"
-                    >
-                        {node.title}
-                    </Link>
-                    {node.tags.slice(0, 2).map(t => (
-                        <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
-                    ))}
-                </div>
-                <div className="py-3 pr-4">
-                    <span className="text-xs text-text-tertiary">{node.updated_at}</span>
-                </div>
-                <div className="flex items-center justify-end py-3 pr-2">
-                    {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
-                </div>
-            </li>
-
-            {node.children.length > 0 && (
-                <SortableContext
-                    items={node.children.map(c => String(c.id))}
-                    strategy={verticalListSortingStrategy}
-                >
-                    {node.children.map(child => (
-                        <SortableChildRow
-                            key={child.id}
-                            node={child}
-                            depth={1}
-                            parentId={node.id}
-                            workspaceId={workspaceId}
-                            onAddChild={onAddChild}
-                            canCreate={canCreate}
-                            canReorder={canReorder}
-                        />
-                    ))}
-                </SortableContext>
-            )}
-        </>
+                    {node.title}
+                </Link>
+                {node.tags.slice(0, isRoot ? 2 : 1).map((t) => (
+                    <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
+                ))}
+            </div>
+            <div className="py-2.5 pr-4">
+                <span className="text-xs text-text-tertiary">{node.updated_at}</span>
+            </div>
+            <div className="flex items-center justify-end py-2.5 pr-2">
+                {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
+            </div>
+        </li>
     );
 }
 
@@ -247,23 +193,18 @@ function FilteredRow({ node }) {
         <li className="grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <Link
-                    href={`/documents/${node.id}`}
-                    className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600"
-                >
+                <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
                     {node.title}
                 </Link>
-                {node.tags.map(t => (
-                    <TagPill key={t.id} name={t.name} active={true} />
-                ))}
+                {node.tags.map((t) => <TagPill key={t.id} name={t.name} active={true} />)}
             </div>
-            <div className="py-3 pr-4">
-                <span className="text-xs text-text-tertiary">{node.updated_at}</span>
-            </div>
+            <div className="py-3 pr-4"><span className="text-xs text-text-tertiary">{node.updated_at}</span></div>
             <div />
         </li>
     );
 }
+
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function WorkspaceShow({ workspace, tree }) {
     const { auth } = usePage().props;
@@ -274,46 +215,71 @@ export default function WorkspaceShow({ workspace, tree }) {
     const [modalParentId, setModalParentId] = useState('');
     const [deleteOpen, setDeleteOpen] = useState(false);
 
+    // Drag state
+    const [activeId, setActiveId] = useState(null);
+    const [overId, setOverId] = useState(null);
+    const [offsetLeft, setOffsetLeft] = useState(0);
+
     useEffect(() => { setRootNodes(tree); }, [tree]);
 
     const allTags = useMemo(() => collectAllTags(rootNodes), [rootNodes]);
     const filteredRows = useMemo(() => {
         if (!activeTag) return null;
-        return flattenTree(rootNodes).filter(n => n.tags.some(t => t.id === activeTag));
+        return flattenAll(rootNodes).filter((n) => n.tags.some((t) => t.id === activeTag));
     }, [rootNodes, activeTag]);
 
-    const options = useMemo(() => flatten(rootNodes), [rootNodes]);
+    const options = useMemo(() => flattenOptions(rootNodes), [rootNodes]);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-    );
+    // Flat list for the tree, with the dragged row's descendants hidden while dragging.
+    const flattenedItems = useMemo(() => {
+        const flat = flattenForDnd(rootNodes);
+        if (activeId == null) return flat;
+        const descendants = getDescendantIds(flat, activeId);
+        return flat.filter((i) => i.id === activeId || !descendants.includes(i.id));
+    }, [rootNodes, activeId]);
+
+    const projected = activeId != null && overId != null
+        ? getProjection(flattenedItems, activeId, overId, offsetLeft, INDENT)
+        : null;
+
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
     function openModal(parentId = '') {
         setModalParentId(String(parentId));
         setModalOpen(true);
     }
 
+    function resetDrag() {
+        setActiveId(null);
+        setOverId(null);
+        setOffsetLeft(0);
+    }
+
     function handleDragEnd({ active, over }) {
-        if (!over || active.id === over.id) return;
+        const projection = over && activeId != null
+            ? getProjection(flattenedItems, active.id, over.id, offsetLeft, INDENT)
+            : null;
+        resetDrag();
+        if (!over || !projection) return;
 
-        const activeParent = active.data.current?.parentId ?? null;
-        const overParent   = over.data.current?.parentId ?? null;
+        const full = flattenForDnd(rootNodes);
+        const activeIndex = full.findIndex((i) => i.id === active.id);
+        const overIndex = full.findIndex((i) => i.id === over.id);
+        if (activeIndex === -1 || overIndex === -1) return;
 
-        if (activeParent !== overParent) return;
-
-        if (activeParent === null) {
-            const oldIndex = rootNodes.findIndex(n => String(n.id) === active.id);
-            const newIndex = rootNodes.findIndex(n => String(n.id) === over.id);
-            if (oldIndex === -1 || newIndex === -1) return;
-            const reordered = arrayMove(rootNodes, oldIndex, newIndex);
-            setRootNodes(reordered);
-            router.patch('/documents/reorder', { ids: reordered.map(n => n.id) }, { preserveState: true, preserveScroll: true });
-        } else {
-            const updated = updateChildren(rootNodes, activeParent, active.id, over.id);
-            setRootNodes(updated);
-            const ids = getChildrenIds(updated, activeParent);
-            if (ids) router.patch('/documents/reorder', { ids }, { preserveState: true, preserveScroll: true });
+        const original = full[activeIndex];
+        if (active.id === over.id && original.parentId === projection.parentId && original.depth === projection.depth) {
+            return; // dropped in place, no change
         }
+
+        full[activeIndex] = { ...original, depth: projection.depth, parentId: projection.parentId };
+        const sorted = arrayMove(full, activeIndex, overIndex);
+        setRootNodes(buildTree(sorted));
+
+        const siblingIds = sorted.filter((i) => i.parentId === projection.parentId).map((i) => i.id);
+        router.patch(`/documents/${active.id}/move`,
+            { parent_id: projection.parentId, order: siblingIds },
+            { preserveState: true, preserveScroll: true });
     }
 
     function destroyWorkspace() {
@@ -375,7 +341,7 @@ export default function WorkspaceShow({ workspace, tree }) {
             {allTags.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-text-tertiary">Filter:</span>
-                    {allTags.map(tag => (
+                    {allTags.map((tag) => (
                         <button
                             key={tag.id}
                             type="button"
@@ -402,33 +368,38 @@ export default function WorkspaceShow({ workspace, tree }) {
                 </div>
 
                 {filteredRows ? (
-                    rootNodes.length === 0 || filteredRows.length === 0 ? (
-                        <p className="px-4 py-6 text-center text-sm text-text-tertiary">
-                            {filteredRows.length === 0 ? 'No pages match this filter.' : 'No pages yet.'}
-                        </p>
+                    filteredRows.length === 0 ? (
+                        <p className="px-4 py-6 text-center text-sm text-text-tertiary">No pages match this filter.</p>
                     ) : (
-                        <ul>
-                            {filteredRows.map(node => (
-                                <FilteredRow key={node.id} node={node} />
-                            ))}
-                        </ul>
+                        <ul>{filteredRows.map((node) => <FilteredRow key={node.id} node={node} />)}</ul>
                     )
                 ) : (
                     rootNodes.length === 0 ? (
                         <p className="px-4 py-6 text-center text-sm text-text-tertiary">No pages yet.</p>
                     ) : (
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={perms.update ? handleDragEnd : undefined}>
-                            <SortableContext items={rootNodes.map(n => String(n.id))} strategy={verticalListSortingStrategy}>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={({ active }) => { setActiveId(active.id); setOverId(active.id); }}
+                            onDragMove={({ delta }) => setOffsetLeft(delta.x)}
+                            onDragOver={({ over }) => setOverId(over?.id ?? null)}
+                            onDragEnd={perms.update ? handleDragEnd : resetDrag}
+                            onDragCancel={resetDrag}
+                        >
+                            <SortableContext items={flattenedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                                 <ul>
-                                    {rootNodes.map(node => (
-                                        <SortableRow
-                                            key={node.id}
-                                            node={node}
+                                    {flattenedItems.map((item) => (
+                                        <TreeRow
+                                            key={item.id}
+                                            id={item.id}
+                                            depth={item.id === activeId && projected ? projected.depth : item.depth}
+                                            node={item.node}
                                             activeTagId={activeTag}
                                             workspaceId={workspace.id}
                                             onAddChild={openModal}
                                             canCreate={perms.create}
                                             canReorder={perms.update}
+                                            ghost={item.id === activeId}
                                         />
                                     ))}
                                 </ul>
@@ -449,6 +420,12 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </button>
                 )}
             </div>
+
+            {perms.update && rootNodes.length > 0 && !filteredRows && (
+                <p className="mt-2 px-1 text-xs text-text-tertiary">
+                    Drag a page up or down to reorder, or sideways to nest it under another page.
+                </p>
+            )}
         </DocsLayout>
 
         <NewPageModal

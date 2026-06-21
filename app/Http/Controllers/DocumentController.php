@@ -130,6 +130,10 @@ class DocumentController extends Controller
             'parent_id' => ['nullable', 'integer', 'exists:documents,id'],
             'workspace_id' => ['nullable', 'integer', 'exists:workspaces,id'],
             'position' => ['nullable', 'integer'],
+            // Optional: the destination parent's full child order (page ids) so a
+            // re-parent and the sibling reordering happen in one atomic request.
+            'order' => ['nullable', 'array'],
+            'order.*' => ['integer', 'exists:documents,id'],
         ]);
 
         $parentId = $data['parent_id'] ?? null;
@@ -153,6 +157,11 @@ class DocumentController extends Controller
         // A cross-workspace move must carry the whole subtree along.
         if ($workspaceChanged) {
             $document->moveSubtreeToWorkspace($newWorkspaceId);
+        }
+
+        // Normalise the destination siblings' positions to the given order.
+        foreach ($data['order'] ?? [] as $position => $id) {
+            Document::withoutTimestamps(fn () => Document::whereKey($id)->update(['position' => $position]));
         }
 
         return back();

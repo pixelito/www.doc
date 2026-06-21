@@ -28,6 +28,28 @@ test('a node can be moved under a new parent', function () {
     expect($b->fresh()->parent_id)->toBe($a->id);
 });
 
+test('a move can re-parent and order the destination siblings in one request', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $newParent = Document::factory()->create(['workspace_id' => $workspace->id]);
+    // Two pages already nested under the destination parent.
+    $existingA = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $newParent->id, 'position' => 0]);
+    $existingB = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $newParent->id, 'position' => 1]);
+    // A root page being dragged in to become the middle child.
+    $dragged = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
+
+    $this->patch("/documents/{$dragged->id}/move", [
+        'parent_id' => $newParent->id,
+        'order' => [$existingA->id, $dragged->id, $existingB->id],
+    ])->assertRedirect();
+
+    expect($dragged->fresh()->parent_id)->toBe($newParent->id);
+    // Positions follow the given order exactly.
+    expect($existingA->fresh()->position)->toBe(0);
+    expect($dragged->fresh()->position)->toBe(1);
+    expect($existingB->fresh()->position)->toBe(2);
+});
+
 test('moving a page to another workspace carries its subtree along', function () {
     login();
     $from = Workspace::factory()->create();
