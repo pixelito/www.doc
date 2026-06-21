@@ -67,11 +67,30 @@ export default function ProfilePage({ user }) {
         e.preventDefault();
         setProfSaving(true);
         setProfErrors({});
-        router.patch('/settings/profile', { name, email, avatar_color: avatarColor }, {
+        router.patch('/settings/profile', { name, email }, {
             preserveScroll: true,
             onSuccess: () => { setProfSuccess(true); setTimeout(() => setProfSuccess(false), 3000); },
             onError:   (errs) => setProfErrors(errs),
             onFinish:  () => setProfSaving(false),
+        });
+    }
+
+    // ── Avatar colour (autosaves on pick) ──────────────────────────────────────
+    const [colorSaving, setColorSaving] = useState(false);
+    const [colorSaved,  setColorSaved]  = useState(false);
+
+    function pickColor(key) {
+        if (key === avatarColor || colorSaving) return;
+        const previous = avatarColor;
+        setAvatarColor(key); // optimistic
+        setColorSaving(true);
+        // Send the persisted name/email so the request validates without pulling
+        // in any unsaved edits to those fields — only the colour is committed.
+        router.patch('/settings/profile', { name: user.name, email: user.email, avatar_color: key }, {
+            preserveScroll: true,
+            onSuccess: () => { setColorSaved(true); setTimeout(() => setColorSaved(false), 2000); },
+            onError:   () => setAvatarColor(previous),
+            onFinish:  () => setColorSaving(false),
         });
     }
 
@@ -109,9 +128,16 @@ export default function ProfilePage({ user }) {
 
             {/* ── Avatar ───────────────────────────────────────────────────── */}
             <section className="rounded-md border border-border bg-card">
-                <div className="border-b border-border-subtle px-5 py-4">
-                    <h2 className="text-[15px] font-semibold text-foreground">Avatar</h2>
-                    <p className="mt-0.5 text-xs text-text-tertiary">Choose an accent colour for your initials badge.</p>
+                <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
+                    <div>
+                        <h2 className="text-[15px] font-semibold text-foreground">Avatar</h2>
+                        <p className="mt-0.5 text-xs text-text-tertiary">Pick an accent colour — it saves automatically.</p>
+                    </div>
+                    {colorSaved && (
+                        <span className="flex items-center gap-1 text-xs text-sage-600">
+                            <IconCheck className="h-3.5 w-3.5" stroke={2} /> Saved
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-6 px-5 py-5">
                     <div
@@ -126,8 +152,9 @@ export default function ProfilePage({ user }) {
                                 key={key}
                                 type="button"
                                 title={val.label}
-                                onClick={() => setAvatarColor(key)}
-                                className="h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none"
+                                disabled={colorSaving}
+                                onClick={() => pickColor(key)}
+                                className="h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none disabled:cursor-not-allowed"
                                 style={{
                                     backgroundColor: val.bg,
                                     boxShadow: avatarColor === key
