@@ -1,14 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
-import { IconUser, IconApps, IconUsers } from '@tabler/icons-react';
+import { IconUser, IconUsers } from '@tabler/icons-react';
 import AppLayout from '@/Layouts/AppLayout';
 
 // Flash banners are rendered once, by the shell (AppLayout) — don't repeat them here.
 
 // Settings tabs. Personal ones show for everyone; admin ones only for admins.
-// Adding a section later (e.g. a General admin tab) is one entry here + its page.
 const TABS = [
     { label: 'Profile', href: '/settings/profile', icon: IconUser,  adminOnly: false },
-    { label: 'Apps',    href: '/admin/apps',       icon: IconApps,  adminOnly: true },
     { label: 'Users',   href: '/admin/users',      icon: IconUsers, adminOnly: true },
 ];
 

@@ -17,8 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
         $middleware->alias([
-            'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
-            'admin'  => \App\Http\Middleware\EnsureAdmin::class,
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -15,7 +15,7 @@ export default function AppLayout({ children }) {
             <header className="border-b border-border bg-card">
                 <div className="mx-auto max-w-7xl flex h-12 items-center px-5">
                     {/* Brand */}
-                    <Link href="/dashboard" className="flex items-center gap-2">
+                    <Link href="/workspaces" className="flex items-center gap-2">
                         <img src="/favicon.svg" className="h-5 w-5" alt="" />
                         <span className="text-[15px] font-semibold text-foreground">
                             <span className="font-normal">www.</span><span className="font-extrabold">doc</span>

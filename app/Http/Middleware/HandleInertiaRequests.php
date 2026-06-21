@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\Modules;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -53,7 +52,6 @@ class HandleInertiaRequests extends Middleware
                 'profile_success'  => $request->session()->get('profile_success'),
                 'password_success' => $request->session()->get('password_success'),
             ],
-            'modules' => Modules::forSharing(),
         ];
     }
 }

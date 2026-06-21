@@ -22,14 +22,14 @@ function NavLink({ href, children }) {
     );
 }
 
-export default function DocsLayout({ children }) {
-    const { auth, flash, modules } = usePage().props;
-    const [searchQ, setSearchQ] = useState('');
+const NAV_LINKS = [
+    { label: 'Workspaces', href: '/workspaces' },
+    { label: 'Tags',       href: '/tags' },
+];
 
-    // Top-bar links are contributed by whichever modules are enabled.
-    const navLinks = (modules ?? [])
-        .filter((m) => m.enabled)
-        .flatMap((m) => m.nav ?? []);
+export default function DocsLayout({ children }) {
+    const { auth, flash } = usePage().props;
+    const [searchQ, setSearchQ] = useState('');
 
     function logout(e) {
         e.preventDefault();
@@ -49,14 +49,14 @@ export default function DocsLayout({ children }) {
                 <div className="mx-auto max-w-7xl flex h-12 items-center gap-4 px-5">
                     {/* Brand + docs nav */}
                     <div className="flex shrink-0 items-center gap-5">
-                        <Link href="/dashboard" className="flex items-center gap-2">
+                        <Link href="/workspaces" className="flex items-center gap-2">
                             <img src="/favicon.svg" className="h-5 w-5" alt="" />
                             <span className="text-[15px] font-semibold text-foreground">
                                 <span className="font-normal">www.</span><span className="font-extrabold">doc</span>
                             </span>
                         </Link>
                         <nav className="hidden items-center gap-0.5 sm:flex">
-                            {navLinks.map((link) => (
+                            {NAV_LINKS.map((link) => (
                                 <NavLink key={link.href} href={link.href}>{link.label}</NavLink>
                             ))}
                         </nav>

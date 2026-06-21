@@ -1,45 +1,11 @@
 <?php
 
 use App\Models\User;
-use App\Support\Modules;
-use App\Support\Settings;
-use Inertia\Testing\AssertableInertia as Assert;
 
 test('non-admins are forbidden from the admin area', function () {
     login(role: 'editor');
 
-    $this->get('/admin/apps')->assertForbidden();
     $this->get('/admin/users')->assertForbidden();
-});
-
-test('admins can view the apps panel', function () {
-    login();
-
-    $this->get('/admin/apps')->assertInertia(
-        fn (Assert $page) => $page->component('Admin/Apps')->has('modules')
-    );
-});
-
-test('toggling a module persists an override and gates its routes', function () {
-    login();
-    expect(Modules::enabled('docs'))->toBeTrue();
-
-    $this->patch('/admin/apps/docs', ['enabled' => false])->assertRedirect();
-
-    expect(Settings::get('module.docs.enabled'))->toBeFalse();
-    expect(Modules::enabled('docs'))->toBeFalse();
-    // The override actually takes the docs routes offline.
-    $this->get('/workspaces')->assertNotFound();
-
-    // Re-enabling brings it back.
-    $this->patch('/admin/apps/docs', ['enabled' => true])->assertRedirect();
-    expect(Modules::enabled('docs'))->toBeTrue();
-});
-
-test('toggling an unknown module 404s', function () {
-    login();
-
-    $this->patch('/admin/apps/nope', ['enabled' => false])->assertNotFound();
 });
 
 test('an admin can create a user with a role', function () {
