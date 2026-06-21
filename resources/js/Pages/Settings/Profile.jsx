@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import { IconCheck, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -75,23 +75,36 @@ export default function ProfilePage({ user }) {
         });
     }
 
-    // ── Avatar colour (autosaves on pick) ──────────────────────────────────────
-    const [colorSaving, setColorSaving] = useState(false);
-    const [colorSaved,  setColorSaved]  = useState(false);
+    // ── Avatar colour (autosaves on pick, debounced) ───────────────────────────
+    const [colorSaved, setColorSaved] = useState(false);
+    const saveTimer  = useRef(null);
+    const savedTimer = useRef(null);
+
+    // Clean up pending timers if the user leaves the page mid-debounce.
+    useEffect(() => () => {
+        clearTimeout(saveTimer.current);
+        clearTimeout(savedTimer.current);
+    }, []);
 
     function pickColor(key) {
-        if (key === avatarColor || colorSaving) return;
-        const previous = avatarColor;
-        setAvatarColor(key); // optimistic
-        setColorSaving(true);
-        // Send the persisted name/email so the request validates without pulling
-        // in any unsaved edits to those fields — only the colour is committed.
-        router.patch('/settings/profile', { name: user.name, email: user.email, avatar_color: key }, {
-            preserveScroll: true,
-            onSuccess: () => { setColorSaved(true); setTimeout(() => setColorSaved(false), 2000); },
-            onError:   () => setAvatarColor(previous),
-            onFinish:  () => setColorSaving(false),
-        });
+        if (key === avatarColor) return;
+        setAvatarColor(key); // optimistic, immediate
+
+        // Debounce the request so rapid swatch clicks coalesce into one save.
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            // Send the persisted name/email so the request validates without pulling
+            // in any unsaved edits to those fields — only the colour is committed.
+            router.patch('/settings/profile', { name: user.name, email: user.email, avatar_color: key }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setColorSaved(true);
+                    clearTimeout(savedTimer.current);
+                    savedTimer.current = setTimeout(() => setColorSaved(false), 4000);
+                },
+                onError: () => setAvatarColor(user.avatar_color ?? 'sage'),
+            });
+        }, 500);
     }
 
     // ── Password form ─────────────────────────────────────────────────────────
@@ -152,9 +165,8 @@ export default function ProfilePage({ user }) {
                                 key={key}
                                 type="button"
                                 title={val.label}
-                                disabled={colorSaving}
                                 onClick={() => pickColor(key)}
-                                className="h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none disabled:cursor-not-allowed"
+                                className="h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none"
                                 style={{
                                     backgroundColor: val.bg,
                                     boxShadow: avatarColor === key
