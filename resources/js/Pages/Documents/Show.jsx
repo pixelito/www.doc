@@ -4,6 +4,7 @@ import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar, IconLink,
+    IconFolderSymlink,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -231,6 +232,58 @@ function ExportModal({ documentId, open, onClose }) {
     );
 }
 
+function MoveModal({ open, onClose, documentId, workspaces, currentWorkspaceId }) {
+    const targets = workspaces.filter((w) => w.id !== currentWorkspaceId);
+    const [target, setTarget] = useState('');
+    const [moving, setMoving] = useState(false);
+
+    useEffect(() => { if (open) { setTarget(''); setMoving(false); } }, [open]);
+
+    function submit() {
+        if (!target) return;
+        setMoving(true);
+        router.patch(`/documents/${documentId}/move`, { workspace_id: Number(target), parent_id: null }, {
+            preserveScroll: true,
+            onFinish: () => { setMoving(false); onClose(); },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Move page</DialogTitle>
+                    <DialogDescription>
+                        Move this page and its subpages to another workspace. It's placed at
+                        the top level there — you can re-nest it afterwards.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-2">
+                    <label htmlFor="move-target" className="mb-1.5 block text-sm font-medium text-foreground">
+                        Destination workspace
+                    </label>
+                    <select
+                        id="move-target"
+                        value={target}
+                        onChange={(e) => setTarget(e.target.value)}
+                        className="h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                    >
+                        <option value="" disabled>Select a workspace…</option>
+                        {targets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={submit} disabled={!target || moving}>
+                        {moving && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
+                        Move page
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function BacklinksPanel({ backlinks }) {
     return (
         <section className="mt-8">
@@ -259,13 +312,14 @@ function BacklinksPanel({ backlinks }) {
     );
 }
 
-export default function DocumentShow({ document, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [] }) {
+export default function DocumentShow({ document, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
         () => perms.update && new URLSearchParams(window.location.search).get('edit') === '1'
     );
     const [exportOpen, setExportOpen]     = useState(false);
+    const [moveOpen, setMoveOpen]         = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
     const [editTags, setEditTags] = useState(document.tags.map((t) => t.id));
@@ -529,6 +583,16 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     Edit
                                 </Button>
                             )}
+                            {perms.update && workspaces.length > 1 && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border hover:bg-surface-hover"
+                                    onClick={() => setMoveOpen(true)}
+                                >
+                                    <IconFolderSymlink stroke={1.5} />
+                                    Move
+                                </Button>
+                            )}
                             {perms.delete && (
                                 <Button
                                     variant="outline"
@@ -662,6 +726,13 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 documentId={document.id}
                 open={exportOpen}
                 onClose={() => setExportOpen(false)}
+            />
+            <MoveModal
+                open={moveOpen}
+                onClose={() => setMoveOpen(false)}
+                documentId={document.id}
+                workspaces={workspaces}
+                currentWorkspaceId={document.workspace.id}
             />
         </DocsLayout>
 

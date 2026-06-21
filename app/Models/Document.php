@@ -125,6 +125,20 @@ class Document extends Model
         $this->delete();
     }
 
+    /**
+     * Move this document's whole subtree into a workspace. Descendants must
+     * follow their ancestor across workspaces or the tree (built per-workspace)
+     * would orphan them. Does not touch timestamps — it's a structural move.
+     */
+    public function moveSubtreeToWorkspace(int $workspaceId): void
+    {
+        foreach ($this->children()->get() as $child) {
+            $child->workspace_id = $workspaceId;
+            self::withoutTimestamps(fn () => $child->save());
+            $child->moveSubtreeToWorkspace($workspaceId);
+        }
+    }
+
     /** Restore this document and its entire trashed subtree. */
     public function restoreSubtree(): void
     {

@@ -28,6 +28,27 @@ test('a node can be moved under a new parent', function () {
     expect($b->fresh()->parent_id)->toBe($a->id);
 });
 
+test('moving a page to another workspace carries its subtree along', function () {
+    login();
+    $from = Workspace::factory()->create();
+    $to = Workspace::factory()->create();
+
+    $parent = Document::factory()->create(['workspace_id' => $from->id]);
+    $child = Document::factory()->create(['workspace_id' => $from->id, 'parent_id' => $parent->id]);
+    $grandchild = Document::factory()->create(['workspace_id' => $from->id, 'parent_id' => $child->id]);
+
+    $this->patch("/documents/{$parent->id}/move", ['workspace_id' => $to->id, 'parent_id' => null])
+        ->assertRedirect();
+
+    // The moved page sits at the new workspace root, and the whole subtree follows.
+    expect($parent->fresh()->workspace_id)->toBe($to->id);
+    expect($parent->fresh()->parent_id)->toBeNull();
+    expect($child->fresh()->workspace_id)->toBe($to->id);
+    expect($grandchild->fresh()->workspace_id)->toBe($to->id);
+    // Nesting within the subtree is preserved.
+    expect($child->fresh()->parent_id)->toBe($parent->id);
+});
+
 test('a node cannot be moved into its own descendant', function () {
     login();
     $workspace = Workspace::factory()->create();

@@ -6,6 +6,7 @@ use App\Http\Requests\StoreDocumentRequest;
 use App\Http\Requests\UpdateDocumentRequest;
 use App\Models\Document;
 use App\Models\Tag;
+use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,7 @@ class DocumentController extends Controller
             'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),
             'allDocuments' => Document::orderBy('title')->get(['id', 'title', 'slug']),
+            'workspaces'   => Workspace::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -138,12 +140,20 @@ class DocumentController extends Controller
             ]);
         }
 
+        $newWorkspaceId = $data['workspace_id'] ?? $document->workspace_id;
+        $workspaceChanged = $newWorkspaceId !== $document->workspace_id;
+
         $document->parent_id = $parentId;
-        $document->workspace_id = $data['workspace_id'] ?? $document->workspace_id;
+        $document->workspace_id = $newWorkspaceId;
         $document->position = $data['position'] ?? $document->position;
 
         // Structural moves must not shift updated_at — only content edits should.
         Document::withoutTimestamps(fn () => $document->save());
+
+        // A cross-workspace move must carry the whole subtree along.
+        if ($workspaceChanged) {
+            $document->moveSubtreeToWorkspace($newWorkspaceId);
+        }
 
         return back();
     }
