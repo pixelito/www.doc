@@ -1,8 +1,9 @@
 import { Link, usePage } from '@inertiajs/react';
 import { IconUser, IconUsers } from '@tabler/icons-react';
-import AppLayout from '@/Layouts/AppLayout';
+import DocsLayout from '@/Layouts/DocsLayout';
 
-// Flash banners are rendered once, by the shell (AppLayout) — don't repeat them here.
+// Thin wrapper over the single base layout — adds the settings tabs. Flash
+// banners are rendered by DocsLayout, so don't repeat them here.
 
 // Settings tabs. Personal ones show for everyone; admin ones only for admins.
 const TABS = [
@@ -17,7 +18,7 @@ export default function SettingsLayout({ children }) {
     const tabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
     return (
-        <AppLayout>
+        <DocsLayout>
             <div className="mx-auto max-w-3xl">
                 <h1 className="text-[19px] font-semibold text-foreground">Settings</h1>
                 <p className="mt-1 text-sm text-text-secondary">
@@ -50,6 +51,6 @@ export default function SettingsLayout({ children }) {
 
                 <div className="mt-6 space-y-5">{children}</div>
             </div>
-        </AppLayout>
+        </DocsLayout>
     );
 }
