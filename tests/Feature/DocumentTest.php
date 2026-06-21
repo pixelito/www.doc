@@ -91,6 +91,16 @@ test('the document show page renders the read view', function () {
     );
 });
 
+test('a non-numeric id 404s instead of hitting the database', function () {
+    login();
+
+    // Without the digit route constraints these would pass "abc" into a bigint
+    // lookup and 500 with a Postgres QueryException.
+    $this->get('/documents/abc')->assertNotFound();
+    $this->get('/workspaces/abc')->assertNotFound();
+    $this->get('/documents/1/versions/abc')->assertNotFound();
+});
+
 test('the document show page surfaces backlinks from pages that link to it', function () {
     login();
     $workspace = Workspace::factory()->create();

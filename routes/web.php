@@ -14,6 +14,16 @@ use App\Http\Controllers\VersionController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
+// Model-bound route params are bigint ids — constrain them to digits so a
+// non-numeric URL segment 404s cleanly instead of hitting the DB with an
+// invalid bigint (Postgres would otherwise throw a QueryException → 500).
+Route::pattern('document', '[0-9]+');
+Route::pattern('version', '[0-9]+');
+Route::pattern('workspace', '[0-9]+');
+Route::pattern('tag', '[0-9]+');
+Route::pattern('job', '[0-9]+');
+Route::pattern('user', '[0-9]+');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);

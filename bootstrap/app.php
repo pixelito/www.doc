@@ -42,6 +42,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 || (in_array($status, [500, 503], true) && ! app()->environment('local'));
 
             if ($styled) {
+                // Routing-level 404s never hit the web middleware, so Inertia's
+                // asset version is unset here — render it empty and the next
+                // client visit sees a version mismatch and hard-reloads. Set it
+                // so navigating away from the error page stays a SPA visit.
+                Inertia::version(fn () => (new \App\Http\Middleware\HandleInertiaRequests)->version($request));
+
                 return Inertia::render('Error', ['status' => $status])
                     ->toResponse($request)
                     ->setStatusCode($status);
