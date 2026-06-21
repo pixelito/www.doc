@@ -29,7 +29,6 @@ Route::middleware('auth')->group(function () {
 
     // Admin — instance administration (admins only).
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::redirect('/', '/admin/users');
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
