@@ -3,7 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
-    IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar,
+    IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar, IconLink,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -227,7 +227,35 @@ function ExportModal({ documentId, open, onClose }) {
     );
 }
 
-export default function DocumentShow({ document, versionsCount, breadcrumbs = [], allTags = [], allDocuments = [] }) {
+function BacklinksPanel({ backlinks }) {
+    return (
+        <section className="mt-8">
+            <h2 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+                <IconLink className="h-3.5 w-3.5" stroke={1.5} />
+                Referenced by ({backlinks.length})
+            </h2>
+            <div className="overflow-hidden rounded-md border border-border bg-card">
+                {backlinks.map((link, idx) => (
+                    <Link
+                        key={link.id}
+                        href={`/documents/${link.id}`}
+                        className={`block px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                            <span className="truncate text-sm font-medium text-foreground">{link.title}</span>
+                        </div>
+                        {link.context && (
+                            <p className="mt-1 truncate pl-6 text-xs text-text-tertiary">{link.context}</p>
+                        )}
+                    </Link>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+export default function DocumentShow({ document, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
@@ -619,6 +647,9 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     )}
                 </Card>
             </div>
+
+            {/* Referenced by — pages that wiki-link here */}
+            {!isEditing && backlinks.length > 0 && <BacklinksPanel backlinks={backlinks} />}
 
             {/* Page metadata strip */}
             <PageMeta document={document} versionsCount={versionsCount} />

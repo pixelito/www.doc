@@ -27,10 +27,26 @@ class DocumentController extends Controller
             'outgoingLinks.target:id,title,slug',
         ]);
 
+        // Pages that link here (backlinks). One entry per referencing page —
+        // a page that links several times shows once, with its first snippet.
+        // Soft-deleted sources drop out via the relation's default scope.
+        $backlinks = $document->backlinks()
+            ->with('source:id,title,slug')
+            ->get()
+            ->filter(fn ($link) => $link->source !== null)
+            ->unique('source_document_id')
+            ->map(fn ($link) => [
+                'id'      => $link->source->id,
+                'title'   => $link->source->title,
+                'context' => $link->context,
+            ])
+            ->values();
+
         return Inertia::render('Documents/Show', [
             'document'     => $document,
             'versionsCount' => $document->versions()->count(),
             'breadcrumbs'  => $document->ancestors(),
+            'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),
             'allDocuments' => Document::orderBy('title')->get(['id', 'title', 'slug']),
         ]);

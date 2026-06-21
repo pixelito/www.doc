@@ -91,6 +91,23 @@ test('the document show page renders the read view', function () {
     );
 });
 
+test('the document show page surfaces backlinks from pages that link to it', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $target = Document::factory()->create(['workspace_id' => $workspace->id, 'title' => 'Firewall Rules']);
+    Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Onboarding Runbook',
+        'content' => DocumentFactory::tiptap('Confirm the [[Firewall Rules]] before granting access.'),
+    ]);
+
+    $this->get("/documents/{$target->id}")->assertInertia(
+        fn (Assert $page) => $page
+            ->has('backlinks', 1)
+            ->where('backlinks.0.title', 'Onboarding Runbook')
+    );
+});
+
 test('a document is soft-deleted, not destroyed', function () {
     login();
     $document = Document::factory()->create();
