@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
+import { IconSearch, IconSettings, IconLogout, IconMenu2, IconX } from '@tabler/icons-react';
 import { avatarStyle, initials } from '@/lib/avatar';
 
 function NavLink({ href, children }) {
@@ -30,6 +30,7 @@ const NAV_LINKS = [
 export default function DocsLayout({ children }) {
     const { auth, flash } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
+    const [mobileNav, setMobileNav] = useState(false);
 
     function logout(e) {
         e.preventDefault();
@@ -48,7 +49,17 @@ export default function DocsLayout({ children }) {
             <header className="border-b border-border bg-card">
                 <div className="mx-auto max-w-7xl flex h-12 items-center gap-4 px-5">
                     {/* Brand + docs nav */}
-                    <div className="flex shrink-0 items-center gap-5">
+                    <div className="flex shrink-0 items-center gap-2 sm:gap-5">
+                        <button
+                            type="button"
+                            onClick={() => setMobileNav((v) => !v)}
+                            aria-label="Toggle navigation"
+                            className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground sm:hidden"
+                        >
+                            {mobileNav
+                                ? <IconX className="h-5 w-5" stroke={1.5} />
+                                : <IconMenu2 className="h-5 w-5" stroke={1.5} />}
+                        </button>
                         <Link href="/workspaces" className="flex items-center gap-2">
                             <img src="/favicon.svg" className="h-5 w-5" alt="" />
                             <span className="text-[15px] font-semibold text-foreground">
@@ -105,6 +116,22 @@ export default function DocsLayout({ children }) {
                         </div>
                     )}
                 </div>
+
+                {/* Mobile nav — revealed by the hamburger on small screens */}
+                {mobileNav && (
+                    <nav className="border-t border-border px-3 py-2 sm:hidden">
+                        {NAV_LINKS.map((link) => (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                onClick={() => setMobileNav(false)}
+                                className="block rounded-sm px-2.5 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
+                    </nav>
+                )}
             </header>
             {flash?.success && (
                 <div className="border-b border-sage-200 bg-sage-50 px-5 py-2.5 text-sm text-sage-700">
