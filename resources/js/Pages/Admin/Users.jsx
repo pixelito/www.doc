@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { IconTrash, IconLoader2 } from '@tabler/icons-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -49,7 +49,7 @@ export default function Users() {
     }
 
     return (
-        <AdminLayout>
+        <SettingsLayout>
             <Head title="Users — Admin" />
 
             {/* User list */}
@@ -136,6 +136,6 @@ export default function Users() {
                 onConfirm={deleteUser}
                 onCancel={() => setConfirm(null)}
             />
-        </AdminLayout>
+        </SettingsLayout>
     );
 }

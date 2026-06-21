@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { IconBooks, IconTicket, IconApps } from '@tabler/icons-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 
 const MODULE_ICONS = {
     books:  IconBooks,
@@ -36,7 +36,7 @@ export default function Apps() {
     }
 
     return (
-        <AdminLayout>
+        <SettingsLayout>
             <Head title="Apps — Admin" />
 
             <div className="divide-y divide-border rounded-md border border-border bg-surface">
@@ -73,6 +73,6 @@ export default function Apps() {
                 Disabling an app hides it from the dashboard and nav and makes its pages
                 unavailable. Its data is kept and returns when you re-enable it.
             </p>
-        </AdminLayout>
+        </SettingsLayout>
     );
 }
