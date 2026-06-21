@@ -55,7 +55,13 @@ test('shared module metadata carries the enabled flag and is safe to expose', fu
 
 test('the dashboard shares the module registry with the frontend', function () {
     login();
-    config(['modules.docs.enabled' => true]);
+    // Two enabled apps so the launcher actually renders — a single-app install
+    // auto-routes past it (covered separately below).
+    config([
+        'modules.docs.enabled'    => true,
+        'modules.tickets.enabled' => true,
+        'modules.tickets.home'    => '/tickets',
+    ]);
 
     $this->get('/dashboard')->assertInertia(
         fn (Assert $page) => $page
@@ -63,5 +69,26 @@ test('the dashboard shares the module registry with the frontend', function () {
             ->has('modules')
             ->where('modules.0.key', 'docs')
             ->where('modules.0.enabled', true)
+    );
+});
+
+test('a single-app install skips the launcher and lands in the app', function () {
+    login();
+    // Default install: only Docs is enabled (and it has a home).
+    config(['modules.docs.enabled' => true, 'modules.tickets.enabled' => false]);
+
+    $this->get('/dashboard')->assertRedirect('/workspaces');
+});
+
+test('the launcher reappears once a second app is enabled', function () {
+    login();
+    config([
+        'modules.docs.enabled'    => true,
+        'modules.tickets.enabled' => true,
+        'modules.tickets.home'    => '/tickets',
+    ]);
+
+    $this->get('/dashboard')->assertOk()->assertInertia(
+        fn (Assert $page) => $page->component('Dashboard')
     );
 });

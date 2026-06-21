@@ -34,6 +34,16 @@ class AuthController extends Controller
 
     public function dashboard()
     {
+        // A single-app install has no use for the cross-app launcher — drop the
+        // user straight into the only app. The dashboard reappears the moment a
+        // second app is enabled, so it never feels like a platform until it is one.
+        $launchable = collect(Modules::forSharing())
+            ->filter(fn (array $m) => $m['enabled'] && $m['home']);
+
+        if ($launchable->count() === 1) {
+            return redirect($launchable->first()['home']);
+        }
+
         // Per-module stats for the dashboard tiles. Only computed for enabled
         // modules — a disabled app contributes nothing.
         $stats = [
