@@ -3,6 +3,7 @@
 use App\Models\Asset;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 // 1×1 transparent PNG — no GD required.
@@ -76,4 +77,62 @@ it('rejects files over 10 MB', function () {
 it('guests cannot upload assets', function () {
     $this->postJson('/assets', ['file' => fakePng()])
         ->assertStatus(401);
+});
+
+it('rejects svg uploads (stored-xss vector)', function () {
+    $user = login();
+    $file = UploadedFile::fake()->create('vector.svg', 1, 'image/svg+xml');
+
+    $this->actingAs($user)
+        ->postJson('/assets', ['file' => $file])
+        ->assertStatus(422);
+
+    expect(Asset::count())->toBe(0);
+});
+
+it('rehost refuses private and link-local hosts (ssrf guard)', function () {
+    $user = login();
+    Http::fake(); // would record a request if the guard let one through
+
+    foreach ([
+        'http://127.0.0.1/x.png',
+        'http://169.254.169.254/latest/meta-data',
+        'http://192.168.1.10/x.png',
+        'http://10.0.0.5/x.png',
+        'http://[::1]/x.png',
+    ] as $url) {
+        $this->actingAs($user)
+            ->postJson('/assets/rehost', ['url' => $url])
+            ->assertStatus(422);
+    }
+
+    Http::assertNothingSent();
+    expect(Asset::count())->toBe(0);
+});
+
+it('rehost refuses non-http schemes', function () {
+    $user = login();
+    Http::fake();
+
+    $this->actingAs($user)
+        ->postJson('/assets/rehost', ['url' => 'file:///etc/passwd'])
+        ->assertStatus(422);
+
+    Http::assertNothingSent();
+});
+
+it('rehost downloads and stores an image from a public host', function () {
+    $user = login();
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+
+    // Literal public IP host so no real DNS lookup happens in the test.
+    Http::fake(['*' => Http::response($png, 200, ['Content-Type' => 'image/png'])]);
+
+    $this->actingAs($user)
+        ->postJson('/assets/rehost', ['url' => 'http://93.184.216.34/logo.png'])
+        ->assertStatus(201)
+        ->assertJsonStructure(['id', 'url']);
+
+    expect(Asset::count())->toBe(1)
+        ->and(Asset::first()->mime)->toBe('image/png');
 });

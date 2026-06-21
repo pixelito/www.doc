@@ -13,12 +13,13 @@ class AssetStore
 {
     private const DISK = 'public';
 
+    // SVG is intentionally absent — it can carry <script> and would be a
+    // stored-XSS vector served from the public disk (matches AssetController).
     private const MIME_EXT = [
         'image/jpeg'    => 'jpg',
         'image/png'     => 'png',
         'image/gif'     => 'gif',
         'image/webp'    => 'webp',
-        'image/svg+xml' => 'svg',
     ];
 
     /**

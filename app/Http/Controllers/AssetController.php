@@ -13,8 +13,10 @@ class AssetController extends Controller
 {
     private const DISK = 'public';
 
+    // SVG is deliberately excluded: it can carry <script> and, served from the
+    // public disk, would be a stored-XSS vector. Only raster formats are allowed.
     private const ALLOWED_MIMES = [
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     ];
 
     private const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -25,7 +27,7 @@ class AssetController extends Controller
         $this->authorize('create', Asset::class);
 
         $request->validate([
-            'file' => ['required', 'file', 'max:10240', 'mimes:jpeg,jpg,png,gif,webp,svg'],
+            'file' => ['required', 'file', 'max:10240', 'mimes:jpeg,jpg,png,gif,webp'],
         ]);
 
         $file = $request->file('file');
@@ -72,7 +74,15 @@ class AssetController extends Controller
             'url' => ['required', 'url', 'max:2048'],
         ])['url'];
 
-        $response = Http::timeout(10)->get($url);
+        // SSRF guard: only fetch public http(s) hosts. Without this an editor
+        // could make the server hit internal targets it can reach but they
+        // can't — cloud metadata (169.254.169.254), localhost Redis/Postgres,
+        // other services on the Docker network.
+        $this->assertPublicUrl($url);
+
+        $response = Http::timeout(10)
+            ->withOptions(['allow_redirects' => false])
+            ->get($url);
 
         abort_unless($response->successful(), 422, 'Failed to download image.');
 
@@ -117,5 +127,36 @@ class AssetController extends Controller
             'id'  => $asset->id,
             'url' => Storage::disk(self::DISK)->url($path),
         ], 201);
+    }
+
+    /**
+     * Reject a rehost URL unless it's an http(s) URL whose host resolves only
+     * to public IPs. Blocks the SSRF classics: loopback, link-local (cloud
+     * metadata), and private ranges, for both IPv4 and IPv6.
+     */
+    private function assertPublicUrl(string $url): void
+    {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        abort_unless(in_array($scheme, ['http', 'https'], true), 422, 'Only http(s) image URLs are allowed.');
+
+        $host = parse_url($url, PHP_URL_HOST);
+        abort_if($host === null || $host === '', 422, 'Invalid image URL.');
+
+        // A bracketed/raw IP host is checked directly; a name is resolved to
+        // every A/AAAA record so one private answer can't sneak through.
+        $literal = trim($host, '[]');
+        $ips = filter_var($literal, FILTER_VALIDATE_IP)
+            ? [$literal]
+            : array_merge(
+                array_column(@dns_get_record($host, DNS_A) ?: [], 'ip'),
+                array_column(@dns_get_record($host, DNS_AAAA) ?: [], 'ipv6'),
+            );
+
+        abort_if(empty($ips), 422, 'Could not resolve the image host.');
+
+        foreach ($ips as $ip) {
+            $public = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+            abort_unless($public !== false, 422, 'That host is not allowed.');
+        }
     }
 }
