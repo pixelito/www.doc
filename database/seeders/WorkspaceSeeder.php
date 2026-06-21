@@ -1123,14 +1123,21 @@ class WorkspaceSeeder extends Seeder
 
     protected function createPage(int $workspaceId, array $pageData, ?int $parentId, array $authorIds, array $tags): void
     {
+        $createdBy = $authorIds[array_rand($authorIds)];
+        $updatedBy = $authorIds[array_rand($authorIds)];
+
+        // Act as the last editor so DocumentObserver stamps updated_by_id (and the
+        // version snapshot's author) to them; created_by_id is set explicitly, and
+        // the observer leaves an already-set value alone.
+        auth()->loginUsingId($updatedBy);
+
         $document = Document::create([
             'workspace_id'   => $workspaceId,
             'parent_id'      => $parentId,
             'title'          => $pageData['title'],
             'position'       => $pageData['position'],
             'content'        => $this->buildContent($pageData['content']),
-            'created_by_id'  => $authorIds[array_rand($authorIds)],
-            'updated_by_id'  => $authorIds[array_rand($authorIds)],
+            'created_by_id'  => $createdBy,
         ]);
 
         foreach ($pageData['tags'] ?? [] as $tagKey) {
