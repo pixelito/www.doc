@@ -24,7 +24,7 @@ abstract class TestCase extends BaseTestCase
         $this->app['config']->set([
             'app.env' => 'testing',
             'database.default' => 'pgsql',
-            'database.connections.pgsql.database' => 'docsapp_test',
+            'database.connections.pgsql.database' => 'wwwdoc_test',
             'session.driver' => 'array',
             'queue.default' => 'sync',
             'cache.default' => 'array',

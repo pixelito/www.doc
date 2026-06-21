@@ -1,11 +1,11 @@
-name: docsapp-dev
+name: wwwdoc-dev
 services:
   db:
     image: postgres:16-alpine
-    environment: { POSTGRES_DB: docsapp, POSTGRES_USER: docsapp, POSTGRES_PASSWORD: docsapp }
+    environment: { POSTGRES_DB: wwwdoc, POSTGRES_USER: wwwdoc, POSTGRES_PASSWORD: wwwdoc }
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck: { test: ["CMD-SHELL", "pg_isready -U docsapp"], interval: 5s, retries: 10 }
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U wwwdoc"], interval: 5s, retries: 10 }
   redis: { image: redis:7-alpine }
   app:
     build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
@@ -15,9 +15,9 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: "5432"
-      DB_DATABASE: docsapp
-      DB_USERNAME: docsapp
-      DB_PASSWORD: docsapp
+      DB_DATABASE: wwwdoc
+      DB_USERNAME: wwwdoc
+      DB_PASSWORD: wwwdoc
       REDIS_HOST: redis
       QUEUE_CONNECTION: redis
       SESSION_DRIVER: redis
