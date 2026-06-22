@@ -62,7 +62,7 @@ export const ResizableImage = Image.extend({
                 img.src = loadingFallback;
                 
                 if (targetSrc) {
-                    const preloader = new Image();
+                    const preloader = new window.Image();
                     preloader.onload = () => {
                         if (lastRealSrc === targetSrc) img.src = targetSrc;
                     };
