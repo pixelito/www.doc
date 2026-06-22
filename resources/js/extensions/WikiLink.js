@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
-import { PluginKey } from '@tiptap/pm/state';
+import { PluginKey, TextSelection } from '@tiptap/pm/state';
+import { Fragment } from '@tiptap/pm/model';
 import { router } from '@inertiajs/react';
 
 const WikiLinkPluginKey = new PluginKey('wikiLink');
@@ -125,19 +126,33 @@ export const WikiLink = Node.create({
                 startOfLine: false,
 
                 command: ({ editor, range, props }) => {
-                    // Keep the link from butting against neighbouring words: add a
-                    // space before/after only when one isn't already there.
-                    const { doc } = editor.state;
-                    const before = range.from > 0 ? doc.textBetween(range.from - 1, range.from) : ' ';
-                    const after  = doc.textBetween(range.to, Math.min(doc.content.size, range.to + 1));
-                    const lead   = before === '' || /\s/.test(before) ? '' : ' ';
-                    const trail  = /\s/.test(after) ? '' : ' ';
+                    // Insert the link plus its padding spaces straight through the
+                    // transaction. insertContent(' ') / array content routes the
+                    // whitespace through HTML parsing, which trims boundary spaces
+                    // and leaves links butted against neighbouring words; building
+                    // real text nodes and tr.insert-ing them never trims.
+                    editor
+                        .chain()
+                        .focus()
+                        .deleteRange(range)
+                        .command(({ tr, state }) => {
+                            const pos = range.from; // insertion point after the delete
+                            const before = pos > 1 ? tr.doc.textBetween(pos - 1, pos) : ' ';
+                            const after  = tr.doc.textBetween(pos, Math.min(tr.doc.content.size, pos + 1));
 
-                    let chain = editor.chain().focus().deleteRange(range);
-                    if (lead) chain = chain.insertContent(lead);
-                    chain = chain.insertContent({ type: ext.name, attrs: { title: props.title } });
-                    if (trail) chain = chain.insertContent(trail);
-                    chain.run();
+                            // Pad only when a space isn't already there (no doubles).
+                            const pieces = [];
+                            if (!(before === '' || /\s/.test(before))) pieces.push(state.schema.text(' '));
+                            pieces.push(state.schema.nodes[ext.name].create({ title: props.title }));
+                            if (!/\s/.test(after)) pieces.push(state.schema.text(' '));
+
+                            const fragment = Fragment.fromArray(pieces);
+                            tr.insert(pos, fragment);
+                            tr.setSelection(TextSelection.create(tr.doc, pos + fragment.size));
+
+                            return true;
+                        })
+                        .run();
                 },
 
                 items: ({ query }) => {
