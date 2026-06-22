@@ -1,58 +1,122 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
-
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <img src="art/logomd.svg" alt="www.doc" width="520">
 </p>
 
-## About Laravel
+<p align="center">
+  A self-hosted, wiki-style internal knowledge base for small &amp; medium companies.
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**www.doc** is one focused product: a documentation app. Paste fidelity from Word/HTML,
+screenshot-paste with image re-hosting, wiki-links and versioning, full-text search, and
+DOCX/PDF import &amp; export — all running on your own infrastructure with Docker.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+It is deliberately **not** a platform. No app launcher, no module registry, no
+plugin marketplace — just a fast, clean place for a team to write things down.
 
-## Learning Laravel
+## Features
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **Rich editor** — TipTap/ProseMirror with high-fidelity paste from Word and HTML,
+  text colour, multicolour highlight, resizable images.
+- **Screenshot &amp; image paste** — pasted and external images are intercepted and
+  re-hosted as local assets (deduplicated by SHA-256).
+- **Wiki-links &amp; backlinks** — `[[Page Title]]` links are indexed on save; every page
+  shows what references it.
+- **Versioning** — every content save snapshots a version you can view and restore.
+- **Full-text search** — PostgreSQL FTS across pages, workspaces and tags, with
+  highlighted excerpts.
+- **Import &amp; export** — DOCX/PDF import and export, run as background jobs.
+- **Workspaces &amp; nesting** — a small fixed set of top-level workspaces; pages nest
+  shallowly and can be re-parented by drag-and-drop.
+- **Tags** — cut across workspaces, attached polymorphically.
+- **Roles &amp; admin** — admin / editor / viewer roles, a user-management admin area, and
+  a Trash with restore/purge.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Stack
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- **Laravel 13** (PHP 8.3) + **Inertia.js** — server-driven, not a REST API.
+- **React 19** (plain JavaScript, not TypeScript) + **shadcn/ui** + **Tailwind v4**.
+- **PostgreSQL 16** (`jsonb` content, `tsvector` search) + **Redis** (sessions, cache, queue).
+- **Laravel Queues** on Redis for all conversions and heavy work (the `worker` service).
+- **TipTap** (ProseMirror) editor; **Pest** test suite.
 
-## Agentic Development
+TipTap JSON is the single source of truth for document content — HTML, DOCX, PDF and the
+search vector are all derived from it.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Quick start (development)
+
+Everything runs in Docker. You need Docker with Compose v2.
 
 ```bash
-composer require laravel/boost --dev
+git clone <your-fork-url> www.doc && cd www.doc
+cp .env.example .env
 
-php artisan boost:install
+docker compose up --build          # first run builds the images
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed   # schema + demo data
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+The app is then at **http://localhost:8000** (Vite HMR on `5173`). The seeder creates a
+set of demo users across all roles, all with the password `password` — log in as
+`admin@example.com` for full access. See `database/seeders/UserSeeder.php` for the rest.
 
-## Contributing
+Common commands:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+docker compose exec app php artisan test           # run the Pest suite
+docker compose exec app php artisan migrate:fresh --seed
+docker compose exec vite npm install <pkg>         # add a frontend dependency
+```
 
-## Code of Conduct
+> Database-touching artisan commands must **not** pass `--no-deps` — they need the
+> `db`/`redis` links.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Tests
 
-## Security Vulnerabilities
+```bash
+docker compose exec app php artisan test                       # full suite
+docker compose exec app php artisan test --filter='wiki-links' # a single test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+CI runs the same suite on every push and pull request (see `.github/workflows/ci.yml`).
+
+## Production
+
+Production uses a **separate** compose file from development — code is baked into the
+images, an Nginx container serves static assets and proxies PHP-FPM, and a reverse proxy
+is expected at the edge for TLS.
+
+```bash
+cp .env.example .env       # then edit: APP_ENV=production, APP_DEBUG=false,
+                           # a strong APP_KEY, real DB_PASSWORD, your APP_URL
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+
+# First-run setup: create the roles + your admin account, and a welcome page.
+docker compose -f docker-compose.prod.yml exec app \
+  php artisan app:install --email=you@example.com --password='a-strong-password' --name='Your Name'
+```
+
+`migrate --force` only creates the (empty) schema; `app:install` seeds the
+`admin`/`editor`/`viewer` roles and your first admin so you can actually log in.
+It's idempotent and also accepts `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NAME` env
+vars instead of flags; pass `--no-welcome` to skip the starter page.
+
+The `app` container caches config/routes/views on boot. Uploaded assets and the database
+live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. Put your own
+reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service for TLS — dev and
+prod databases are always separate.
+
+## Project layout
+
+- `app/Services/RenderDocument.php` — the one and only TipTap-JSON → HTML renderer.
+- `app/Services/Importers` / `Exporters` — DOCX/PDF conversion (queued jobs).
+- `resources/js/Pages` — Inertia pages (PascalCase folders).
+- `resources/js/components/editor/TipTapEditor.jsx` — the editor schema (mirror of
+  `RenderDocument`'s extension list).
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Open-source, self-hosted. See [`LICENSE`](LICENSE).

@@ -87,4 +87,6 @@ Route::middleware('auth')->group(function () {
     Route::get('imports/{job}', [ImportController::class, 'show'])->name('imports.show');
 });
 
-Route::get('/', fn () => redirect()->route('workspaces.index'));
+// Redirect (not a closure) so the route table stays serialisable for
+// `route:cache` in production.
+Route::redirect('/', '/workspaces');

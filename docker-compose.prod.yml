@@ -1,0 +1,81 @@
+# Production stack. Code, vendor and built assets are baked into the app image
+# (docker/app/Dockerfile) — no source bind-mounts. Put your own TLS-terminating
+# reverse proxy in front of the `web` service.
+#
+#   cp .env.example .env   # set APP_ENV=production, APP_DEBUG=false, APP_KEY,
+#                          # a real DB_PASSWORD and your APP_URL
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+name: wwwdoc
+
+x-app: &app-image
+  build:
+    context: .
+    dockerfile: docker/app/Dockerfile
+  env_file: .env
+  environment: &app-env
+    APP_ENV: production
+    APP_DEBUG: "false"
+    DB_CONNECTION: pgsql
+    DB_HOST: db
+    DB_PORT: "5432"
+    REDIS_HOST: redis
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: redis
+    CACHE_STORE: redis
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-wwwdoc}
+      POSTGRES_USER: ${DB_USERNAME:-wwwdoc}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-wwwdoc}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  app:
+    <<: *app-image
+    # php-fpm; reachable by the web service at app:9000. Code + built assets are
+    # baked into the image; only writable storage (uploads, caches) is a volume.
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    <<: *app-image
+    command: php artisan queue:work --tries=3 --timeout=300
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  web:
+    # nginx with the build/ assets baked in (target: web). It serves static
+    # files and proxies PHP to app:9000. Only uploaded assets are shared, via
+    # the storage volume reached through the public/storage symlink.
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      target: web
+    volumes:
+      - app-storage:/var/www/html/storage:ro
+    ports: ["8080:80"]
+    depends_on: [app]
+    restart: unless-stopped
+
+volumes:
+  pgdata: {}
+  app-storage: {}
