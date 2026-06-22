@@ -1242,6 +1242,9 @@ class WorkspaceSeeder extends Seeder
                 $nodes[] = ['type' => 'text', 'text' => $part];
             }
         }
-        return $nodes ?: [['type' => 'text', 'text' => '']];
+        // An empty paragraph is `content: []` — never a `text: ''` node, which
+        // ProseMirror rejects (text must be a non-empty string) and which would
+        // blank the page in the editor.
+        return $nodes;
     }
 }

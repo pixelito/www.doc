@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -15,6 +15,26 @@ import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
 import WikiLinkPreview from './WikiLinkPreview';
+
+/**
+ * Recursively drop invalid empty text nodes. ProseMirror requires every text
+ * node to carry a non-empty string; a `{ type: 'text', text: null }` (or '')
+ * makes `Node.fromJSON` throw and blanks the WHOLE document. Such nodes have
+ * crept into stored content (seeder fallback, link-adjacent segments), so we
+ * defensively strip them before handing content to the editor — otherwise a
+ * single bad node renders the page blank even though the data is recoverable.
+ */
+function sanitizeDoc(node) {
+    if (!node || typeof node !== 'object' || !Array.isArray(node.content)) {
+        return node;
+    }
+    return {
+        ...node,
+        content: node.content
+            .filter((c) => !(c?.type === 'text' && (typeof c.text !== 'string' || c.text === '')))
+            .map(sanitizeDoc),
+    };
+}
 
 /**
  * TipTap editor component — used for both edit and read-only view.
@@ -41,9 +61,14 @@ export default function TipTapEditor({
     const wikiKeyRef  = useRef(null);
     const slashKeyRef = useRef(null);
 
+    const safeContent = useMemo(() => (content ? sanitizeDoc(content) : content), [content]);
+
     const editor = useEditor({
         editable,
-        content: content ?? { type: 'doc', content: [] },
+        // A doc requires block+ content; default to an empty paragraph (never an
+        // empty doc) so there's always a text block to receive inline inserts
+        // like wiki-links — otherwise an atom can land at the top level.
+        content: safeContent ?? { type: 'doc', content: [{ type: 'paragraph' }] },
         onUpdate: ({ editor: e }) => {
             if (editable) onUpdate?.(e.getJSON());
         },
@@ -105,10 +130,10 @@ export default function TipTapEditor({
 
     // For read-only view: update content when the prop changes (e.g. after Inertia reload).
     useEffect(() => {
-        if (editor && !editable && content) {
-            editor.commands.setContent(content, false);
+        if (editor && !editable && safeContent) {
+            editor.commands.setContent(safeContent, false);
         }
-    }, [editor, editable, content]);
+    }, [editor, editable, safeContent]);
 
     return (
         <div className="flex flex-col">
