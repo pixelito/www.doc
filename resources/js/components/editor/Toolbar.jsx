@@ -457,10 +457,15 @@ export default function Toolbar({ editor }) {
             </ToolbarButton>
 
             {/* ── Image ─────────────────────────────────────────────── */}
-            <ToolbarButton title="Insert image" active={openPicker === 'image'}
+            <ToolbarButton title={inImage ? "Edit image" : "Insert image"} active={openPicker === 'image'}
                 onClick={() => togglePicker('image', () => {
-                    setImageMode('upload');
-                    setImageUrl('');
+                    if (inImage) {
+                        setImageMode('url');
+                        setImageUrl(editor.getAttributes('image').src ?? '');
+                    } else {
+                        setImageMode('upload');
+                        setImageUrl('');
+                    }
                 })}>
                 <IconPhoto className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
@@ -480,7 +485,7 @@ export default function Toolbar({ editor }) {
                     <div className="flex overflow-hidden rounded border border-border text-xs">
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); setImageMode('upload'); }}
                             className={`px-2 py-0.5 ${imageMode === 'upload' ? 'bg-sage-100 text-sage-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
-                            Upload
+                            {inImage ? 'Replace (Upload)' : 'Upload'}
                         </button>
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); setImageMode('url'); }}
                             className={`border-l border-border px-2 py-0.5 ${imageMode === 'url' ? 'bg-sage-100 text-sage-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
@@ -508,9 +513,20 @@ export default function Toolbar({ editor }) {
                             />
                             <button type="button" onMouseDown={(e) => { e.preventDefault(); insertImageUrl(); }}
                                 className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
-                                Insert
+                                {inImage ? 'Update' : 'Insert'}
                             </button>
                         </>
+                    )}
+                    
+                    {inImage && (
+                        <button type="button" onMouseDown={(e) => {
+                            e.preventDefault();
+                            editor.chain().focus().deleteSelection().run();
+                            setOpenPicker(null);
+                        }}
+                            className="ml-1 rounded-sm border border-danger/30 bg-danger/10 px-2 py-0.5 text-xs text-danger transition-colors hover:bg-danger hover:text-white">
+                            Delete
+                        </button>
                     )}
                 </div>
             )}

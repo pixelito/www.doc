@@ -47,21 +47,39 @@ export const ResizableImage = Image.extend({
             wrapper.appendChild(inner);
 
             const img = document.createElement('img');
+            img.draggable = false;
+            inner.appendChild(img);
             
-            const fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23FBFAF5%22 stroke=%22%23E2DFD4%22 stroke-width=%222%22 stroke-dasharray=%228%22 rx=%228%22 /%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22system-ui, sans-serif%22 font-size=%2214%22 font-weight=%22500%22 fill=%22%238E938E%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E";
-            img.onerror = function() {
-                if (this.src !== fallback) {
-                    this.src = fallback;
+            const failedFallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23FBFAF5%22 stroke=%22%23E2DFD4%22 stroke-width=%222%22 stroke-dasharray=%228%22 rx=%228%22 /%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22system-ui, sans-serif%22 font-size=%2214%22 font-weight=%22500%22 fill=%22%238E938E%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E";
+            const loadingFallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23FBFAF5%22 stroke=%22%23E2DFD4%22 stroke-width=%222%22 stroke-dasharray=%228%22 rx=%228%22 /%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22system-ui, sans-serif%22 font-size=%2214%22 font-weight=%22500%22 fill=%22%238E938E%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ELoading image...%3C/text%3E%3C/svg%3E";
+
+            let lastRealSrc = null;
+
+            function loadRealImage(targetSrc) {
+                if (lastRealSrc === targetSrc) return;
+                lastRealSrc = targetSrc;
+                
+                img.src = loadingFallback;
+                
+                if (targetSrc) {
+                    const preloader = new Image();
+                    preloader.onload = () => {
+                        if (lastRealSrc === targetSrc) img.src = targetSrc;
+                    };
+                    preloader.onerror = () => {
+                        if (lastRealSrc === targetSrc) img.src = failedFallback;
+                    };
+                    preloader.src = targetSrc;
+                } else {
+                    img.src = failedFallback;
                 }
-            };
+            }
+
+            loadRealImage(currentAttrs.src ?? '');
             
-            img.src = currentAttrs.src ?? '';
             img.alt = currentAttrs.alt ?? '';
             if (currentAttrs.title) img.title = currentAttrs.title;
             if (currentAttrs.width) img.style.width = currentAttrs.width + 'px';
-            img.draggable = false;
-            
-            inner.appendChild(img);
 
             // Resize handle — only wired up in edit mode
             if (editor.isEditable) {
@@ -108,7 +126,9 @@ export const ResizableImage = Image.extend({
                 update(updatedNode) {
                     if (updatedNode.type.name !== 'image') return false;
                     currentAttrs = { ...updatedNode.attrs };
-                    img.src = currentAttrs.src ?? '';
+                    
+                    loadRealImage(currentAttrs.src ?? '');
+                    
                     img.alt = currentAttrs.alt ?? '';
                     img.title = currentAttrs.title ?? '';
                     img.style.width = currentAttrs.width ? currentAttrs.width + 'px' : '';
