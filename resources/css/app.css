@@ -140,6 +140,14 @@
 
 /* ── TipTap editor shell ─────────────────────────────────────────────────── */
 
+.tiptap {
+    /* ProseMirror requires pre-wrap: without it the browser collapses
+       whitespace, dropping the spaces around inline node views (wiki-links) on
+       render — and edit+save then reads that collapsed DOM back into the model,
+       losing the spaces permanently. */
+    white-space: pre-wrap;
+}
+
 .tiptap-edit-area .tiptap {
     min-height: 400px;
     padding: 1.25rem 1.5rem;
