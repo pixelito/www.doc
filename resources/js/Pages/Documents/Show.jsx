@@ -284,6 +284,21 @@ function MoveModal({ open, onClose, documentId, workspaces, currentWorkspaceId }
     );
 }
 
+function formatContext(text) {
+    if (!text) return null;
+    return text.split(/(\[\[.*?\]\])/g).map((part, index) => {
+        if (part.startsWith('[[') && part.endsWith(']]')) {
+            const innerText = part.slice(2, -2);
+            return (
+                <span key={index} className="mx-0.5 inline-block rounded-[3px] bg-sage-50 px-1 font-medium text-sage-600 underline decoration-sage-300 underline-offset-2">
+                    {innerText}
+                </span>
+            );
+        }
+        return <span key={index}>{part}</span>;
+    });
+}
+
 function BacklinksPanel({ backlinks }) {
     return (
         <section className="mt-8">
@@ -303,7 +318,9 @@ function BacklinksPanel({ backlinks }) {
                             <span className="truncate text-sm font-medium text-foreground">{link.title}</span>
                         </div>
                         {link.context && (
-                            <p className="mt-1 truncate pl-6 text-xs text-text-tertiary">{link.context}</p>
+                            <p className="mt-1 truncate pl-6 text-xs text-text-tertiary">
+                                {formatContext(link.context)}
+                            </p>
                         )}
                     </Link>
                 ))}
