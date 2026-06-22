@@ -63,10 +63,13 @@ class ResizableImageNode extends Node
         if ($align === 'center') $style .= 'margin:0 auto;';
         elseif ($align === 'right') $style .= 'margin-left:auto;';
 
+        $fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22 fill=%22%23f3f4f6%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23f3f4f6%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22sans-serif%22 font-size=%2216%22 fill=%22%239ca3af%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E";
+
         return ['img', array_merge($HTMLAttributes, [
-            'src'   => $src,
-            'alt'   => $alt,
-            'style' => $style,
+            'src'     => $src,
+            'alt'     => $alt,
+            'style'   => $style,
+            'onerror' => "if(this.src!=='{$fallback}')this.src='{$fallback}';",
         ])];
     }
 }
