@@ -457,7 +457,7 @@ export default function Toolbar({ editor }) {
             </ToolbarButton>
 
             {/* ── Image ─────────────────────────────────────────────── */}
-            <ToolbarButton title={inImage ? "Edit image" : "Insert image"} active={openPicker === 'image'}
+            <ToolbarButton title={inImage ? "Edit image" : "Insert image"} active={openPicker === 'image' || inImage}
                 onClick={() => togglePicker('image', () => {
                     if (inImage) {
                         setImageMode('url');
