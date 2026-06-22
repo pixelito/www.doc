@@ -149,3 +149,55 @@ test('siblings can be reordered', function () {
     expect($second->fresh()->position)->toBe(0);
     expect($first->fresh()->position)->toBe(1);
 });
+
+test('the tree endpoint saves nesting and positions in one batch', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $a = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
+    $b = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 1]);
+    $c = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 2]);
+    $stamp = $a->updated_at;
+
+    // Nest b under a, keep c at the root, and flip the root order.
+    $this->patch("/workspaces/{$workspace->id}/tree", ['nodes' => [
+        ['id' => $c->id, 'parent_id' => null,    'position' => 0],
+        ['id' => $a->id, 'parent_id' => null,    'position' => 1],
+        ['id' => $b->id, 'parent_id' => $a->id,  'position' => 0],
+    ]])->assertRedirect();
+
+    expect($b->fresh()->parent_id)->toBe($a->id);
+    expect($c->fresh()->position)->toBe(0);
+    expect($a->fresh()->position)->toBe(1);
+    // Structural change must not bump the activity timestamp.
+    expect($a->fresh()->updated_at->equalTo($stamp))->toBeTrue();
+});
+
+test('the tree endpoint rejects a page from another workspace', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $mine      = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $foreign   = Document::factory()->create(); // a different workspace
+
+    $this->patch("/workspaces/{$workspace->id}/tree", ['nodes' => [
+        ['id' => $mine->id,    'parent_id' => null, 'position' => 0],
+        ['id' => $foreign->id, 'parent_id' => null, 'position' => 1],
+    ]])->assertSessionHasErrors('nodes');
+
+    expect($foreign->fresh()->workspace_id)->not->toBe($workspace->id);
+});
+
+test('the tree endpoint rejects a cycle', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $a = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $b = Document::factory()->create(['workspace_id' => $workspace->id]);
+
+    // a under b and b under a — a cycle that must be refused.
+    $this->patch("/workspaces/{$workspace->id}/tree", ['nodes' => [
+        ['id' => $a->id, 'parent_id' => $b->id, 'position' => 0],
+        ['id' => $b->id, 'parent_id' => $a->id, 'position' => 0],
+    ]])->assertSessionHasErrors('nodes');
+
+    expect($a->fresh()->parent_id)->toBeNull();
+    expect($b->fresh()->parent_id)->toBeNull();
+});

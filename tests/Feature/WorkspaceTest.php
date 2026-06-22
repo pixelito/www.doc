@@ -106,3 +106,25 @@ test('the workspace show page returns the document tree', function () {
         fn (Assert $page) => $page->component('Workspaces/Show')->has('tree')
     );
 });
+
+test('workspaces are reordered by the given id order without bumping updated_at', function () {
+    login();
+    $first  = Workspace::factory()->create(['position' => 0]);
+    $second = Workspace::factory()->create(['position' => 1]);
+    $stamp  = $second->updated_at;
+
+    $this->patch('/workspaces/reorder', ['ids' => [$second->id, $first->id]])->assertRedirect();
+
+    expect($second->fresh()->position)->toBe(0);
+    expect($first->fresh()->position)->toBe(1);
+    // Reordering is structural — it must not touch the activity timestamp.
+    expect($second->fresh()->updated_at->equalTo($stamp))->toBeTrue();
+});
+
+test('reorder rejects ids that do not exist', function () {
+    login();
+    Workspace::factory()->create();
+
+    $this->patch('/workspaces/reorder', ['ids' => [999999]])
+        ->assertSessionHasErrors('ids.0');
+});

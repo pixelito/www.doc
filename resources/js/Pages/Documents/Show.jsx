@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
@@ -345,7 +346,6 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     const editorContentRef = useRef(document.content);
 
     const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
-    const [discardOpen, setDiscardOpen] = useState(false);
     const [deleteOpen, setDeleteOpen]   = useState(false);
     const isDirtyRef = useRef(false);
 
@@ -361,16 +361,22 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             .map((l) => [l.target_title, `/documents/${l.target.id}`])
     );
 
-    // Warn before browser close/refresh when there are unsaved changes
+    // Warn before losing unsaved edits on close/refresh or an in-app navigation
+    // (breadcrumb, version history, sidebar). In-page POSTs — saving, creating a
+    // tag — are non-GET and pass through; see the discard modal below.
+    const { promptOpen, requestLeave, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: isEditing,
+        dirtyRef: isDirtyRef,
+        revert: () => { setIsEditing(false); setSaveStatus(null); },
+    });
+
+    // Title/tag edits count as unsaved too (content edits flag the ref directly).
     useEffect(() => {
         if (!isEditing) return;
-        const handler = (e) => {
-            if (!isDirtyRef.current) return;
-            e.preventDefault();
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [isEditing]);
+        const titleChanged = editTitle !== document.title;
+        const tagsChanged = JSON.stringify([...editTags].sort()) !== JSON.stringify([...document.tags.map(t => t.id)].sort());
+        if (titleChanged || tagsChanged) isDirtyRef.current = true;
+    }, [editTitle, editTags, isEditing]);
 
     // Reset form fields when entering/leaving edit mode
     useEffect(() => {
@@ -417,23 +423,6 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     function handleExplicitSave(e) {
         e.preventDefault();
         performSave(editorContentRef.current);
-    }
-
-    function handleCancelEdit() {
-        const titleChanged = editTitle !== document.title;
-        const tagsChanged  = JSON.stringify([...editTags].sort()) !== JSON.stringify([...document.tags.map(t => t.id)].sort());
-        if (isDirtyRef.current || titleChanged || tagsChanged) {
-            setDiscardOpen(true);
-        } else {
-            setIsEditing(false);
-            setSaveStatus(null);
-        }
-    }
-
-    function confirmDiscard() {
-        setDiscardOpen(false);
-        setIsEditing(false);
-        setSaveStatus(null);
     }
 
     function handleTagToggle(tagId) {
@@ -572,7 +561,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                             <Button
                                 variant="outline"
                                 className="border-border hover:bg-surface-hover"
-                                onClick={handleCancelEdit}
+                                onClick={requestLeave}
                             >
                                 <IconX stroke={1.5} />
                                 Cancel
@@ -754,14 +743,14 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         </DocsLayout>
 
         <ConfirmDialog
-            open={discardOpen}
+            open={promptOpen}
             title="Discard changes?"
             message="You have unsaved changes. Leaving edit mode will discard them permanently."
             confirmLabel="Discard changes"
             cancelLabel="Keep editing"
             variant="danger"
             onConfirm={confirmDiscard}
-            onCancel={() => setDiscardOpen(false)}
+            onCancel={dismissPrompt}
         />
 
         <ConfirmDialog

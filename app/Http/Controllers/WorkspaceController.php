@@ -58,7 +58,15 @@ class WorkspaceController extends Controller
     {
         $this->authorize('create', Workspace::class);
 
-        foreach ($request->input('ids', []) as $position => $id) {
+        // Validate the payload like the document reorder/move endpoints do — an
+        // unchecked id list reaching a raw UPDATE is the one gap among the tree
+        // ops. A raw DB::table update keeps reordering from bumping updated_at.
+        $data = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:workspaces,id'],
+        ]);
+
+        foreach ($data['ids'] as $position => $id) {
             DB::table('workspaces')->where('id', $id)->update(['position' => $position]);
         }
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport } from '@tabler/icons-react';
+import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
     DndContext,
     PointerSensor,
@@ -215,6 +216,20 @@ export default function WorkspaceShow({ workspace, tree }) {
     const [modalParentId, setModalParentId] = useState('');
     const [deleteOpen, setDeleteOpen] = useState(false);
 
+    // Reorder is an explicit mode (like edit mode): off by default so a stray
+    // drag can't rearrange the tree, toggled on to expose the drag handles.
+    // Drags only mutate local state; the tree is persisted once, on "Done".
+    const [reordering, setReordering] = useState(false);
+    const reorderDirty = useRef(false);
+
+    // Warn before losing unsaved moves on close/refresh or any in-app navigation
+    // (a page link, a sidebar action, or "New page"); see the discard modal below.
+    const { promptOpen, requestLeave, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: reordering,
+        dirtyRef: reorderDirty,
+        revert: () => { setRootNodes(tree); setReordering(false); },
+    });
+
     // Drag state
     const [activeId, setActiveId] = useState(null);
     const [overId, setOverId] = useState(null);
@@ -275,10 +290,25 @@ export default function WorkspaceShow({ workspace, tree }) {
         full[activeIndex] = { ...original, depth: projection.depth, parentId: projection.parentId };
         const sorted = arrayMove(full, activeIndex, overIndex);
         setRootNodes(buildTree(sorted));
+        // Don't persist per-drop — accumulate locally and save the whole tree on "Done".
+        reorderDirty.current = true;
+    }
 
-        const siblingIds = sorted.filter((i) => i.parentId === projection.parentId).map((i) => i.id);
-        router.patch(`/documents/${active.id}/move`,
-            { parent_id: projection.parentId, order: siblingIds },
+    /** Leave reorder mode, persisting the whole tree once if anything moved. */
+    function finishReorder() {
+        setReordering(false);
+        if (!reorderDirty.current) return;
+        reorderDirty.current = false;
+
+        const posByParent = new Map();
+        const nodes = flattenForDnd(rootNodes).map((i) => {
+            const key = i.parentId ?? 0;
+            const position = posByParent.get(key) ?? 0;
+            posByParent.set(key, position + 1);
+            return { id: i.id, parent_id: i.parentId ?? null, position };
+        });
+
+        router.patch(`/workspaces/${workspace.id}/tree`, { nodes },
             { preserveState: true, preserveScroll: true });
     }
 
@@ -310,7 +340,25 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    {perms.create && (
+                    {perms.update && rootNodes.length > 0 && !activeTag && (
+                        reordering ? (
+                            <>
+                                <Button variant="outline" onClick={requestLeave}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={finishReorder}>
+                                    <IconCheck stroke={1.5} />
+                                    Done
+                                </Button>
+                            </>
+                        ) : (
+                            <Button variant="outline" onClick={() => { reorderDirty.current = false; setReordering(true); }}>
+                                <IconArrowsSort stroke={1.5} />
+                                Reorder
+                            </Button>
+                        )
+                    )}
+                    {perms.create && !reordering && (
                         <Button variant="outline" asChild>
                             <Link href={`/workspaces/${workspace.id}/imports/create`}>
                                 <IconUpload stroke={1.5} />
@@ -318,7 +366,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                             </Link>
                         </Button>
                     )}
-                    {perms.delete && (
+                    {perms.delete && !reordering && (
                         <Button
                             variant="outline"
                             className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
@@ -328,7 +376,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                             Delete
                         </Button>
                     )}
-                    {perms.create && (
+                    {perms.create && !reordering && (
                         <Button onClick={() => openModal('')}>
                             <IconPlus stroke={1.5} />
                             New page
@@ -383,7 +431,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                             onDragStart={({ active }) => { setActiveId(active.id); setOverId(active.id); }}
                             onDragMove={({ delta }) => setOffsetLeft(delta.x)}
                             onDragOver={({ over }) => setOverId(over?.id ?? null)}
-                            onDragEnd={perms.update ? handleDragEnd : resetDrag}
+                            onDragEnd={perms.update && reordering ? handleDragEnd : resetDrag}
                             onDragCancel={resetDrag}
                         >
                             <SortableContext items={flattenedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
@@ -397,8 +445,8 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             activeTagId={activeTag}
                                             workspaceId={workspace.id}
                                             onAddChild={openModal}
-                                            canCreate={perms.create}
-                                            canReorder={perms.update}
+                                            canCreate={perms.create && !reordering}
+                                            canReorder={perms.update && reordering}
                                             ghost={item.id === activeId}
                                         />
                                     ))}
@@ -409,7 +457,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                 )}
 
                 {/* New page footer button */}
-                {perms.create && (
+                {perms.create && !reordering && (
                     <button
                         type="button"
                         onClick={() => openModal('')}
@@ -421,9 +469,9 @@ export default function WorkspaceShow({ workspace, tree }) {
                 )}
             </div>
 
-            {perms.update && rootNodes.length > 0 && !filteredRows && (
-                <p className="mt-2 px-1 text-xs text-text-tertiary">
-                    Drag a page up or down to reorder, or sideways to nest it under another page.
+            {reordering && rootNodes.length > 0 && !filteredRows && (
+                <p className="mt-2 px-1 text-xs text-sage-600">
+                    Drag a page up or down to reorder, or sideways to nest it under another page. Click “Done” when finished.
                 </p>
             )}
         </DocsLayout>
@@ -445,6 +493,17 @@ export default function WorkspaceShow({ workspace, tree }) {
             variant="danger"
             onConfirm={destroyWorkspace}
             onCancel={() => setDeleteOpen(false)}
+        />
+
+        <ConfirmDialog
+            open={promptOpen}
+            title="Discard changes?"
+            message="You have unsaved page-order changes. Leaving reorder mode will discard them permanently."
+            confirmLabel="Discard changes"
+            cancelLabel="Keep reordering"
+            variant="danger"
+            onConfirm={confirmDiscard}
+            onCancel={dismissPrompt}
         />
         </>
     );

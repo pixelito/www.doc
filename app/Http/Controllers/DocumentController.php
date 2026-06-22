@@ -10,6 +10,7 @@ use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -175,6 +176,66 @@ class DocumentController extends Controller
                 ->where('parent_id', $parentId)
                 ->update(['position' => $position]));
         }
+
+        return back();
+    }
+
+    /**
+     * Persist a whole workspace's page tree in one shot — parent + position for
+     * every node. The "Reorder" mode batches all drags locally and saves once on
+     * "Done", instead of a request per drop, so the tree lands in one atomic write.
+     */
+    public function restructure(Request $request, Workspace $workspace): RedirectResponse
+    {
+        $this->authorize('update', $workspace);
+
+        $data = $request->validate([
+            'nodes'             => ['required', 'array'],
+            'nodes.*.id'        => ['required', 'integer', 'distinct'],
+            'nodes.*.parent_id' => ['nullable', 'integer'],
+            'nodes.*.position'  => ['required', 'integer'],
+        ]);
+
+        $nodes = $data['nodes'];
+        $ids   = array_column($nodes, 'id');
+
+        // Every node must be a live page in THIS workspace — no smuggling ids
+        // from another workspace into the batch.
+        if ($workspace->documents()->whereIn('id', $ids)->count() !== count($ids)) {
+            throw ValidationException::withMessages(['nodes' => 'Every page must belong to this workspace.']);
+        }
+
+        // Each parent must be inside the batch (or null), and the result acyclic —
+        // a hostile client could otherwise send a cycle that hangs tree walks.
+        $idSet    = array_flip($ids);
+        $parentOf = [];
+        foreach ($nodes as $node) {
+            $parentId = $node['parent_id'] ?? null;
+            if ($parentId !== null && ! isset($idSet[$parentId])) {
+                throw ValidationException::withMessages(['nodes' => 'A parent must be one of the reordered pages.']);
+            }
+            $parentOf[$node['id']] = $parentId;
+        }
+        foreach ($parentOf as $id => $parentId) {
+            $seen = [];
+            while ($parentId !== null) {
+                if ($parentId === $id || isset($seen[$parentId])) {
+                    throw ValidationException::withMessages(['nodes' => 'A page cannot be nested inside itself.']);
+                }
+                $seen[$parentId] = true;
+                $parentId = $parentOf[$parentId] ?? null;
+            }
+        }
+
+        // Structural change only — don't bump updated_at on every page.
+        DB::transaction(function () use ($nodes) {
+            foreach ($nodes as $node) {
+                Document::withoutTimestamps(fn () => Document::whereKey($node['id'])->update([
+                    'parent_id' => $node['parent_id'] ?? null,
+                    'position'  => $node['position'],
+                ]));
+            }
+        });
 
         return back();
     }

@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
+    IconArrowsSort, IconCheck,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -13,6 +14,8 @@ import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
 
 function timeAgo(dateStr) {
@@ -82,14 +85,29 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
     const [modalOpen, setModalOpen]   = useState(false);
     const [sortBy, setSortBy]         = useState('arranged'); // 'arranged' | 'updated'
 
+    // Explicit reorder mode (like the page tree's): drags only mutate local
+    // state, and the new order is saved once on "Done".
+    const [reordering, setReordering] = useState(false);
+    const reorderDirty = useRef(false);
+
+    // Warn before losing unsaved moves on close/refresh or any in-app navigation
+    // (a workspace row, a nav link, "New workspace"); see the discard modal below.
+    const { promptOpen, requestLeave, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: reordering,
+        dirtyRef: reorderDirty,
+        revert: () => { setWorkspaces(initial); setReordering(false); },
+    });
+
     useEffect(() => { setWorkspaces(initial); }, [initial]);
 
     const displayed = useMemo(() => {
-        if (sortBy === 'updated') {
+        // While reordering, always show position order — dragging a list that's
+        // sorted by "last updated" would persist a meaningless order.
+        if (sortBy === 'updated' && !reordering) {
             return [...workspaces].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
         }
         return workspaces; // already in position order from server
-    }, [workspaces, sortBy]);
+    }, [workspaces, sortBy, reordering]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -100,9 +118,17 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
         const oldIndex = workspaces.findIndex(w => String(w.id) === active.id);
         const newIndex = workspaces.findIndex(w => String(w.id) === over.id);
         if (oldIndex === -1 || newIndex === -1) return;
-        const reordered = arrayMove(workspaces, oldIndex, newIndex);
-        setWorkspaces(reordered);
-        router.patch('/workspaces/reorder', { ids: reordered.map(w => w.id) }, {
+        // Local only — persisted on "Done".
+        setWorkspaces(arrayMove(workspaces, oldIndex, newIndex));
+        reorderDirty.current = true;
+    }
+
+    /** Leave reorder mode, saving the order once if it changed. */
+    function finishReorder() {
+        setReordering(false);
+        if (!reorderDirty.current) return;
+        reorderDirty.current = false;
+        router.patch('/workspaces/reorder', { ids: workspaces.map(w => w.id) }, {
             preserveState: true,
             preserveScroll: true,
         });
@@ -123,7 +149,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5 self-center">
-                    {workspaces.length > 1 && (
+                    {workspaces.length > 1 && !reordering && (
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
@@ -133,7 +159,25 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             <option value="updated">Last updated</option>
                         </select>
                     )}
-                    {perms.isAdmin && (
+                    {perms.update && workspaces.length > 1 && (
+                        reordering ? (
+                            <>
+                                <Button variant="outline" onClick={requestLeave}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={finishReorder}>
+                                    <IconCheck stroke={1.5} />
+                                    Done
+                                </Button>
+                            </>
+                        ) : (
+                            <Button variant="outline" onClick={() => { reorderDirty.current = false; setReordering(true); }}>
+                                <IconArrowsSort stroke={1.5} />
+                                Reorder
+                            </Button>
+                        )
+                    )}
+                    {perms.isAdmin && !reordering && (
                         <Button asChild variant="secondary" className="text-text-secondary hover:text-foreground">
                             <Link href="/trash">
                                 <IconTrash stroke={1.5} />
@@ -141,7 +185,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             </Link>
                         </Button>
                     )}
-                    {perms.create && (
+                    {perms.create && !reordering && (
                         <Button onClick={() => setModalOpen(true)}>
                             <IconPlus stroke={1.5} />
                             New workspace
@@ -180,11 +224,11 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                         )}
                     </div>
                 ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={sortBy === 'arranged' ? handleDragEnd : undefined}>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reordering ? handleDragEnd : undefined}>
                         <SortableContext items={displayed.map(w => String(w.id))} strategy={verticalListSortingStrategy}>
                             <ul>
                                 {displayed.map(w => (
-                                    <SortableRow key={w.id} workspace={w} draggable={sortBy === 'arranged' && perms.update} />
+                                    <SortableRow key={w.id} workspace={w} draggable={reordering && perms.update} />
                                 ))}
                             </ul>
                         </SortableContext>
@@ -234,6 +278,17 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
             )}
 
             <NewWorkspaceModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+            <ConfirmDialog
+                open={promptOpen}
+                title="Discard changes?"
+                message="You have unsaved order changes. Leaving reorder mode will discard them permanently."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep reordering"
+                variant="danger"
+                onConfirm={confirmDiscard}
+                onCancel={dismissPrompt}
+            />
         </DocsLayout>
     );
 }
