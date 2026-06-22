@@ -102,13 +102,14 @@ class AssetController extends Controller
             ]);
         }
 
+        // Only the allow-listed raster mimes can reach here (SVG is rejected
+        // above), so there's deliberately no svg branch.
         $ext = match ($mime) {
-            'image/jpeg'   => 'jpg',
-            'image/png'    => 'png',
-            'image/gif'    => 'gif',
-            'image/webp'   => 'webp',
-            'image/svg+xml' => 'svg',
-            default        => 'bin',
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/gif'  => 'gif',
+            'image/webp' => 'webp',
+            default      => 'bin',
         };
 
         $path = "assets/{$checksum}.{$ext}";
