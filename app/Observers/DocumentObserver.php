@@ -14,6 +14,13 @@ class DocumentObserver
     /** Stamp authorship before the row is written. */
     public function saving(Document $document): void
     {
+        // Keep stored content valid for ProseMirror (no empty text nodes) on
+        // every write path — controllers, seeders, import jobs. Only touch it
+        // when it actually changed so tree ops (move/reorder) stay no-ops.
+        if ($document->isDirty('content') && is_array($document->content)) {
+            $document->content = TipTap::normalize($document->content);
+        }
+
         $userId = Auth::id();
 
         if (! $document->exists && $userId && ! $document->created_by_id) {

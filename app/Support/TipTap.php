@@ -34,6 +34,37 @@ class TipTap
     }
 
     /**
+     * Strip nodes that would make the canonical JSON invalid for ProseMirror —
+     * today, text nodes whose `text` isn't a non-empty string. One such node
+     * makes the editor's Node.fromJSON throw and blanks the whole page (while
+     * tiptap-php renders it, so the read view looks fine). Mirrors the client
+     * sanitizer so stored content is clean no matter which path wrote it.
+     */
+    public static function normalize(?array $node): ?array
+    {
+        if (! is_array($node)) {
+            return $node;
+        }
+
+        if (isset($node['content']) && is_array($node['content'])) {
+            $clean = [];
+            foreach ($node['content'] as $child) {
+                if (! is_array($child)) {
+                    continue;
+                }
+                if (($child['type'] ?? null) === 'text'
+                    && (! isset($child['text']) || ! is_string($child['text']) || $child['text'] === '')) {
+                    continue;
+                }
+                $clean[] = self::normalize($child);
+            }
+            $node['content'] = $clean;
+        }
+
+        return $node;
+    }
+
+    /**
      * Whether a document has no meaningful content — i.e. it's null, has no
      * child nodes, or contains only empty paragraphs. Any other block (heading,
      * image, table, list, …) or any text counts as content.
