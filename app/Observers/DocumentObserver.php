@@ -123,16 +123,28 @@ class DocumentObserver
      */
     protected function syncLinks(Document $document): void
     {
-        $titles = TipTap::wikiLinkTitles($document->content);
+        $targets = TipTap::wikiLinkTargets($document->content);
 
         $document->outgoingLinks()->delete();
 
-        foreach ($titles as $title) {
-            $target = Document::query()
-                ->where('title', $title)
-                ->whereKeyNot($document->getKey())
-                ->orderByRaw('(workspace_id = ?) desc', [$document->workspace_id])
-                ->first();
+        foreach ($targets as $targetData) {
+            $title = $targetData['title'];
+            $targetId = $targetData['target_id'];
+
+            if ($targetId) {
+                // We know exactly which document they selected
+                $target = Document::query()
+                    ->whereKey($targetId)
+                    ->first();
+            } else {
+                // Fallback for typed links without an explicit ID
+                $target = Document::query()
+                    ->where('title', $title)
+                    ->whereKeyNot($document->getKey())
+                    ->orderByRaw('(workspace_id = ?) desc', [$document->workspace_id])
+                    ->orderBy('created_at', 'asc') // Tie-breaker: oldest (original) page wins
+                    ->first();
+            }
 
             Link::create([
                 'source_document_id' => $document->getKey(),

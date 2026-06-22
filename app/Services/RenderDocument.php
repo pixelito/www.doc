@@ -89,12 +89,19 @@ class WikiLinkNode extends Node
     public function renderHTML($node, $HTMLAttributes = [])
     {
         $title = $node->attrs->title ?? '';
+        $target_id = $node->attrs->target_id ?? null;
 
-        return ['span', array_merge($HTMLAttributes, [
+        $attrs = array_merge($HTMLAttributes, [
             'class'          => 'wiki-link',
             'data-wiki-link' => 'true',
             'data-title'     => $title,
-        ]), 0];
+        ]);
+        
+        if ($target_id) {
+            $attrs['data-target-id'] = $target_id;
+        }
+
+        return ['span', $attrs, 0];
     }
 
     public function renderText($node): string

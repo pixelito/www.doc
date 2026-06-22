@@ -99,31 +99,42 @@ class TipTap
     }
 
     /**
-     * Extract the titles referenced by [[Wiki-link]] syntax, de-duplicated and
-     * order-preserved.
+     * Extract the targets referenced by [[Wiki-link]] syntax, de-duplicated and
+     * order-preserved. Returns array of ['title' => string, 'target_id' => int|null].
      *
      * Handles two storage formats:
      *  - Legacy: [[Title]] as literal text inside paragraph text nodes.
-     *  - Phase 2+: {type: "wikiLink", attrs: {title: "..."}} custom nodes.
+     *  - Phase 2+: {type: "wikiLink", attrs: {title: "...", target_id: 123}} custom nodes.
      *
-     * @return list<string>
+     * @return list<array>
      */
-    public static function wikiLinkTitles(?array $doc): array
+    public static function wikiLinkTargets(?array $doc): array
     {
-        $titles = [];
+        $targets = [];
 
         // Collect from wikiLink nodes (Phase 2+ format)
-        self::collectWikiLinkNodes($doc, $titles);
+        self::collectWikiLinkNodes($doc, $targets);
 
         // Collect from [[Title]] text patterns (legacy / plain-text format)
         preg_match_all('/\[\[([^\[\]]+)\]\]/', self::plainText($doc), $matches);
         foreach ($matches[1] ?? [] as $t) {
-            $titles[] = trim($t);
+            $title = trim($t);
+            if ($title !== '') {
+                // Only add if we don't already have a target for this title
+                $exists = false;
+                foreach ($targets as $tgt) {
+                    if ($tgt['title'] === $title) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (!$exists) {
+                    $targets[] = ['title' => $title, 'target_id' => null];
+                }
+            }
         }
 
-        $titles = array_filter($titles, fn (string $t) => $t !== '');
-
-        return array_values(array_unique($titles));
+        return $targets;
     }
 
     /**
@@ -177,8 +188,8 @@ class TipTap
         return false;
     }
 
-    /** Recursively collect titles from wikiLink node atoms. */
-    private static function collectWikiLinkNodes(?array $node, array &$titles): void
+    /** Recursively collect targets from wikiLink node atoms. */
+    private static function collectWikiLinkNodes(?array $node, array &$targets): void
     {
         if (! $node) {
             return;
@@ -186,14 +197,24 @@ class TipTap
 
         if (($node['type'] ?? '') === 'wikiLink') {
             $title = trim($node['attrs']['title'] ?? '');
+            $target_id = $node['attrs']['target_id'] ?? null;
             if ($title !== '') {
-                $titles[] = $title;
+                // Check if we already have this target
+                $exists = false;
+                foreach ($targets as $tgt) {
+                    if ($tgt['title'] === $title && $tgt['target_id'] === $target_id) {
+                        $exists = true; break;
+                    }
+                }
+                if (!$exists) {
+                    $targets[] = ['title' => $title, 'target_id' => $target_id];
+                }
             }
         }
 
         foreach ($node['content'] ?? [] as $child) {
             if (is_array($child)) {
-                self::collectWikiLinkNodes($child, $titles);
+                self::collectWikiLinkNodes($child, $targets);
             }
         }
     }

@@ -35,6 +35,7 @@ export const WikiLink = Node.create({
     addAttributes() {
         return {
             title: { default: null },
+            target_id: { default: null },
         };
     },
 
@@ -42,20 +43,28 @@ export const WikiLink = Node.create({
         return [
             {
                 tag: 'span[data-wiki-link]',
-                getAttrs: (el) => ({ title: el.getAttribute('data-title') }),
+                getAttrs: (el) => ({ 
+                    title: el.getAttribute('data-title'),
+                    target_id: el.getAttribute('data-target-id') ? parseInt(el.getAttribute('data-target-id')) : null,
+                }),
             },
         ];
     },
 
     renderHTML({ node, HTMLAttributes }) {
         const title = node.attrs.title ?? '';
+        const target_id = node.attrs.target_id ?? null;
+        
+        const attrs = {
+            'data-wiki-link': 'true',
+            'data-title': title,
+            class: 'wiki-link',
+        };
+        if (target_id) attrs['data-target-id'] = target_id;
+
         return [
             'span',
-            mergeAttributes(HTMLAttributes, {
-                'data-wiki-link': 'true',
-                'data-title': title,
-                class: 'wiki-link',
-            }),
+            mergeAttributes(HTMLAttributes, attrs),
             title,
         ];
     },
@@ -143,7 +152,10 @@ export const WikiLink = Node.create({
                             // Pad only when a space isn't already there (no doubles).
                             const pieces = [];
                             if (!(before === '' || /\s/.test(before))) pieces.push(state.schema.text(' '));
-                            pieces.push(state.schema.nodes[ext.name].create({ title: props.title }));
+                            pieces.push(state.schema.nodes[ext.name].create({ 
+                                title: props.title,
+                                target_id: props.id 
+                            }));
                             if (!/\s/.test(after)) pieces.push(state.schema.text(' '));
 
                             const fragment = Fragment.fromArray(pieces);
