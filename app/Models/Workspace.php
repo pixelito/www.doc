@@ -35,17 +35,32 @@ class Workspace extends Model
      */
     public function trashWithDocuments(): void
     {
-        $this->documents()->get()->each->delete();
+        // Flag each page as cascade-trashed before removing it, so restoring the
+        // workspace brings back exactly these pages — not ones a user had already
+        // trashed individually before the workspace itself was deleted.
+        $this->documents()->get()->each(function (Document $doc) {
+            $doc->flagCascadeTrashed();
+            $doc->delete();
+        });
 
         $this->delete();
     }
 
-    /** Restore this workspace and every document that was trashed inside it. */
+    /**
+     * Restore this workspace and the pages it took down with it. Pages that were
+     * already in the trash on their own (unflagged) are left there.
+     */
     public function restoreWithDocuments(): void
     {
         $this->restore();
 
-        $this->documents()->onlyTrashed()->get()->each->restore();
+        $this->documents()->onlyTrashed()->get()
+            ->each(function (Document $doc) {
+                if ($doc->wasCascadeTrashed()) {
+                    $doc->restore();
+                    $doc->clearCascadeFlag();
+                }
+            });
     }
 
     /** Permanently delete this workspace and all its documents (live or trashed). */

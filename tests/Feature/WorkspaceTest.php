@@ -70,6 +70,22 @@ test('a trashed workspace can be restored with its documents', function () {
     expect(Document::find($document->id))->not->toBeNull();
 });
 
+test('restoring a workspace leaves individually-trashed pages in the trash', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $kept      = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $alreadyGone = Document::factory()->create(['workspace_id' => $workspace->id]);
+
+    // A page the user trashed on its own, before the whole workspace went away.
+    $alreadyGone->trashSubtree();
+    $workspace->trashWithDocuments();
+
+    $this->post("/trash/workspaces/{$workspace->id}/restore")->assertRedirect();
+
+    expect(Document::find($kept->id))->not->toBeNull();
+    $this->assertSoftDeleted('documents', ['id' => $alreadyGone->id]);
+});
+
 test('force-deleting a trashed workspace destroys it and its documents', function () {
     login();
     $workspace = Workspace::factory()->create();

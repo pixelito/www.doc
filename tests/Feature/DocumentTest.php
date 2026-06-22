@@ -152,6 +152,23 @@ test('a trashed document can be restored with its subtree', function () {
     expect(Document::find($child->id))->not->toBeNull();
 });
 
+test('restoring a subtree leaves a pre-trashed child in the trash', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $kept   = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
+    $alreadyGone = Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id]);
+
+    // This child was trashed on its own before its parent was trashed.
+    $alreadyGone->trashSubtree();
+    $parent->trashSubtree();
+
+    $this->post("/trash/documents/{$parent->id}/restore")->assertRedirect();
+
+    expect(Document::find($kept->id))->not->toBeNull();
+    $this->assertSoftDeleted('documents', ['id' => $alreadyGone->id]);
+});
+
 test('force-deleting a trashed document destroys it permanently', function () {
     login();
     $document = Document::factory()->create();

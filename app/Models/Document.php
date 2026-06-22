@@ -125,11 +125,60 @@ class Document extends Model
      */
     public function trashSubtree(): void
     {
+        // This node is being trashed directly (a deliberate user action), so it
+        // carries no cascade flag. Its live descendants are trashed *as a
+        // consequence* and are flagged, so a later restore brings back only the
+        // pages this cascade removed — not ones already trashed on their own.
         foreach ($this->children()->get() as $child) {
-            $child->trashSubtree();
+            $child->cascadeTrashSubtree();
         }
 
         $this->delete();
+    }
+
+    /**
+     * Trash this node and its live descendants as part of an ancestor's cascade,
+     * flagging each so {@see restoreSubtree()} can tell them apart from pages
+     * that were individually trashed before the cascade ran.
+     */
+    protected function cascadeTrashSubtree(): void
+    {
+        foreach ($this->children()->get() as $child) {
+            $child->cascadeTrashSubtree();
+        }
+
+        $this->flagCascadeTrashed();
+        $this->delete();
+    }
+
+    /**
+     * Persist the "trashed by a cascade" marker without shifting timestamps or
+     * firing the observer — it's bookkeeping, not a content edit. Public so a
+     * Workspace can flag its pages when it cascades them into the trash.
+     */
+    public function flagCascadeTrashed(): void
+    {
+        $this->metadata = array_merge($this->metadata ?? [], ['cascade_trashed' => true]);
+        self::withoutTimestamps(fn () => $this->saveQuietly());
+    }
+
+    /** Whether this page was trashed as a dependent of an ancestor or its workspace. */
+    public function wasCascadeTrashed(): bool
+    {
+        return (bool) ($this->metadata['cascade_trashed'] ?? false);
+    }
+
+    /** Drop the cascade marker after a restore so the metadata stays clean. */
+    public function clearCascadeFlag(): void
+    {
+        if (! array_key_exists('cascade_trashed', $this->metadata ?? [])) {
+            return;
+        }
+
+        $metadata = $this->metadata;
+        unset($metadata['cascade_trashed']);
+        $this->metadata = $metadata;
+        self::withoutTimestamps(fn () => $this->saveQuietly());
     }
 
     /**
@@ -146,13 +195,20 @@ class Document extends Model
         }
     }
 
-    /** Restore this document and its entire trashed subtree. */
+    /**
+     * Restore this document and the subtree the same cascade trashed. A trashed
+     * child is only brought back if it was flagged when *this* unit went to the
+     * trash — a page deleted on its own beforehand stays trashed.
+     */
     public function restoreSubtree(): void
     {
         $this->restore();
+        $this->clearCascadeFlag();
 
         foreach ($this->children()->onlyTrashed()->get() as $child) {
-            $child->restoreSubtree();
+            if ($child->wasCascadeTrashed()) {
+                $child->restoreSubtree();
+            }
         }
     }
 
