@@ -61,6 +61,19 @@ export default function TipTapEditor({
     const wikiKeyRef  = useRef(null);
     const slashKeyRef = useRef(null);
 
+    // A wiki-link resolves if it matches a known page title OR an already-saved
+    // outgoing link. Without the suggestions fallback a link to a page that
+    // exists still shows as "doesn't exist yet" until the doc is saved and the
+    // backend repopulates outgoing_links — so resolve against the page list too.
+    // Explicit resolvedLinks win (they carry the canonical id for the title).
+    const linkTargets = useMemo(() => {
+        const map = {};
+        for (const d of suggestions) {
+            if (d?.title) map[d.title] = `/documents/${d.id}`;
+        }
+        return { ...map, ...resolvedLinks };
+    }, [suggestions, resolvedLinks]);
+
     const safeContent = useMemo(() => (content ? sanitizeDoc(content) : content), [content]);
 
     const editor = useEditor({
@@ -101,7 +114,7 @@ export default function TipTapEditor({
             Placeholder.configure({ placeholder }),
             WikiLink.configure({
                 suggestions,
-                resolvedLinks,
+                resolvedLinks: linkTargets,
                 onSuggestionStart:   (p) => setWikiSuggestion(p),
                 onSuggestionUpdate:  (p) => setWikiSuggestion(p),
                 onSuggestionExit:    ()  => setWikiSuggestion(null),

@@ -324,6 +324,10 @@
     font-weight: 500;
     cursor: pointer;
     transition: opacity 100ms;
+    /* Base colour so statically-rendered HTML (version snapshots, exports) shows
+       links coloured even without the resolved/unresolved classes the live
+       editor adds via its node view — those more-specific rules still win. */
+    color: var(--sage-600);
 }
 .tiptap .wiki-link.resolved {
     color: var(--sage-600);
