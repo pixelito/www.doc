@@ -11,8 +11,12 @@ namespace App\Support;
  */
 class TipTap
 {
-    /** Recursively collect the concatenated text of all text nodes. */
     public static function plainText(?array $doc): string
+    {
+        return trim(preg_replace('/\s+/', ' ', self::extractText($doc)));
+    }
+
+    private static function extractText(?array $doc): string
     {
         if (! $doc) {
             return '';
@@ -20,17 +24,23 @@ class TipTap
 
         $text = '';
 
-        if (isset($doc['text']) && is_string($doc['text'])) {
+        if (($doc['type'] ?? '') === 'wikiLink' && isset($doc['attrs']['title'])) {
+            $text .= '[[' . $doc['attrs']['title'] . ']]';
+        } elseif (isset($doc['text']) && is_string($doc['text'])) {
             $text .= $doc['text'];
         }
 
         foreach ($doc['content'] ?? [] as $child) {
             if (is_array($child)) {
-                $text .= ' '.self::plainText($child);
+                $text .= self::extractText($child);
             }
         }
 
-        return trim($text);
+        if (in_array($doc['type'] ?? '', ['paragraph', 'heading', 'listItem', 'blockquote', 'codeBlock'])) {
+            $text = ' ' . $text . ' ';
+        }
+
+        return $text;
     }
 
     /**

@@ -33,7 +33,11 @@ class ImportController extends Controller
         $data = $request->validate([
             'file'      => ['required', 'file', 'max:51200', 'mimes:docx,pdf'],
             'title'     => ['nullable', 'string', 'max:255'],
-            'parent_id' => ['nullable', 'integer', 'exists:documents,id'],
+            'parent_id' => [
+                'nullable', 
+                'integer', 
+                \Illuminate\Validation\Rule::exists('documents', 'id')->where('workspace_id', $workspace->id)
+            ],
         ]);
 
         $file   = $request->file('file');

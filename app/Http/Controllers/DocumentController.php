@@ -137,14 +137,22 @@ class DocumentController extends Controller
         ]);
 
         $parentId = $data['parent_id'] ?? null;
-
-        if ($parentId !== null && $this->wouldCycle($document, (int) $parentId)) {
-            throw ValidationException::withMessages([
-                'parent_id' => 'A document cannot be moved inside itself or one of its descendants.',
-            ]);
-        }
-
         $newWorkspaceId = $data['workspace_id'] ?? $document->workspace_id;
+
+        if ($parentId !== null) {
+            $parent = Document::find($parentId);
+            if ($parent && $parent->workspace_id !== (int) $newWorkspaceId) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'The parent document must belong to the destination workspace.',
+                ]);
+            }
+
+            if ($this->wouldCycle($document, (int) $parentId)) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'A document cannot be moved inside itself or one of its descendants.',
+                ]);
+            }
+        }
         $workspaceChanged = $newWorkspaceId !== $document->workspace_id;
 
         $document->parent_id = $parentId;
