@@ -8,13 +8,46 @@ test('plainText concatenates nested text nodes', function () {
     expect(TipTap::plainText($doc))->toBe('Hello world.');
 });
 
-test('wikiLinkTitles extracts and de-duplicates [[references]]', function () {
+test('wikiLinkTargets extracts and de-duplicates [[references]] using plain text', function () {
     $doc = DocumentFactory::tiptap('See [[Firewall]], [[VPN]] and [[Firewall]] again.');
 
-    expect(TipTap::wikiLinkTitles($doc))->toBe(['Firewall', 'VPN']);
+    expect(TipTap::wikiLinkTargets($doc))->toBe([
+        ['title' => 'Firewall', 'target_id' => null],
+        ['title' => 'VPN', 'target_id' => null],
+    ]);
 });
 
-test('wikiLinkTitles returns nothing when there are no links', function () {
-    expect(TipTap::wikiLinkTitles(DocumentFactory::tiptap('plain text')))->toBe([]);
-    expect(TipTap::wikiLinkTitles(null))->toBe([]);
+test('wikiLinkTargets extracts target_id from custom nodes', function () {
+    $doc = [
+        'type' => 'doc',
+        'content' => [
+            [
+                'type' => 'paragraph',
+                'content' => [
+                    [
+                        'type' => 'wikiLink',
+                        'attrs' => ['title' => 'Backend API', 'target_id' => 42],
+                    ],
+                    [
+                        'type' => 'wikiLink',
+                        'attrs' => ['title' => 'Backend API', 'target_id' => 42],
+                    ],
+                    [
+                        'type' => 'wikiLink',
+                        'attrs' => ['title' => 'Legacy Link'],
+                    ]
+                ]
+            ]
+        ]
+    ];
+
+    expect(TipTap::wikiLinkTargets($doc))->toBe([
+        ['title' => 'Backend API', 'target_id' => 42],
+        ['title' => 'Legacy Link', 'target_id' => null],
+    ]);
+});
+
+test('wikiLinkTargets returns nothing when there are no links', function () {
+    expect(TipTap::wikiLinkTargets(DocumentFactory::tiptap('plain text')))->toBe([]);
+    expect(TipTap::wikiLinkTargets(null))->toBe([]);
 });

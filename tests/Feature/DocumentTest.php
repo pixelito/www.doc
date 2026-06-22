@@ -205,3 +205,55 @@ test('wiki-links resolve to targets and produce backlinks', function () {
     // The unresolved link is retained with a null target.
     expect($source->outgoingLinks()->whereNull('target_document_id')->count())->toBe(1);
 });
+
+test('wiki-links with explicit target_id bypass title ambiguity', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    
+    $olderDuplicate = Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Duplicate Title',
+        'created_at' => now()->subDay(),
+    ]);
+
+    $newerDuplicate = Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Duplicate Title',
+        'created_at' => now(),
+    ]);
+
+    $source = Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Linking Page',
+        'content' => [
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        [
+                            'type' => 'wikiLink',
+                            'attrs' => [
+                                'title' => 'Duplicate Title',
+                                'target_id' => $newerDuplicate->id,
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]);
+
+    // Should link specifically to the newer duplicate because of target_id
+    expect($source->outgoingLinks()->first()->target_document_id)->toBe($newerDuplicate->id);
+    
+    // Now test fallback logic (no explicit target_id)
+    $source2 = Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Linking Page 2',
+        'content' => DocumentFactory::tiptap('Linking to [[Duplicate Title]] via typed text.')
+    ]);
+    
+    // Should link to the older duplicate because of created_at ASC fallback
+    expect($source2->outgoingLinks()->first()->target_document_id)->toBe($olderDuplicate->id);
+});
