@@ -49,7 +49,7 @@ class DocumentController extends Controller
             'breadcrumbs'  => $document->ancestors(),
             'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),
-            'allDocuments' => Document::orderBy('title')->get(['id', 'title', 'slug']),
+            'allDocuments' => Document::with('workspace:id,name')->orderBy('title')->get(['id', 'title', 'slug', 'workspace_id']),
             'workspaces'   => Workspace::orderBy('name')->get(['id', 'name']),
         ]);
     }

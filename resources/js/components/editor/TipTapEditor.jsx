@@ -159,7 +159,14 @@ export default function TipTapEditor({
                 <SuggestionList
                     suggestion={wikiSuggestion}
                     keyHandlerRef={wikiKeyRef}
-                    renderItem={(item) => item.title}
+                    renderItem={(item) => (
+                        <div className="flex flex-col text-left leading-tight">
+                            <span>{item.title}</span>
+                            <span className="text-[10px] text-text-tertiary">
+                                {item.workspace?.name} / {item.slug}
+                            </span>
+                        </div>
+                    )}
                 />
             )}
             {slashSuggestion && (
