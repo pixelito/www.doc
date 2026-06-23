@@ -25,7 +25,7 @@ async function rehostUrl(url) {
     return res.json();
 }
 
-function dataUriToFile(dataUri, filename = 'pasted-image.png') {
+export function dataUriToFile(dataUri, filename = 'pasted-image.png') {
     const [header, b64] = dataUri.split(',');
     const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
     const binary = atob(b64);

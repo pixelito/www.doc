@@ -20,6 +20,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
     const imageSrc = node.attrs.imageSrc;
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
+    const onImage = useCallback((src) => updateAttributes({ imageSrc: src }), [updateAttributes]);
 
     if (!editable) {
         return (
@@ -54,7 +55,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                 </div>
                 <div style={{ height: 440 }}>
                     <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
-                        <Canvas graph={graph} editable={editable} onChange={onChange} />
+                        <Canvas graph={graph} editable={editable} onChange={onChange} onImage={onImage} />
                     </Suspense>
                 </div>
             </div>

@@ -10,9 +10,13 @@ import {
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
+    getNodesBounds,
+    getViewportForBounds,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toPng } from 'html-to-image';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
 /**
  * The editable React Flow canvas for a networkDiagram node. Lazy-loaded by
@@ -83,8 +87,9 @@ const cleanEdges = (edges) =>
 
 const arrow = { markerEnd: { type: MarkerType.ArrowClosed } };
 
-function Canvas({ graph, editable, onChange }) {
+function Canvas({ graph, editable, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
+    const wrapperRef = useRef(null);
 
     const [nodes, setNodesState] = useState(() =>
         (seed.current.nodes ?? []).map((n) => ({ ...n, type: 'labeled' })));
@@ -106,17 +111,70 @@ function Canvas({ graph, editable, onChange }) {
         viewport: viewportRef.current,
     });
 
+    // Derive the PNG that read view / PDF / DOCX / search / version snapshots
+    // show. Debounced after edits settle; renders all nodes (fit to bounds,
+    // independent of current pan/zoom), uploads via the asset API, and reports
+    // the URL back. On an empty diagram the image is cleared; failures keep the
+    // last good image rather than blanking it.
+    const captureTimer = useRef(null);
+    const capturing = useRef(false);
+
+    const runCapture = async () => {
+        if (capturing.current) { scheduleCapture(); return; }
+        const nodes = nodesRef.current;
+        if (!nodes.length) { onImage?.(null); return; }
+
+        const viewportEl = wrapperRef.current?.querySelector('.react-flow__viewport');
+        if (!viewportEl) return;
+
+        capturing.current = true;
+        try {
+            const bounds = getNodesBounds(nodes);
+            const width = Math.min(1600, Math.max(320, Math.round(bounds.width) + 96));
+            const height = Math.min(1200, Math.max(180, Math.round(bounds.height) + 96));
+            const vp = getViewportForBounds(bounds, width, height, 0.4, 2, 0.12);
+
+            const dataUrl = await toPng(viewportEl, {
+                backgroundColor: '#FBFAF5',
+                width,
+                height,
+                style: {
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+                },
+            });
+
+            const { url } = await uploadFile(dataUriToFile(dataUrl, 'network-diagram.png'));
+            onImage?.(url);
+        } catch (e) {
+            console.warn('Network diagram capture failed', e);
+        } finally {
+            capturing.current = false;
+        }
+    };
+
+    const scheduleCapture = () => {
+        if (!editable) return;
+        clearTimeout(captureTimer.current);
+        captureTimer.current = setTimeout(runCapture, 800);
+    };
+
+    useEffect(() => () => clearTimeout(captureTimer.current), []);
+
     const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
 
     const onConnect = (params) => {
         setEdges(addEdge({ ...params, id: uid(), ...arrow }, edgesRef.current));
         persist();
+        scheduleCapture();
     };
 
     const onLabelChange = (id, label) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
         persist();
+        scheduleCapture();
     };
 
     const addNode = () => {
@@ -129,6 +187,7 @@ function Canvas({ graph, editable, onChange }) {
         };
         setNodes([...nodesRef.current, node]);
         persist();
+        scheduleCapture();
     };
 
     const deleteSelected = () => {
@@ -142,51 +201,54 @@ function Canvas({ graph, editable, onChange }) {
         ));
         selectionRef.current = { nodes: [], edges: [] };
         persist();
+        scheduleCapture();
     };
 
     return (
         <NodeBehavior.Provider value={{ editable, onLabelChange }}>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                onNodesChange={editable ? onNodesChange : undefined}
-                onEdgesChange={editable ? onEdgesChange : undefined}
-                onConnect={editable ? onConnect : undefined}
-                onNodeDragStop={persist}
-                onMoveEnd={(_, vp) => { viewportRef.current = vp; persist(); }}
-                onSelectionChange={(sel) => { selectionRef.current = sel; }}
-                defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
-                nodesDraggable={editable}
-                nodesConnectable={editable}
-                elementsSelectable={editable}
-                deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
-                proOptions={{ hideAttribution: true }}
-                fitView={(seed.current.nodes ?? []).length > 0}
-            >
-                <Background color="#DAE6D4" gap={18} />
-                <Controls showInteractive={false} />
+            <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={editable ? onNodesChange : undefined}
+                    onEdgesChange={editable ? onEdgesChange : undefined}
+                    onConnect={editable ? onConnect : undefined}
+                    onNodeDragStop={() => { persist(); scheduleCapture(); }}
+                    onMoveEnd={(_, vp) => { viewportRef.current = vp; persist(); }}
+                    onSelectionChange={(sel) => { selectionRef.current = sel; }}
+                    defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
+                    nodesDraggable={editable}
+                    nodesConnectable={editable}
+                    elementsSelectable={editable}
+                    deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
+                    proOptions={{ hideAttribution: true }}
+                    fitView={(seed.current.nodes ?? []).length > 0}
+                >
+                    <Background color="#DAE6D4" gap={18} />
+                    <Controls showInteractive={false} />
 
-                {editable && (
-                    <div className="absolute left-2 top-2 z-10 flex gap-1">
-                        <button
-                            type="button"
-                            onClick={addNode}
-                            className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground"
-                        >
-                            <IconPlus className="h-3.5 w-3.5" stroke={1.5} /> Node
-                        </button>
-                        <button
-                            type="button"
-                            onClick={deleteSelected}
-                            title="Delete selected node or connection"
-                            className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-danger hover:text-white"
-                        >
-                            <IconTrash className="h-3.5 w-3.5" stroke={1.5} /> Delete
-                        </button>
-                    </div>
-                )}
-            </ReactFlow>
+                    {editable && (
+                        <div className="absolute left-2 top-2 z-10 flex gap-1">
+                            <button
+                                type="button"
+                                onClick={addNode}
+                                className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                <IconPlus className="h-3.5 w-3.5" stroke={1.5} /> Node
+                            </button>
+                            <button
+                                type="button"
+                                onClick={deleteSelected}
+                                title="Delete selected node or connection"
+                                className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-danger hover:text-white"
+                            >
+                                <IconTrash className="h-3.5 w-3.5" stroke={1.5} /> Delete
+                            </button>
+                        </div>
+                    )}
+                </ReactFlow>
+            </div>
         </NodeBehavior.Provider>
     );
 }
