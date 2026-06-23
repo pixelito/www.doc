@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { IconChevronRight, IconHistory, IconArrowBack } from '@tabler/icons-react';
+import { IconChevronRight, IconHistory, IconArrowBack, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -73,6 +73,22 @@ export default function VersionShow({ document: doc, workspace, version }) {
                 {/* Title */}
                 <div className="border-b border-border px-8 py-5">
                     <h1 className="text-2xl font-semibold text-foreground">{version.title}</h1>
+
+                    {/* Tags as they were at this snapshot — names, not links: a tag
+                        here may have since been renamed or removed. */}
+                    {version.tags?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                            {version.tags.map((name) => (
+                                <span
+                                    key={name}
+                                    className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600"
+                                >
+                                    <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
+                                    {name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Body — same CSS classes as the live read-only TipTap view */}
@@ -90,7 +106,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
         <ConfirmDialog
             open={restoreOpen}
             title="Restore this version?"
-            message={`The current content will be saved as a new version first, then this snapshot from ${timeAgo(version.created_at)} will become the active content.`}
+            message={`The current page will be saved as a new version first, then this snapshot from ${timeAgo(version.created_at)} — its content, title and tags — will become the active version.`}
             confirmLabel="Restore"
             cancelLabel="Cancel"
             variant="primary"

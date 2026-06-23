@@ -75,6 +75,10 @@ class DocumentObserver
             'title'         => $document->title,
             'content'       => $document->content ?? [],
             'content_html'  => $html,
+            // Capture the tag set so a restore is a full revert, not content-only.
+            // Read fresh (controllers sync tags *before* the snapshotting save) and
+            // store names — they outlive tag id churn and rename/delete.
+            'tags'          => $document->tags()->orderBy('name')->pluck('name')->all(),
             'created_by_id' => Auth::id(),
         ]);
     }

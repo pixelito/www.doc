@@ -73,10 +73,18 @@ class DocumentController extends Controller
         $this->authorize('create', Document::class);
 
         $validated = $request->validated();
-        $document = Document::create(array_diff_key($validated, ['tags' => '']));
+
+        // Create the bare page first (a blank page snapshots no version), attach
+        // tags, THEN write content — so the first version's snapshot captures the
+        // tags too. The version observer reads tags off the page at save time.
+        $document = Document::create(array_diff_key($validated, ['tags' => '', 'content' => '']));
 
         if ($request->has('tags')) {
             $document->tags()->sync($request->input('tags'));
+        }
+
+        if (array_key_exists('content', $validated) && $validated['content'] !== null) {
+            $document->update(['content' => $validated['content']]);
         }
 
         return redirect()->to(route('documents.show', $document) . '?edit=1');
@@ -87,15 +95,22 @@ class DocumentController extends Controller
         $this->authorize('update', $document);
 
         $validated = $request->validated();
-        $document->update(array_diff_key($validated, ['tags' => '']));
 
+        // Sync tags BEFORE the content/title save: the version snapshot the observer
+        // takes on that save reads the page's current tags, so a full-revert restore
+        // needs the new set already in place.
+        $tagsChanged = false;
         if ($request->has('tags')) {
             $changes = $document->tags()->sync($request->input('tags'));
-            // Observer handles the workspace touch when content/title changed.
-            // When only tags changed, touch explicitly since pivot ops bypass the observer.
-            if (! $document->wasChanged(['content', 'title']) && array_filter($changes)) {
-                $document->workspace?->touch();
-            }
+            $tagsChanged = (bool) array_filter($changes);
+        }
+
+        $document->update(array_diff_key($validated, ['tags' => '']));
+
+        // When only tags changed, no version was snapshotted and the observer's
+        // workspace touch didn't run — touch explicitly so listings refresh.
+        if ($tagsChanged && ! $document->wasChanged(['content', 'title'])) {
+            $document->workspace?->touch();
         }
 
         return redirect()->route('documents.show', $document);

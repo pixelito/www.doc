@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\Tag;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,6 +49,14 @@ class VersionController extends Controller
     {
         $this->authorize('update', $document);
         abort_if($version->document_id !== $document->id, 404);
+
+        // Full revert: restore the tag set first (matched by name, recreated if
+        // since deleted) so it's in place before the save below snapshots a new
+        // version — keeping that fresh snapshot consistent with the restore.
+        $tagIds = collect($version->tags ?? [])
+            ->map(fn ($name) => Tag::firstOrCreate(['name' => $name])->id)
+            ->all();
+        $document->tags()->sync($tagIds);
 
         $document->title   = $version->title;
         $document->content = $version->content;

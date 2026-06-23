@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['document_id', 'title', 'content', 'content_html', 'created_by_id'])]
+#[Fillable(['document_id', 'title', 'content', 'content_html', 'tags', 'created_by_id'])]
 class DocumentVersion extends Model
 {
     /** @use HasFactory<\Database\Factories\DocumentVersionFactory> */
@@ -17,6 +17,7 @@ class DocumentVersion extends Model
     {
         return [
             'content' => 'array',
+            'tags' => 'array',
         ];
     }
 
