@@ -110,6 +110,7 @@ class DocxExporter implements ExporterContract
             'table'        => $this->addTable($node),
             'horizontalRule' => $this->addHr(),
             'image'        => $this->addImage($node),
+            'networkDiagram' => $this->addNetworkDiagram($node),
             default        => null,
         };
     }
@@ -223,16 +224,26 @@ class DocxExporter implements ExporterContract
 
     private function addImage(array $node): void
     {
-        $src = $node['attrs']['src'] ?? '';
-        if (!$src) return;
+        $this->embedStorageImage($node['attrs']['src'] ?? '', ['width' => 400, 'height' => 300, 'ratio' => true]);
+    }
 
-        // Only embed images served from our own storage; skip external URLs
-        if (str_starts_with($src, '/storage/')) {
-            $relativePath = substr($src, strlen('/storage/'));
-            $localPath    = storage_path("app/public/{$relativePath}");
-            if (file_exists($localPath)) {
-                $this->section->addImage($localPath, ['width' => 400, 'height' => 300, 'ratio' => true]);
-            }
+    private function addNetworkDiagram(array $node): void
+    {
+        // The diagram's derived PNG (`imageSrc`) is what every static consumer
+        // shows; the graph JSON is editor-only. Nothing renders until a capture
+        // exists (a just-inserted, never-edited diagram has no image).
+        $this->embedStorageImage($node['attrs']['imageSrc'] ?? '', ['width' => 450, 'ratio' => true]);
+    }
+
+    /** Embed an image only if it is served from our own storage; skip external URLs. */
+    private function embedStorageImage(string $src, array $style): void
+    {
+        if (!$src || !str_starts_with($src, '/storage/')) return;
+
+        $relativePath = substr($src, strlen('/storage/'));
+        $localPath    = storage_path("app/public/{$relativePath}");
+        if (file_exists($localPath)) {
+            $this->section->addImage($localPath, $style);
         }
     }
 

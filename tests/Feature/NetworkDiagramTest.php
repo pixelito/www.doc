@@ -1,0 +1,133 @@
+<?php
+
+use App\Models\Document;
+use App\Models\Workspace;
+use App\Services\Exporters\DocxExporter;
+use Database\Factories\DocumentFactory;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+
+/** A TipTap doc containing one networkDiagram block with the given graph + image. */
+function diagramDoc(array $graph, ?string $imageSrc = null): array
+{
+    return [
+        'type'    => 'doc',
+        'content' => [[
+            'type'  => 'networkDiagram',
+            'attrs' => ['graph' => $graph, 'imageSrc' => $imageSrc],
+        ]],
+    ];
+}
+
+/** A graph of labelled nodes (no edges/positions needed for these assertions). */
+function graphWithLabels(array $labels): array
+{
+    $nodes = [];
+    foreach ($labels as $i => $label) {
+        $nodes[] = ['id' => "n{$i}", 'type' => 'labeled', 'position' => ['x' => $i * 100, 'y' => 0], 'data' => ['label' => $label]];
+    }
+
+    return ['nodes' => $nodes, 'edges' => [], 'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1]];
+}
+
+test('a document is found by a network diagram node label', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Datacenter Topology',
+        'content' => diagramDoc(graphWithLabels(['core-router', 'edge-switch']), '/storage/assets/abc.png'),
+    ]);
+    Document::factory()->create([
+        'title'   => 'Unrelated Page',
+        'content' => DocumentFactory::tiptap('Nothing networky here.'),
+    ]);
+
+    // The label lives only in the diagram's graph attr; it reaches search through
+    // the hidden-label text RenderDocument emits into content_html.
+    $this->get('/search?q=core-router')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'Datacenter Topology')
+    );
+});
+
+test('the diagram graph round-trips through a version snapshot', function () {
+    login();
+    $document = Document::factory()->create([
+        'content' => DocumentFactory::tiptap('Before the diagram.'),
+    ]);
+
+    $graph = graphWithLabels(['firewall', 'dmz']);
+    $document->update(['content' => diagramDoc($graph, '/storage/assets/abc.png')]);
+
+    // The newest version snapshots the exact content JSON, graph attr and all —
+    // so restoring history reproduces the diagram, not just its image.
+    $version  = $document->versions()->latest('id')->first();
+    $snapNode = $version->content['content'][0];
+
+    expect($snapNode['type'])->toBe('networkDiagram')
+        ->and($snapNode['attrs']['graph']['nodes'])->toHaveCount(2)
+        ->and($snapNode['attrs']['graph']['nodes'][0]['data']['label'])->toBe('firewall')
+        ->and($snapNode['attrs']['imageSrc'])->toBe('/storage/assets/abc.png');
+});
+
+test('the DOCX export embeds the diagram PNG', function () {
+    Storage::fake('local');
+    login();
+
+    // addImage reads the real filesystem (storage/app/public), not a faked disk —
+    // drop a genuine 1x1 PNG there for it to embed, then clean up.
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    $dir = storage_path('app/public/assets');
+    @mkdir($dir, 0777, true);
+    $abs = "{$dir}/diagram-test.png";
+    file_put_contents($abs, $png);
+
+    try {
+        $document = Document::factory()->create([
+            'content' => diagramDoc(graphWithLabels(['router']), '/storage/assets/diagram-test.png'),
+        ]);
+
+        $path = (new DocxExporter)->export($document);
+
+        // A DOCX is a zip; an embedded image lands under word/media/.
+        $zip = new ZipArchive;
+        expect($zip->open(Storage::disk('local')->path($path)))->toBeTrue();
+
+        $hasMedia = false;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            if (str_starts_with($zip->getNameIndex($i), 'word/media/')) {
+                $hasMedia = true;
+                break;
+            }
+        }
+        $zip->close();
+
+        expect($hasMedia)->toBeTrue();
+    } finally {
+        @unlink($abs);
+    }
+});
+
+test('a diagram with no rendered image yet exports without an embedded media file', function () {
+    Storage::fake('local');
+    login();
+
+    $document = Document::factory()->create([
+        'content' => diagramDoc(graphWithLabels(['router']), null),
+    ]);
+
+    $path = (new DocxExporter)->export($document);
+
+    $zip = new ZipArchive;
+    $zip->open(Storage::disk('local')->path($path));
+    $hasMedia = false;
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        if (str_starts_with($zip->getNameIndex($i), 'word/media/')) {
+            $hasMedia = true;
+            break;
+        }
+    }
+    $zip->close();
+
+    expect($hasMedia)->toBeFalse();
+});

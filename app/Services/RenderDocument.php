@@ -96,23 +96,49 @@ class NetworkDiagramNode extends Node
         $src   = $attrs->imageSrc ?? null;
         $align = $attrs->align ?? 'left';
 
+        // The canonical graph is editor-only, but its node labels are the only
+        // searchable text a diagram contributes. Emit them as visually-hidden
+        // text so they flow into content_html → the FTS vector (built by both
+        // DocumentObserver and search:reindex from the rendered HTML). Hidden so
+        // they never show in the read view / PDF, which display the PNG.
+        $hidden = static::hiddenLabels($attrs->graph ?? null);
+
         if ($src) {
             $style = 'max-width:100%;display:block;';
             if ($align === 'center')    $style .= 'margin:0 auto;';
             elseif ($align === 'right') $style .= 'margin-left:auto;';
 
-            return ['img', array_merge($HTMLAttributes, [
-                'src'   => $src,
-                'alt'   => 'Network diagram',
-                'class' => 'network-diagram',
-                'style' => $style,
-            ])];
+            $img = '<img'
+                . ' src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"'
+                . ' alt="Network diagram" class="network-diagram"'
+                . ' style="' . $style . '" />';
+
+            return ['content' => $img . $hidden];
         }
 
-        return ['div', array_merge($HTMLAttributes, [
-            'data-network-diagram' => 'true',
-            'class'                => 'network-diagram-placeholder',
-        ])];
+        return ['content' => '<div data-network-diagram="true" class="network-diagram-placeholder"></div>' . $hidden];
+    }
+
+    /** Visually-hidden span carrying the diagram's node labels for full-text search. */
+    private static function hiddenLabels($graph): string
+    {
+        $nodes  = (is_object($graph) ? ($graph->nodes ?? []) : []);
+        $labels = [];
+        foreach ($nodes as $n) {
+            $label = is_object($n) ? ($n->data->label ?? null) : null;
+            if (is_string($label) && trim($label) !== '') {
+                $labels[] = trim($label);
+            }
+        }
+
+        if (! $labels) {
+            return '';
+        }
+
+        return '<span class="network-diagram-labels"'
+            . ' style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;">'
+            . htmlspecialchars(implode(' ', $labels), ENT_QUOTES, 'UTF-8')
+            . '</span>';
     }
 }
 
