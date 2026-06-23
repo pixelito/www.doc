@@ -32,6 +32,7 @@ class RenderDocument
                 new ColoredTextStyleMark,
                 new Highlight(['multicolor' => true]),
                 new ResizableImageNode,
+                new NetworkDiagramNode,
                 new Table,
                 new TableRow,
                 new TableHeader,
@@ -69,6 +70,48 @@ class ResizableImageNode extends Node
             'alt'     => $alt,
             'style'   => $style,
             'onerror' => "if(this.src!=='{$fallback}')this.src='{$fallback}';",
+        ])];
+    }
+}
+
+/**
+ * Renders the networkDiagram node for every server-side (no-JS) consumer —
+ * read view, PDF/DOCX export, search indexing, version snapshots — none of
+ * which can run React Flow. The canonical graph lives in the node's `graph`
+ * attr; here we emit only the DERIVED PNG (`imageSrc`). A freshly inserted
+ * diagram with no render yet falls back to a labelled placeholder.
+ */
+class NetworkDiagramNode extends Node
+{
+    public static $name = 'networkDiagram';
+
+    public function parseHTML()
+    {
+        return [['tag' => 'div[data-network-diagram]']];
+    }
+
+    public function renderHTML($node, $HTMLAttributes = [])
+    {
+        $attrs = $node->attrs ?? (object) [];
+        $src   = $attrs->imageSrc ?? null;
+        $align = $attrs->align ?? 'left';
+
+        if ($src) {
+            $style = 'max-width:100%;display:block;';
+            if ($align === 'center')    $style .= 'margin:0 auto;';
+            elseif ($align === 'right') $style .= 'margin-left:auto;';
+
+            return ['img', array_merge($HTMLAttributes, [
+                'src'   => $src,
+                'alt'   => 'Network diagram',
+                'class' => 'network-diagram',
+                'style' => $style,
+            ])];
+        }
+
+        return ['div', array_merge($HTMLAttributes, [
+            'data-network-diagram' => 'true',
+            'class'                => 'network-diagram-placeholder',
         ])];
     }
 }

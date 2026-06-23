@@ -9,6 +9,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 
 import { ResizableImage } from '@/extensions/ResizableImage';
 import { WikiLink } from '@/extensions/WikiLink';
+import { NetworkDiagram } from '@/extensions/NetworkDiagram';
 import { SlashCommands } from '@/extensions/SlashCommands';
 import { ImageUpload } from '@/extensions/ImageUpload';
 import { cleanPastedHtml } from '@/utils/pasteCleanup';
@@ -107,6 +108,7 @@ export default function TipTapEditor({
             Color.configure({ types: ['textStyle'] }),
             Highlight.configure({ multicolor: true }),
             ResizableImage.configure({ inline: false, allowBase64: false }),
+            NetworkDiagram,
             Table.configure({ resizable: false }),
             TableRow,
             TableHeader,
