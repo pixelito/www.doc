@@ -58,7 +58,7 @@ function DocRow({ r }) {
             </div>
             {r.excerpt && (
                 <p
-                    className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary [&_mark]:rounded-sm [&_mark]:bg-sage-100 [&_mark]:px-0.5 [&_mark]:text-sage-700"
+                    className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary [&_mark]:rounded-sm [&_mark]:bg-sage-100 [&_mark]:px-1 [&_mark]:py-0.5 [&_mark]:box-decoration-clone [&_mark]:text-sage-700"
                     dangerouslySetInnerHTML={{ __html: r.excerpt }}
                 />
             )}
