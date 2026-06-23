@@ -8,6 +8,7 @@ import {
     Position,
     MarkerType,
     ConnectionMode,
+    NodeToolbar,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
@@ -16,7 +17,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng } from 'html-to-image';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+    IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
+    IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
+} from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
 /**
@@ -35,7 +39,23 @@ const uid = () =>
 
 // Handlers the custom node needs but that must NOT be persisted — passed via
 // context instead of polluting node.data (which is serialized into the graph).
-const NodeBehavior = createContext({ editable: false, onLabelChange: () => {} });
+const NodeBehavior = createContext({ editable: false, onLabelChange: () => {}, onKindChange: () => {} });
+
+// Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
+// default label are render-only. Generic is the plain box (no icon).
+const NODE_KINDS = [
+    { id: 'generic',     label: 'Node',        Icon: IconCircleDot },
+    { id: 'server',      label: 'Server',      Icon: IconServer },
+    { id: 'router',      label: 'Router',      Icon: IconRouter },
+    { id: 'switch',      label: 'Switch',      Icon: IconSwitch3 },
+    { id: 'firewall',    label: 'Firewall',    Icon: IconShieldLock },
+    { id: 'cloud',       label: 'Cloud',       Icon: IconCloud },
+    { id: 'database',    label: 'Database',    Icon: IconDatabase },
+    { id: 'workstation', label: 'Workstation', Icon: IconDeviceDesktop },
+    { id: 'ap',          label: 'Access Point', Icon: IconAccessPoint },
+];
+const KIND_BY_ID = Object.fromEntries(NODE_KINDS.map((k) => [k.id, k]));
+const kindMeta = (kind) => KIND_BY_ID[kind] ?? KIND_BY_ID.generic;
 
 // A connection point on each side of a node. With ConnectionMode.Loose every
 // handle can be both a source and a target, so any node connects to any node.
@@ -47,11 +67,14 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onKindChange } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(data.label ?? '');
 
     useEffect(() => { setValue(data.label ?? ''); }, [data.label]);
+
+    const kind = data.kind ?? 'generic';
+    const Icon = kindMeta(kind).Icon;
 
     const commit = () => {
         setEditing(false);
@@ -61,11 +84,32 @@ function LabeledNode({ id, data, selected }) {
     return (
         <div
             onDoubleClick={() => editable && setEditing(true)}
-            className={`rounded-md border bg-card px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
+            className={`flex items-center justify-center gap-1.5 rounded-md border bg-card px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
                 selected ? 'border-sage-500 ring-1 ring-sage-400' : 'border-border'
             }`}
-            style={{ minWidth: 90, textAlign: 'center' }}
+            style={{ minWidth: 90 }}
         >
+            {/* Type picker — appears above the node while it's selected. */}
+            {editable && (
+                <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+                    <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-1 shadow-md">
+                        {NODE_KINDS.map((k) => (
+                            <button
+                                key={k.id}
+                                type="button"
+                                title={k.label}
+                                onClick={() => onKindChange(id, k.id)}
+                                className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors ${
+                                    kind === k.id ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
+                                }`}
+                            >
+                                <k.Icon className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                        ))}
+                    </div>
+                </NodeToolbar>
+            )}
+
             {HANDLE_SIDES.map(({ id, position }) => (
                 <Handle
                     key={id}
@@ -76,6 +120,9 @@ function LabeledNode({ id, data, selected }) {
                     className="!h-2 !w-2 !border !border-border !bg-sage-300"
                 />
             ))}
+
+            {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0 text-sage-600" stroke={1.5} />}
+
             {editing ? (
                 <input
                     autoFocus
@@ -100,7 +147,12 @@ const nodeTypes = { labeled: LabeledNode };
 
 // Persisted shape — strip React Flow's transient fields and render-only data.
 const cleanNodes = (nodes) =>
-    nodes.map((n) => ({ id: n.id, type: 'labeled', position: n.position, data: { label: n.data?.label ?? '' } }));
+    nodes.map((n) => ({
+        id: n.id,
+        type: 'labeled',
+        position: n.position,
+        data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic' },
+    }));
 const cleanEdges = (edges) =>
     edges.map((e) => ({
         id: e.id,
@@ -217,6 +269,19 @@ function Canvas({ graph, editable, onChange, onImage }) {
         scheduleCapture();
     };
 
+    const onKindChange = (id, kind) => {
+        setNodes(nodesRef.current.map((n) => {
+            if (n.id !== id) return n;
+            // Refresh the label to the new kind's default only if it was still the
+            // old kind's default (i.e. the user never named it).
+            const prevDefault = kindMeta(n.data?.kind ?? 'generic').label;
+            const label = (!n.data?.label || n.data.label === prevDefault) ? kindMeta(kind).label : n.data.label;
+            return { ...n, data: { ...n.data, kind, label } };
+        }));
+        persist();
+        scheduleCapture();
+    };
+
     const addNode = () => {
         const n = nodesRef.current.length;
         const node = {
@@ -251,7 +316,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
