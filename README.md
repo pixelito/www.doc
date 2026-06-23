@@ -23,7 +23,8 @@ plugin marketplace — just a fast, clean place for a team to write things down.
   re-hosted as local assets (deduplicated by SHA-256).
 - **Wiki-links &amp; backlinks** — `[[Page Title]]` links are indexed on save; every page
   shows what references it.
-- **Versioning** — every content save snapshots a version you can view and restore.
+- **Versioning** — every content save snapshots a version you can view and restore;
+  restoring is a full revert of content, title and tags.
 - **Full-text search** — PostgreSQL FTS across pages, workspaces and tags, with
   highlighted excerpts.
 - **Import &amp; export** — DOCX/PDF import and export, run as background jobs.
@@ -108,6 +109,13 @@ The `app` container caches config/routes/views on boot. Uploaded assets and the 
 live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. Put your own
 reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service for TLS — dev and
 prod databases are always separate.
+
+### Maintenance
+
+Unreferenced image uploads (e.g. an image pasted then deleted before saving) can be swept
+with `php artisan assets:prune` (`--dry-run` to preview, `--hours=N` to tune the grace
+window). It's registered on a daily schedule, but the stack ships **no scheduler**, so run
+it by hand or wire up a cron / `schedule:work` if you want it automatic.
 
 ## Project layout
 
