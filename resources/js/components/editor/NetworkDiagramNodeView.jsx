@@ -1,6 +1,7 @@
-import { Suspense, lazy, useCallback } from 'react';
+import { Suspense, lazy, useCallback, useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import { IconTopologyStar3, IconTrash } from '@tabler/icons-react';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // React Flow is heavy, so the editable canvas is split out and only fetched
 // when a diagram is actually edited (read view / diagram-free pages skip it).
@@ -22,6 +23,9 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
     const onImage = useCallback((src) => updateAttributes({ imageSrc: src }), [updateAttributes]);
+
+    // Confirm before removing the whole diagram — its layout would be lost.
+    const [confirmOpen, setConfirmOpen] = useState(false);
 
     if (!editable) {
         return (
@@ -58,7 +62,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                     </span>
                     <button
                         type="button"
-                        onClick={deleteNode}
+                        onClick={() => setConfirmOpen(true)}
                         title="Remove this diagram"
                         className="flex h-6 w-6 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-danger hover:text-white"
                     >
@@ -71,6 +75,15 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                     </Suspense>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Remove diagram"
+                message={`Remove ${name ? `"${name}"` : 'this network diagram'} from the page? Its layout will be lost.`}
+                confirmLabel="Remove diagram"
+                onConfirm={() => { setConfirmOpen(false); deleteNode(); }}
+                onCancel={() => setConfirmOpen(false)}
+            />
         </NodeViewWrapper>
     );
 }
