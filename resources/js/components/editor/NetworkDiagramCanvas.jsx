@@ -60,6 +60,7 @@ function LabeledNode({ id, data, selected }) {
             {editing ? (
                 <input
                     autoFocus
+                    onFocus={(e) => e.target.select()}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onBlur={commit}
@@ -138,6 +139,11 @@ function Canvas({ graph, editable, onChange, onImage }) {
                 backgroundColor: '#FBFAF5',
                 width,
                 height,
+                // Don't try to inline @font-face CSS: it can't be read when styles
+                // are served from another origin (CDN / split dev host), which only
+                // spams the console and wastes a fetch every capture — labels fall
+                // back to a system font in the PNG regardless.
+                skipFonts: true,
                 style: {
                     width: `${width}px`,
                     height: `${height}px`,
