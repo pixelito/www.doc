@@ -143,11 +143,14 @@ test('siblings can be reordered', function () {
     $workspace = Workspace::factory()->create();
     $first = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
     $second = Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 1]);
+    $stamp = $first->updated_at;
 
     $this->patch('/documents/reorder', ['ids' => [$second->id, $first->id]])->assertRedirect();
 
     expect($second->fresh()->position)->toBe(0);
     expect($first->fresh()->position)->toBe(1);
+    // Reordering is structural — it must not bump updated_at.
+    expect($first->fresh()->updated_at->equalTo($stamp))->toBeTrue();
 });
 
 test('the tree endpoint saves nesting and positions in one batch', function () {

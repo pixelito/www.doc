@@ -7,10 +7,10 @@ use App\Http\Requests\UpdateDocumentRequest;
 use App\Models\Document;
 use App\Models\Tag;
 use App\Models\Workspace;
+use App\Support\BulkReorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -242,15 +242,8 @@ class DocumentController extends Controller
             }
         }
 
-        // Structural change only — don't bump updated_at on every page.
-        DB::transaction(function () use ($nodes) {
-            foreach ($nodes as $node) {
-                Document::withoutTimestamps(fn () => Document::whereKey($node['id'])->update([
-                    'parent_id' => $node['parent_id'] ?? null,
-                    'position'  => $node['position'],
-                ]));
-            }
-        });
+        // Structural change only — one statement, and don't bump updated_at.
+        BulkReorder::tree('documents', $nodes);
 
         return back();
     }
@@ -265,11 +258,13 @@ class DocumentController extends Controller
             'ids.*' => ['integer', 'exists:documents,id'],
         ]);
 
-        foreach ($data['ids'] as $position => $id) {
-            $document = Document::find($id);
+        // Authorize every page up front (one query), then write all positions in
+        // a single statement instead of a find + update per id.
+        foreach (Document::findMany($data['ids']) as $document) {
             $this->authorize('update', $document);
-            Document::withoutTimestamps(fn () => $document->update(['position' => $position]));
         }
+
+        BulkReorder::positions('documents', $data['ids']);
 
         return back();
     }

@@ -6,10 +6,10 @@ use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
 use App\Models\Document;
 use App\Models\Workspace;
+use App\Support\BulkReorder;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -60,15 +60,14 @@ class WorkspaceController extends Controller
 
         // Validate the payload like the document reorder/move endpoints do — an
         // unchecked id list reaching a raw UPDATE is the one gap among the tree
-        // ops. A raw DB::table update keeps reordering from bumping updated_at.
+        // ops. The bulk write sets all positions in one statement and leaves
+        // updated_at untouched (reordering is structural, not a content edit).
         $data = $request->validate([
             'ids' => ['required', 'array'],
             'ids.*' => ['integer', 'exists:workspaces,id'],
         ]);
 
-        foreach ($data['ids'] as $position => $id) {
-            DB::table('workspaces')->where('id', $id)->update(['position' => $position]);
-        }
+        BulkReorder::positions('workspaces', $data['ids']);
 
         return back();
     }
