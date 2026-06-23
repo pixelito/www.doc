@@ -7,6 +7,7 @@ import {
     Handle,
     Position,
     MarkerType,
+    ConnectionMode,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
@@ -36,6 +37,15 @@ const uid = () =>
 // context instead of polluting node.data (which is serialized into the graph).
 const NodeBehavior = createContext({ editable: false, onLabelChange: () => {} });
 
+// A connection point on each side of a node. With ConnectionMode.Loose every
+// handle can be both a source and a target, so any node connects to any node.
+const HANDLE_SIDES = [
+    { id: 'top', position: Position.Top },
+    { id: 'right', position: Position.Right },
+    { id: 'bottom', position: Position.Bottom },
+    { id: 'left', position: Position.Left },
+];
+
 function LabeledNode({ id, data, selected }) {
     const { editable, onLabelChange } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
@@ -56,7 +66,16 @@ function LabeledNode({ id, data, selected }) {
             }`}
             style={{ minWidth: 90, textAlign: 'center' }}
         >
-            <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-border !bg-sage-300" />
+            {HANDLE_SIDES.map(({ id, position }) => (
+                <Handle
+                    key={id}
+                    id={id}
+                    type="source"
+                    position={position}
+                    isConnectable={editable}
+                    className="!h-2 !w-2 !border !border-border !bg-sage-300"
+                />
+            ))}
             {editing ? (
                 <input
                     autoFocus
@@ -73,7 +92,6 @@ function LabeledNode({ id, data, selected }) {
             ) : (
                 <span>{data.label || 'Node'}</span>
             )}
-            <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-border !bg-sage-300" />
         </div>
     );
 }
@@ -84,7 +102,13 @@ const nodeTypes = { labeled: LabeledNode };
 const cleanNodes = (nodes) =>
     nodes.map((n) => ({ id: n.id, type: 'labeled', position: n.position, data: { label: n.data?.label ?? '' } }));
 const cleanEdges = (edges) =>
-    edges.map((e) => ({ id: e.id, source: e.source, target: e.target }));
+    edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle ?? null,
+        targetHandle: e.targetHandle ?? null,
+    }));
 
 const arrow = { markerEnd: { type: MarkerType.ArrowClosed } };
 
@@ -95,7 +119,13 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const [nodes, setNodesState] = useState(() =>
         (seed.current.nodes ?? []).map((n) => ({ ...n, type: 'labeled' })));
     const [edges, setEdgesState] = useState(() =>
-        (seed.current.edges ?? []).map((e) => ({ ...e, ...arrow })));
+        (seed.current.edges ?? []).map((e) => ({
+            ...e,
+            // Legacy edges (saved before per-side handles) were always bottom→top.
+            sourceHandle: e.sourceHandle ?? 'bottom',
+            targetHandle: e.targetHandle ?? 'top',
+            ...arrow,
+        })));
 
     // Synchronous mirrors so persistence reads final values, not lagged state.
     const nodesRef = useRef(nodes);
@@ -227,6 +257,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     nodes={nodes}
                     edges={edges}
                     nodeTypes={nodeTypes}
+                    connectionMode={ConnectionMode.Loose}
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
