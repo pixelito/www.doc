@@ -9,6 +9,9 @@ import {
     MarkerType,
     ConnectionMode,
     NodeToolbar,
+    BaseEdge,
+    EdgeLabelRenderer,
+    getBezierPath,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
@@ -20,6 +23,7 @@ import { toPng } from 'html-to-image';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
+    IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -145,6 +149,135 @@ function LabeledNode({ id, data, selected }) {
 
 const nodeTypes = { labeled: LabeledNode };
 
+// ── Edges ────────────────────────────────────────────────────────────────────
+
+const EDGE_COLORS = ['#8E938E', '#4B6840', '#6E8AA7', '#C99650', '#B5573E']; // gray, sage, blue, amber, terracotta
+const ARROW_MODES = ['end', 'both', 'none'];
+const ARROW_ICON = { end: IconArrowNarrowRight, both: IconArrowsHorizontal, none: IconMinus };
+
+const edgeData = (e) => ({
+    label: '', lineStyle: 'solid', arrows: 'end', color: EDGE_COLORS[0], ...(e.data || {}),
+});
+
+// Build React Flow's visual props (type + colored arrow markers) from edge.data,
+// which is the persisted source of truth. Re-run whenever an edge's data changes.
+const decorateEdge = (e) => {
+    const data = edgeData(e);
+    const marker = (on) => (on ? { type: MarkerType.ArrowClosed, color: data.color, width: 16, height: 16 } : undefined);
+    return {
+        ...e,
+        type: 'configurable',
+        data,
+        markerEnd: marker(data.arrows === 'end' || data.arrows === 'both'),
+        markerStart: marker(data.arrows === 'both'),
+    };
+};
+
+function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerStart, markerEnd, data, selected }) {
+    const { editable, onEdgeChange, onEdgeDelete } = useContext(NodeBehavior);
+    const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const d = edgeData({ data });
+
+    return (
+        <>
+            <BaseEdge
+                id={id}
+                path={path}
+                markerStart={markerStart}
+                markerEnd={markerEnd}
+                style={{
+                    stroke: d.color,
+                    strokeWidth: selected ? 2.5 : 1.5,
+                    strokeDasharray: d.lineStyle === 'dashed' ? '6 4' : undefined,
+                }}
+            />
+            <EdgeLabelRenderer>
+                {d.label && (
+                    <div
+                        className="rounded-sm border border-border-subtle bg-surface/95 px-1 py-px text-[10px] font-medium text-text-secondary"
+                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'none' }}
+                    >
+                        {d.label}
+                    </div>
+                )}
+
+                {editable && selected && (
+                    <div
+                        className="nodrag nopan flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md"
+                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 30}px)`, pointerEvents: 'all' }}
+                    >
+                        <EdgeLabelInput value={d.label} onCommit={(label) => onEdgeChange(id, { label })} />
+                        <EdgeIconButton
+                            active={d.lineStyle === 'dashed'}
+                            title={d.lineStyle === 'dashed' ? 'Dashed line' : 'Solid line'}
+                            onClick={() => onEdgeChange(id, { lineStyle: d.lineStyle === 'dashed' ? 'solid' : 'dashed' })}
+                        >
+                            <IconLineDashed className="h-3.5 w-3.5" stroke={1.5} />
+                        </EdgeIconButton>
+                        {(() => { const A = ARROW_ICON[d.arrows]; return (
+                            <EdgeIconButton
+                                title={`Arrows: ${d.arrows}`}
+                                onClick={() => onEdgeChange(id, { arrows: ARROW_MODES[(ARROW_MODES.indexOf(d.arrows) + 1) % ARROW_MODES.length] })}
+                            >
+                                <A className="h-3.5 w-3.5" stroke={1.5} />
+                            </EdgeIconButton>
+                        ); })()}
+                        <span className="mx-0.5 h-4 w-px bg-border" />
+                        {EDGE_COLORS.map((c) => (
+                            <button
+                                key={c}
+                                type="button"
+                                title="Line colour"
+                                onClick={() => onEdgeChange(id, { color: c })}
+                                className={`h-4 w-4 rounded-full border ${d.color === c ? 'border-foreground' : 'border-border'}`}
+                                style={{ background: c }}
+                            />
+                        ))}
+                        <span className="mx-0.5 h-4 w-px bg-border" />
+                        <EdgeIconButton title="Delete connection" danger onClick={() => onEdgeDelete(id)}>
+                            <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                        </EdgeIconButton>
+                    </div>
+                )}
+            </EdgeLabelRenderer>
+        </>
+    );
+}
+
+function EdgeLabelInput({ value, onCommit }) {
+    const [v, setV] = useState(value ?? '');
+    useEffect(() => { setV(value ?? ''); }, [value]);
+    return (
+        <input
+            value={v}
+            onChange={(e) => setV(e.target.value)}
+            onBlur={() => onCommit(v.trim())}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+            placeholder="Label"
+            className="h-5 w-20 rounded-sm bg-canvas px-1 text-[11px] text-foreground outline-none placeholder:text-text-tertiary"
+        />
+    );
+}
+
+function EdgeIconButton({ active, danger, title, onClick, children }) {
+    return (
+        <button
+            type="button"
+            title={title}
+            onClick={onClick}
+            className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
+                active ? 'bg-sage-100 text-sage-700'
+                : danger ? 'text-text-secondary hover:bg-danger hover:text-white'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
+            }`}
+        >
+            {children}
+        </button>
+    );
+}
+
+const edgeTypes = { configurable: ConfigurableEdge };
+
 // Persisted shape — strip React Flow's transient fields and render-only data.
 const cleanNodes = (nodes) =>
     nodes.map((n) => ({
@@ -160,9 +293,8 @@ const cleanEdges = (edges) =>
         target: e.target,
         sourceHandle: e.sourceHandle ?? null,
         targetHandle: e.targetHandle ?? null,
+        data: edgeData(e),
     }));
-
-const arrow = { markerEnd: { type: MarkerType.ArrowClosed } };
 
 function Canvas({ graph, editable, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
@@ -171,12 +303,11 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const [nodes, setNodesState] = useState(() =>
         (seed.current.nodes ?? []).map((n) => ({ ...n, type: 'labeled' })));
     const [edges, setEdgesState] = useState(() =>
-        (seed.current.edges ?? []).map((e) => ({
+        (seed.current.edges ?? []).map((e) => decorateEdge({
             ...e,
             // Legacy edges (saved before per-side handles) were always bottom→top.
             sourceHandle: e.sourceHandle ?? 'bottom',
             targetHandle: e.targetHandle ?? 'top',
-            ...arrow,
         })));
 
     // Synchronous mirrors so persistence reads final values, not lagged state.
@@ -258,7 +389,19 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
 
     const onConnect = (params) => {
-        setEdges(addEdge({ ...params, id: uid(), ...arrow }, edgesRef.current));
+        setEdges(addEdge(decorateEdge({ ...params, id: uid() }), edgesRef.current));
+        persist();
+        scheduleCapture();
+    };
+
+    const onEdgeChange = (id, patch) => {
+        setEdges(edgesRef.current.map((e) => (e.id === id ? decorateEdge({ ...e, data: { ...edgeData(e), ...patch } }) : e)));
+        persist();
+        scheduleCapture();
+    };
+
+    const onEdgeDelete = (id) => {
+        setEdges(edgesRef.current.filter((e) => e.id !== id));
         persist();
         scheduleCapture();
     };
@@ -316,12 +459,13 @@ function Canvas({ graph, editable, onChange, onImage }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onEdgeChange, onEdgeDelete }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}
                     nodeTypes={nodeTypes}
+                    edgeTypes={edgeTypes}
                     connectionMode={ConnectionMode.Loose}
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
