@@ -234,14 +234,13 @@ class DocxExporter implements ExporterContract
         // exists (a just-inserted, never-edited diagram has no image).
         $this->embedStorageImage($node['attrs']['imageSrc'] ?? '', ['width' => 450, 'ratio' => true]);
 
-        $name = trim((string) ($node['attrs']['name'] ?? ''));
-        if ($name !== '') {
-            $this->section->addText(
-                htmlspecialchars($name),
-                ['italic' => true, 'size' => 9, 'color' => '5C625C'],
-                ['alignment' => 'center', 'spaceAfter' => 120]
-            );
-        }
+        $name  = trim((string) ($node['attrs']['name'] ?? ''));
+        $label = $name !== '' ? $name : 'Untitled diagram';
+        $this->section->addText(
+            htmlspecialchars($label),
+            ['italic' => true, 'size' => 9, 'color' => '5C625C'],
+            ['alignment' => 'center', 'spaceAfter' => 120]
+        );
     }
 
     /** Embed an image only if it is served from our own storage; skip external URLs. */

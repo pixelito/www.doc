@@ -28,15 +28,13 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
             <NodeViewWrapper className="network-diagram-block my-4" data-network-diagram="true">
                 {imageSrc ? (
                     <figure className="m-0">
-                        <img src={imageSrc} alt={name || 'Network diagram'} className="block max-w-full rounded-md border border-border" />
-                        {name && (
-                            <figcaption className="mt-1.5 text-center text-xs text-text-secondary">{name}</figcaption>
-                        )}
+                        <img src={imageSrc} alt={name || 'Untitled diagram'} className="block max-w-full rounded-md border border-border" />
+                        <figcaption className="mt-1.5 text-center text-xs text-text-secondary">{name || 'Untitled diagram'}</figcaption>
                     </figure>
                 ) : (
                     <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border bg-canvas px-4 py-10 text-sm text-text-tertiary">
                         <IconTopologyStar3 className="h-4 w-4" stroke={1.5} />
-                        {name || 'Network diagram'}
+                        {name || 'Untitled diagram'}
                     </div>
                 )}
             </NodeViewWrapper>
@@ -53,7 +51,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                             type="text"
                             value={node.attrs.name ?? ''}
                             onChange={(e) => updateAttributes({ name: e.target.value })}
-                            placeholder="Network diagram"
+                            placeholder="Untitled diagram"
                             aria-label="Diagram name"
                             className="min-w-0 flex-1 bg-transparent text-xs font-medium text-foreground outline-none placeholder:font-normal placeholder:text-text-tertiary"
                         />

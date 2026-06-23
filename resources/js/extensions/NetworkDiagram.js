@@ -62,21 +62,20 @@ export const NetworkDiagram = Node.create({
         const src = node.attrs.imageSrc;
         const align = node.attrs.align ?? 'left';
         const name = (node.attrs.name ?? '').trim();
-        const alt = name || 'Network diagram';
+        const label = name || 'Untitled diagram';
 
         if (src) {
             const style =
                 'max-width:100%;display:block;' +
                 (align === 'center' ? 'margin:0 auto;' : align === 'right' ? 'margin-left:auto;' : '');
-            const img = ['img', { src, alt, class: 'network-diagram', style }];
-            const children = name
-                ? [img, ['figcaption', { class: 'network-diagram-caption' }, name]]
-                : [img];
-            return ['figure', { 'data-network-diagram': 'true', class: 'network-diagram-figure' }, ...children];
+            return ['figure', { 'data-network-diagram': 'true', class: 'network-diagram-figure' },
+                ['img', { src, alt: label, class: 'network-diagram', style }],
+                ['figcaption', { class: 'network-diagram-caption' }, label],
+            ];
         }
 
         // No render yet (e.g. freshly inserted, pre-save) — a labelled placeholder.
-        return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, alt];
+        return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, label];
     },
 
     addNodeView() {

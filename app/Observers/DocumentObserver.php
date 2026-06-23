@@ -109,7 +109,11 @@ class DocumentObserver
      */
     protected function updateSearchVector(Document $document, string $html): void
     {
-        $bodyText = strip_tags($html);
+        // Replace tags with a space rather than strip_tags(), which concatenates
+        // adjacent block text ("...</p><p>..." → "...") and can fuse tokens across
+        // element boundaries. Mirrors search:reindex's SQL so both indexing paths
+        // produce the same vector.
+        $bodyText = preg_replace('/<[^>]+>/', ' ', $html);
 
         DB::statement(
             "UPDATE documents

@@ -102,13 +102,16 @@ test('a named diagram renders the name as a caption and the image alt', function
     expect(strip_tags($html))->toContain('Office LAN');
 });
 
-test('an unnamed diagram has no caption and falls back to a generic alt', function () {
+test('an unnamed diagram captions and alts as "Untitled diagram"', function () {
     $html = RenderDocument::toHtml(docWith([
         'type'  => 'networkDiagram',
         'attrs' => ['graph' => ['nodes' => [], 'edges' => []], 'imageSrc' => '/storage/assets/abc123.png'],
     ]));
 
-    expect($html)->not->toContain('<figcaption')->toContain('alt="Network diagram"');
+    expect($html)
+        ->toContain('<figcaption')
+        ->toContain('Untitled diagram')
+        ->toContain('alt="Untitled diagram"');
 });
 
 test('a diagram with no labels emits no hidden label span', function () {
