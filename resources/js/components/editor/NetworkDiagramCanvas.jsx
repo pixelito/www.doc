@@ -106,11 +106,14 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const setNodes = (next) => { nodesRef.current = next; setNodesState(next); };
     const setEdges = (next) => { edgesRef.current = next; setEdgesState(next); };
 
-    const persist = () => onChange({
-        nodes: cleanNodes(nodesRef.current),
-        edges: cleanEdges(edgesRef.current),
-        viewport: viewportRef.current,
-    });
+    const persist = () => {
+        if (!editable) return;   // read-only mount renders the graph but never writes back
+        onChange?.({
+            nodes: cleanNodes(nodesRef.current),
+            edges: cleanEdges(edgesRef.current),
+            viewport: viewportRef.current,
+        });
+    };
 
     // Derive the PNG that read view / PDF / DOCX / search / version snapshots
     // show. Debounced after edits settle; renders all nodes (fit to bounds,
@@ -139,6 +142,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                 backgroundColor: '#FBFAF5',
                 width,
                 height,
+                pixelRatio: 2,   // sharper export PNG (read view uses the live canvas)
                 // Don't try to inline @font-face CSS: it can't be read when styles
                 // are served from another origin (CDN / split dev host), which only
                 // spams the console and wastes a fetch every capture — labels fall
@@ -220,19 +224,26 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
-                    onNodeDragStop={() => { persist(); scheduleCapture(); }}
-                    onMoveEnd={(_, vp) => { viewportRef.current = vp; persist(); }}
+                    onNodeDragStop={editable ? (() => { persist(); scheduleCapture(); }) : undefined}
+                    onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
                     onSelectionChange={(sel) => { selectionRef.current = sel; }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
                     nodesDraggable={editable}
                     nodesConnectable={editable}
                     elementsSelectable={editable}
+                    // Read-only mount is a faithful, non-interactive render of the
+                    // graph — no panning/zooming so it doesn't hijack page scroll.
+                    panOnDrag={editable}
+                    zoomOnScroll={editable}
+                    zoomOnPinch={editable}
+                    zoomOnDoubleClick={editable}
+                    preventScrolling={editable}
                     deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
                     proOptions={{ hideAttribution: true }}
                     fitView={(seed.current.nodes ?? []).length > 0}
                 >
                     <Background color="#DAE6D4" gap={18} />
-                    <Controls showInteractive={false} />
+                    {editable && <Controls showInteractive={false} />}
 
                     {editable && (
                         <div className="absolute left-2 top-2 z-10 flex gap-1">

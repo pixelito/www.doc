@@ -18,7 +18,6 @@ const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
 export default function NetworkDiagramNodeView({ node, updateAttributes, editor, deleteNode }) {
     const editable = editor.isEditable;
     const graph = node.attrs.graph ?? EMPTY_GRAPH;
-    const imageSrc = node.attrs.imageSrc;
     const name = (node.attrs.name ?? '').trim();
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
@@ -28,11 +27,19 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     if (!editable) {
+        const hasNodes = (graph.nodes ?? []).length > 0;
         return (
             <NodeViewWrapper className="network-diagram-block my-4" data-network-diagram="true">
-                {imageSrc ? (
+                {hasNodes ? (
                     <figure className="m-0">
-                        <img src={imageSrc} alt={name || 'Untitled diagram'} className="block max-w-full rounded-md border border-border" />
+                        {/* Render the real React Flow graph (read-only), not the
+                            rasterised PNG — the PNG is only for no-JS consumers
+                            (PDF/DOCX/search/version snapshots). */}
+                        <div className="overflow-hidden rounded-md border border-border bg-canvas" style={{ height: 420 }}>
+                            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
+                                <Canvas graph={graph} editable={false} />
+                            </Suspense>
+                        </div>
                         <figcaption className="mt-1.5 text-center text-xs text-text-secondary">{name || 'Untitled diagram'}</figcaption>
                     </figure>
                 ) : (
