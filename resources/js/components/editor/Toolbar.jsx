@@ -4,7 +4,7 @@ import {
     IconPalette, IconHighlight, IconBan, IconX,
     IconH1, IconH2, IconH3,
     IconList, IconListNumbers, IconBlockquote, IconMinus,
-    IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff,
+    IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff, IconTopologyStar3,
     IconRowInsertBottom, IconRowInsertTop, IconRowRemove,
     IconColumnInsertLeft, IconColumnInsertRight, IconColumnRemove,
     IconAlignLeft, IconAlignCenter, IconAlignRight,
@@ -454,6 +454,12 @@ export default function Toolbar({ editor }) {
             <ToolbarButton title="Horizontal rule" active={false}
                 onClick={() => editor.chain().focus().setHorizontalRule().run()}>
                 <IconMinus className="h-3.5 w-3.5" stroke={2} />
+            </ToolbarButton>
+
+            {/* ── Network diagram ───────────────────────────────────── */}
+            <ToolbarButton title="Insert network diagram" active={false}
+                onClick={() => editor.chain().focus().insertNetworkDiagram().run()}>
+                <IconTopologyStar3 className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
 
             {/* ── Image ─────────────────────────────────────────────── */}

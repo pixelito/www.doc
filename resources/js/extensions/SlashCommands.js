@@ -59,6 +59,12 @@ const ALL_COMMANDS = [
         command: ({ editor, range }) =>
             editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
     },
+    {
+        title: 'Network Diagram',
+        group: 'Blocks',
+        command: ({ editor, range }) =>
+            editor.chain().focus().deleteRange(range).insertNetworkDiagram().run(),
+    },
 ];
 
 export const SlashCommands = Extension.create({

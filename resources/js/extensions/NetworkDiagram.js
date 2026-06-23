@@ -1,4 +1,8 @@
 import { Node } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
+import NetworkDiagramNodeView from '@/components/editor/NetworkDiagramNodeView';
+
+const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
 
 /**
  * Block node holding a React Flow network diagram.
@@ -23,10 +27,10 @@ export const NetworkDiagram = Node.create({
     addAttributes() {
         return {
             // Canonical graph. Each attr declares a no-op renderHTML so the
-            // object never leaks into a DOM attribute; node-level renderHTML
-            // (and the Phase 2 NodeView) own all rendering.
+            // object never leaks into a DOM attribute; the node-level renderHTML
+            // and the React NodeView own all rendering.
             graph: {
-                default: { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
+                default: EMPTY_GRAPH,
                 renderHTML: () => ({}),
             },
             imageSrc: {
@@ -61,5 +65,16 @@ export const NetworkDiagram = Node.create({
 
         // No render yet (e.g. freshly inserted, pre-save) — a labelled placeholder.
         return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, 'Network diagram'];
+    },
+
+    addNodeView() {
+        return ReactNodeViewRenderer(NetworkDiagramNodeView);
+    },
+
+    addCommands() {
+        return {
+            insertNetworkDiagram: () => ({ commands }) =>
+                commands.insertContent({ type: this.name, attrs: { graph: EMPTY_GRAPH } }),
+        };
     },
 });
