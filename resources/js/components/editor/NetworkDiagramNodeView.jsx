@@ -18,6 +18,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
     const editable = editor.isEditable;
     const graph = node.attrs.graph ?? EMPTY_GRAPH;
     const imageSrc = node.attrs.imageSrc;
+    const name = (node.attrs.name ?? '').trim();
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
     const onImage = useCallback((src) => updateAttributes({ imageSrc: src }), [updateAttributes]);
@@ -26,11 +27,16 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
         return (
             <NodeViewWrapper className="network-diagram-block my-4" data-network-diagram="true">
                 {imageSrc ? (
-                    <img src={imageSrc} alt="Network diagram" className="block max-w-full rounded-md border border-border" />
+                    <figure className="m-0">
+                        <img src={imageSrc} alt={name || 'Network diagram'} className="block max-w-full rounded-md border border-border" />
+                        {name && (
+                            <figcaption className="mt-1.5 text-center text-xs text-text-secondary">{name}</figcaption>
+                        )}
+                    </figure>
                 ) : (
                     <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border bg-canvas px-4 py-10 text-sm text-text-tertiary">
                         <IconTopologyStar3 className="h-4 w-4" stroke={1.5} />
-                        Network diagram
+                        {name || 'Network diagram'}
                     </div>
                 )}
             </NodeViewWrapper>
@@ -40,9 +46,17 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
     return (
         <NodeViewWrapper className="network-diagram-block my-4" contentEditable={false} data-network-diagram="true">
             <div className="overflow-hidden rounded-md border border-border bg-canvas">
-                <div className="flex items-center justify-between border-b border-border bg-surface px-3 py-1.5">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                        <IconTopologyStar3 className="h-3.5 w-3.5" stroke={1.5} /> Network diagram
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-text-secondary">
+                        <IconTopologyStar3 className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
+                        <input
+                            type="text"
+                            value={node.attrs.name ?? ''}
+                            onChange={(e) => updateAttributes({ name: e.target.value })}
+                            placeholder="Network diagram"
+                            aria-label="Diagram name"
+                            className="min-w-0 flex-1 bg-transparent text-xs font-medium text-foreground outline-none placeholder:font-normal placeholder:text-text-tertiary"
+                        />
                     </span>
                     <button
                         type="button"

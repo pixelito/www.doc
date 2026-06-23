@@ -95,6 +95,8 @@ class NetworkDiagramNode extends Node
         $attrs = $node->attrs ?? (object) [];
         $src   = $attrs->imageSrc ?? null;
         $align = $attrs->align ?? 'left';
+        $name  = trim((string) ($attrs->name ?? ''));
+        $alt   = $name !== '' ? $name : 'Network diagram';
 
         // The canonical graph is editor-only, but its node labels are the only
         // searchable text a diagram contributes. Emit them as visually-hidden
@@ -103,6 +105,12 @@ class NetworkDiagramNode extends Node
         // they never show in the read view / PDF, which display the PNG.
         $hidden = static::hiddenLabels($attrs->graph ?? null);
 
+        // The diagram name shows as a caption (and is searchable as visible text).
+        $caption = $name !== ''
+            ? '<figcaption class="network-diagram-caption" style="text-align:center;font-size:0.85em;color:#5C625C;margin-top:4px;">'
+                . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '</figcaption>'
+            : '';
+
         if ($src) {
             $style = 'max-width:100%;display:block;';
             if ($align === 'center')    $style .= 'margin:0 auto;';
@@ -110,13 +118,13 @@ class NetworkDiagramNode extends Node
 
             $img = '<img'
                 . ' src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"'
-                . ' alt="Network diagram" class="network-diagram"'
+                . ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '" class="network-diagram"'
                 . ' style="' . $style . '" />';
 
-            return ['content' => $img . $hidden];
+            return ['content' => '<figure class="network-diagram-figure" style="margin:0;">' . $img . $caption . $hidden . '</figure>'];
         }
 
-        return ['content' => '<div data-network-diagram="true" class="network-diagram-placeholder"></div>' . $hidden];
+        return ['content' => '<div data-network-diagram="true" class="network-diagram-placeholder"></div>' . $caption . $hidden];
     }
 
     /** Visually-hidden span carrying the diagram's node labels for full-text search. */

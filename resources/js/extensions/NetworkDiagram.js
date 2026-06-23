@@ -37,6 +37,12 @@ export const NetworkDiagram = Node.create({
                 default: null,
                 renderHTML: () => ({}),
             },
+            // User-facing diagram name. Rendered by the node-level renderHTML and
+            // the NodeView (as a caption), never as a bare DOM attribute.
+            name: {
+                default: '',
+                renderHTML: () => ({}),
+            },
             width: {
                 default: null,
                 renderHTML: () => ({}),
@@ -55,16 +61,22 @@ export const NetworkDiagram = Node.create({
     renderHTML({ node }) {
         const src = node.attrs.imageSrc;
         const align = node.attrs.align ?? 'left';
+        const name = (node.attrs.name ?? '').trim();
+        const alt = name || 'Network diagram';
 
         if (src) {
             const style =
                 'max-width:100%;display:block;' +
                 (align === 'center' ? 'margin:0 auto;' : align === 'right' ? 'margin-left:auto;' : '');
-            return ['img', { 'data-network-diagram': 'true', src, alt: 'Network diagram', class: 'network-diagram', style }];
+            const img = ['img', { src, alt, class: 'network-diagram', style }];
+            const children = name
+                ? [img, ['figcaption', { class: 'network-diagram-caption' }, name]]
+                : [img];
+            return ['figure', { 'data-network-diagram': 'true', class: 'network-diagram-figure' }, ...children];
         }
 
         // No render yet (e.g. freshly inserted, pre-save) — a labelled placeholder.
-        return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, 'Network diagram'];
+        return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, alt];
     },
 
     addNodeView() {

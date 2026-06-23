@@ -83,6 +83,34 @@ test('node labels are emitted as hidden text so full-text search can index them'
     expect(strip_tags($html))->toContain('core-router')->toContain('edge-switch');
 });
 
+test('a named diagram renders the name as a caption and the image alt', function () {
+    $html = RenderDocument::toHtml(docWith([
+        'type'  => 'networkDiagram',
+        'attrs' => [
+            'name'     => 'Office LAN',
+            'graph'    => ['nodes' => [], 'edges' => []],
+            'imageSrc' => '/storage/assets/abc123.png',
+        ],
+    ]));
+
+    expect($html)
+        ->toContain('<figcaption')
+        ->toContain('Office LAN')
+        ->toContain('alt="Office LAN"');
+
+    // The caption is visible text, so it lands in the search vector too.
+    expect(strip_tags($html))->toContain('Office LAN');
+});
+
+test('an unnamed diagram has no caption and falls back to a generic alt', function () {
+    $html = RenderDocument::toHtml(docWith([
+        'type'  => 'networkDiagram',
+        'attrs' => ['graph' => ['nodes' => [], 'edges' => []], 'imageSrc' => '/storage/assets/abc123.png'],
+    ]));
+
+    expect($html)->not->toContain('<figcaption')->toContain('alt="Network diagram"');
+});
+
 test('a diagram with no labels emits no hidden label span', function () {
     $html = RenderDocument::toHtml(docWith([
         'type'  => 'networkDiagram',

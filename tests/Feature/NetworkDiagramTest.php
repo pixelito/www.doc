@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /** A TipTap doc containing one networkDiagram block with the given graph + image. */
-function diagramDoc(array $graph, ?string $imageSrc = null): array
+function diagramDoc(array $graph, ?string $imageSrc = null, string $name = ''): array
 {
     return [
         'type'    => 'doc',
         'content' => [[
             'type'  => 'networkDiagram',
-            'attrs' => ['graph' => $graph, 'imageSrc' => $imageSrc],
+            'attrs' => ['graph' => $graph, 'imageSrc' => $imageSrc, 'name' => $name],
         ]],
     ];
 }
@@ -48,6 +48,55 @@ test('a document is found by a network diagram node label', function () {
             ->has('results', 1)
             ->where('results.0.title', 'Datacenter Topology')
     );
+});
+
+test('a document is found by its diagram name', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Branch Office',
+        'content' => diagramDoc(graphWithLabels(['sw1']), '/storage/assets/abc.png', 'Warehouse Network'),
+    ]);
+
+    $this->get('/search?q=Warehouse')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Branch Office')
+    );
+});
+
+test('the diagram name round-trips through a version snapshot', function () {
+    login();
+    $document = Document::factory()->create(['content' => DocumentFactory::tiptap('before')]);
+    $document->update(['content' => diagramDoc(graphWithLabels(['n']), '/storage/assets/abc.png', 'Core Topology')]);
+
+    $node = $document->versions()->latest('id')->first()->content['content'][0];
+    expect($node['attrs']['name'])->toBe('Core Topology');
+});
+
+test('the DOCX export includes the diagram name as a caption', function () {
+    Storage::fake('local');
+    login();
+
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    $dir = storage_path('app/public/assets');
+    @mkdir($dir, 0777, true);
+    $abs = "{$dir}/diagram-named.png";
+    file_put_contents($abs, $png);
+
+    try {
+        $document = Document::factory()->create([
+            'content' => diagramDoc(graphWithLabels(['n']), '/storage/assets/diagram-named.png', 'Datacenter Rack'),
+        ]);
+
+        $path = (new DocxExporter)->export($document);
+
+        $zip = new ZipArchive;
+        $zip->open(Storage::disk('local')->path($path));
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        expect($xml)->toContain('Datacenter Rack');
+    } finally {
+        @unlink($abs);
+    }
 });
 
 test('the diagram graph round-trips through a version snapshot', function () {
