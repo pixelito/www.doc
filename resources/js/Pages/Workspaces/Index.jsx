@@ -178,7 +178,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                         )
                     )}
                     {perms.isAdmin && !reordering && (
-                        <Button asChild variant="secondary" className="text-text-secondary hover:text-foreground">
+                        <Button asChild variant="outline" className="text-text-secondary hover:text-foreground">
                             <Link href="/trash">
                                 <IconTrash stroke={1.5} />
                                 Trash
