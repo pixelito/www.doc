@@ -83,6 +83,9 @@ docker compose exec app php artisan test --filter='wiki-links' # a single test
 
 CI runs the same suite on every push and pull request (see `.github/workflows/ci.yml`).
 
+The network-diagram capture path runs only in a real browser, so it's covered by
+a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/network-diagram-smoke-test.md).
+
 ## Production
 
 Production uses a **separate** compose file from development — code is baked into the
