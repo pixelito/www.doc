@@ -121,6 +121,20 @@ it('rehost refuses non-http schemes', function () {
     Http::assertNothingSent();
 });
 
+it('rehost does not follow a redirect (which could point at an internal host)', function () {
+    $user = login();
+
+    // A public host that 302s toward cloud-metadata. With redirects disabled the
+    // 30x comes back as-is (not successful), so nothing is fetched or stored.
+    Http::fake(['*' => Http::response('', 302, ['Location' => 'http://169.254.169.254/latest/meta-data'])]);
+
+    $this->actingAs($user)
+        ->postJson('/assets/rehost', ['url' => 'http://93.184.216.34/logo.png'])
+        ->assertStatus(422);
+
+    expect(Asset::count())->toBe(0);
+});
+
 it('rehost downloads and stores an image from a public host', function () {
     $user = login();
     $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
