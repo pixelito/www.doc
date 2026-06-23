@@ -214,6 +214,12 @@ function Canvas({ graph, editable, onChange, onImage }) {
         scheduleCapture();
     };
 
+    // In the editor, leave node interactivity to React Flow's defaults (all on) so
+    // the Controls lock button can toggle it; the read-only mount pins it all off.
+    const interactionProps = editable
+        ? {}
+        : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
+
     return (
         <NodeBehavior.Provider value={{ editable, onLabelChange }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
@@ -228,9 +234,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
                     onSelectionChange={(sel) => { selectionRef.current = sel; }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
-                    nodesDraggable={editable}
-                    nodesConnectable={editable}
-                    elementsSelectable={editable}
+                    {...interactionProps}
                     // Read-only mount is a faithful, non-interactive render of the
                     // graph — no panning/zooming so it doesn't hijack page scroll.
                     panOnDrag={editable}
@@ -243,7 +247,8 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     fitView={(seed.current.nodes ?? []).length > 0}
                 >
                     <Background color="#DAE6D4" gap={18} />
-                    {editable && <Controls showInteractive={false} />}
+                    {/* Zoom / fit / lock — the lock toggles node interactivity. */}
+                    {editable && <Controls showInteractive />}
 
                     {editable && (
                         <div className="absolute left-2 top-2 z-10 flex gap-1">
