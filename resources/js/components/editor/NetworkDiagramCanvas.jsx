@@ -61,6 +61,20 @@ const NODE_KINDS = [
 const KIND_BY_ID = Object.fromEntries(NODE_KINDS.map((k) => [k.id, k]));
 const kindMeta = (kind) => KIND_BY_ID[kind] ?? KIND_BY_ID.generic;
 
+// Node fill colours for grouping by zone / VLAN. `id` is persisted in
+// node.data.color; the rest is render-only (light fill + matching border +
+// accent for the icon). `swatch` is the palette button colour.
+const NODE_COLORS = [
+    { id: 'default',    bg: 'var(--surface)', border: 'var(--border)', accent: 'var(--sage-600)', swatch: '#FBFAF5' },
+    { id: 'sage',       bg: '#EAF1E5', border: '#BFD2B5', accent: '#4B6840', swatch: '#CDDEC4' },
+    { id: 'blue',       bg: '#E9EFF4', border: '#B8CCDD', accent: '#42637E', swatch: '#C4D6E4' },
+    { id: 'amber',      bg: '#F6EEDC', border: '#E5CF9F', accent: '#9A6F2E', swatch: '#EBD6A6' },
+    { id: 'terracotta', bg: '#F4E5DF', border: '#DDB3A6', accent: '#A04A33', swatch: '#E6C2B5' },
+    { id: 'purple',     bg: '#EEE9F4', border: '#CDBDDD', accent: '#6A5286', swatch: '#D6C7E6' },
+];
+const COLOR_BY_ID = Object.fromEntries(NODE_COLORS.map((c) => [c.id, c]));
+const colorMeta = (id) => COLOR_BY_ID[id] ?? COLOR_BY_ID.default;
+
 // A connection point on each side of a node. With ConnectionMode.Loose every
 // handle can be both a source and a target, so any node connects to any node.
 const HANDLE_SIDES = [
@@ -71,7 +85,7 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onKindChange, onNodeColorChange } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(data.label ?? '');
 
@@ -79,6 +93,7 @@ function LabeledNode({ id, data, selected }) {
 
     const kind = data.kind ?? 'generic';
     const Icon = kindMeta(kind).Icon;
+    const color = colorMeta(data.color ?? 'default');
 
     const commit = () => {
         setEditing(false);
@@ -88,28 +103,42 @@ function LabeledNode({ id, data, selected }) {
     return (
         <div
             onDoubleClick={() => editable && setEditing(true)}
-            className={`flex items-center justify-center gap-1.5 rounded-md border bg-card px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
-                selected ? 'border-sage-500 ring-1 ring-sage-400' : 'border-border'
+            className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
+                selected ? 'ring-1 ring-sage-400' : ''
             }`}
-            style={{ minWidth: 90 }}
+            style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
         >
-            {/* Type picker — appears above the node while it's selected. */}
+            {/* Type + colour picker — appears above the node while it's selected. */}
             {editable && (
                 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
-                    <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-1 shadow-md">
-                        {NODE_KINDS.map((k) => (
-                            <button
-                                key={k.id}
-                                type="button"
-                                title={k.label}
-                                onClick={() => onKindChange(id, k.id)}
-                                className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors ${
-                                    kind === k.id ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
-                                }`}
-                            >
-                                <k.Icon className="h-3.5 w-3.5" stroke={1.5} />
-                            </button>
-                        ))}
+                    <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
+                        <div className="flex items-center gap-0.5">
+                            {NODE_KINDS.map((k) => (
+                                <button
+                                    key={k.id}
+                                    type="button"
+                                    title={k.label}
+                                    onClick={() => onKindChange(id, k.id)}
+                                    className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors ${
+                                        kind === k.id ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
+                                    }`}
+                                >
+                                    <k.Icon className="h-3.5 w-3.5" stroke={1.5} />
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-1 px-0.5">
+                            {NODE_COLORS.map((c) => (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    title={`${c.id[0].toUpperCase()}${c.id.slice(1)} fill`}
+                                    onClick={() => onNodeColorChange(id, c.id)}
+                                    className={`h-4 w-4 rounded-full border ${(data.color ?? 'default') === c.id ? 'border-foreground' : 'border-border'}`}
+                                    style={{ background: c.swatch }}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </NodeToolbar>
             )}
@@ -125,7 +154,7 @@ function LabeledNode({ id, data, selected }) {
                 />
             ))}
 
-            {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0 text-sage-600" stroke={1.5} />}
+            {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0" stroke={1.5} style={{ color: color.accent }} />}
 
             {editing ? (
                 <input
@@ -284,7 +313,7 @@ const cleanNodes = (nodes) =>
         id: n.id,
         type: 'labeled',
         position: n.position,
-        data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic' },
+        data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default' },
     }));
 const cleanEdges = (edges) =>
     edges.map((e) => ({
@@ -425,6 +454,12 @@ function Canvas({ graph, editable, onChange, onImage }) {
         scheduleCapture();
     };
 
+    const onNodeColorChange = (id, color) => {
+        setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n)));
+        persist();
+        scheduleCapture();
+    };
+
     const addNode = () => {
         const n = nodesRef.current.length;
         const node = {
@@ -459,7 +494,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onEdgeChange, onEdgeDelete }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
