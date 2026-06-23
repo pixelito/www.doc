@@ -114,9 +114,8 @@ prod databases are always separate.
 
 Unreferenced image uploads (e.g. an image pasted then deleted before saving) can be swept
 with `php artisan assets:prune` (`--dry-run` to preview, `--hours=N` to tune the grace
-window). It's registered on a daily schedule and the production stack runs it
-automatically via the `scheduler` service. The dev stack has no scheduler, so run it by
-hand there when you need it.
+window). It's registered on a daily schedule that both stacks run automatically via their
+`scheduler` service, and it's safe to run by hand any time.
 
 ## Project layout
 

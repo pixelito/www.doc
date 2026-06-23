@@ -8,8 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Sweep unreferenced image uploads daily. The production stack runs this via its
-// `scheduler` service (`php artisan schedule:work`); the dev stack has no
-// scheduler, so run it by hand there: `php artisan assets:prune` (--dry-run to
-// preview).
+// Sweep unreferenced image uploads daily. Both stacks run this via their
+// `scheduler` service (`php artisan schedule:work`); it's also safe to run by
+// hand: `php artisan assets:prune` (--dry-run to preview).
 Schedule::command('assets:prune')->daily();

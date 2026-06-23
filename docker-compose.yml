@@ -32,6 +32,14 @@ services:
     environment: *app-env
     volumes: [".:/app"]
     depends_on: *app-deps
+  scheduler:
+    build: *app-build
+    # Runs Laravel's scheduler in-process (wakes every minute) so routes/console.php
+    # tasks fire — today the daily assets:prune. Mirrors the prod scheduler service.
+    command: php artisan schedule:work
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: *app-deps
   vite:
     image: node:24-alpine
     working_dir: /app
