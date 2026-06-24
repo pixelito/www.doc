@@ -25,7 +25,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
-    IconArrowBackUp, IconArrowForwardUp,
+    IconArrowBackUp, IconArrowForwardUp, IconGridDots,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -433,10 +433,17 @@ const hydrateEdges = (raw) =>
 
 const HISTORY_LIMIT = 60;
 
+// Snap step for the optional grid — matches the dotted Background gap so nodes
+// land on the dots.
+const SNAP_GRID = [18, 18];
+
 function Canvas({ graph, editable, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
+
+    // Optional snap-to-grid (editing aid, not persisted): aligns drags to the grid.
+    const [snap, setSnap] = useState(false);
 
     const [nodes, setNodesState] = useState(() => hydrateNodes(seed.current.nodes));
     const [edges, setEdgesState] = useState(() => hydrateEdges(seed.current.edges));
@@ -736,6 +743,8 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     nodeTypes={nodeTypes}
                     edgeTypes={edgeTypes}
                     connectionMode={ConnectionMode.Loose}
+                    snapToGrid={editable && snap}
+                    snapGrid={SNAP_GRID}
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
@@ -796,6 +805,20 @@ function Canvas({ graph, editable, onChange, onImage }) {
                             >
                                 <IconSquareDashed className="h-3.5 w-3.5" stroke={1.5} /> Zone
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setSnap((s) => !s)}
+                                aria-pressed={snap}
+                                title={snap ? 'Snap to grid: on' : 'Snap to grid: off'}
+                                className={`flex items-center justify-center rounded-sm border px-1.5 py-1 shadow-sm transition-colors ${
+                                    snap
+                                        ? 'border-sage-300 bg-sage-100 text-sage-700'
+                                        : 'border-border bg-card text-text-secondary hover:bg-surface-hover hover:text-foreground'
+                                }`}
+                            >
+                                <IconGridDots className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                            <span className="mx-px w-px self-stretch bg-border" />
                             <button
                                 type="button"
                                 onClick={deleteSelected}
