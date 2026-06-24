@@ -154,7 +154,7 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost }) {
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, isDropParent }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -164,7 +164,9 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
         <li
             ref={setNodeRef}
             style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
-            className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+            className={`group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors ${
+                isDropParent ? 'bg-sage-50 ring-1 ring-inset ring-sage-300' : 'hover:bg-surface-hover/60'
+            }`}
         >
             <div className="relative flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
                 {/* Tree guides: a vertical rail per ancestor level + an elbow into
@@ -190,6 +192,12 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                 {node.tags.slice(0, isRoot ? 2 : 1).map((t) => (
                     <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
                 ))}
+                {isDropParent && (
+                    <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700">
+                        <IconCornerDownRight className="h-3 w-3" stroke={2} />
+                        New parent
+                    </span>
+                )}
             </div>
             <div className="py-2.5 pr-4">
                 <span className="text-xs text-text-tertiary">{node.updated_at}</span>
@@ -460,6 +468,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             canCreate={perms.create && !reordering}
                                             canReorder={perms.update && reordering}
                                             ghost={item.id === activeId}
+                                            isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
                                         />
                                     ))}
                                 </ul>
