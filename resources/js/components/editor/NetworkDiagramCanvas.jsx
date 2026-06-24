@@ -90,7 +90,7 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange, onNodeColorChange } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onKindChange, onNodeColorChange, onPersist } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(data.label ?? '');
 
@@ -106,13 +106,27 @@ function LabeledNode({ id, data, selected }) {
     };
 
     return (
+        // h-full/w-full so a manually-resized node fills its box; on an un-resized
+        // node the wrapper is auto-sized, so this just resolves to the label size
+        // (minWidth keeps small labels legible).
         <div
             onDoubleClick={() => editable && setEditing(true)}
-            className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
+            className={`flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
                 selected ? 'ring-1 ring-sage-400' : ''
             }`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
         >
+            {editable && (
+                <NodeResizer
+                    minWidth={90}
+                    minHeight={40}
+                    isVisible={selected}
+                    lineClassName="!border-sage-400"
+                    handleClassName="!h-2 !w-2 !rounded-sm !border-sage-400 !bg-surface"
+                    onResizeEnd={onPersist}
+                />
+            )}
+
             {/* Type + colour picker — appears above the node while it's selected. */}
             {editable && (
                 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
@@ -403,6 +417,8 @@ const cleanNodes = (nodes) =>
             data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default' },
         };
         if (n.parentId) out.parentId = n.parentId;   // membership in a zone
+        if (n.width != null) out.width = n.width;     // present only once manually resized
+        if (n.height != null) out.height = n.height;
         return out;
     });
 const cleanEdges = (edges) =>
@@ -790,7 +806,8 @@ function Canvas({ graph, editable, onChange, onImage }) {
             const n = nodesRef.current.find((x) => x.id === s.id) ?? s;
             const abs = rf.getInternalNode(n.id)?.internals?.positionAbsolute ?? n.position;
             const out = { id: n.id, type: n.type, data: { ...n.data }, abs: { x: abs.x, y: abs.y } };
-            if (n.type === 'group') { out.width = n.width; out.height = n.height; }
+            if (n.width != null) out.width = n.width;
+            if (n.height != null) out.height = n.height;
             if (n.parentId) out.parentId = n.parentId;
             return out;
         });
@@ -813,7 +830,8 @@ function Canvas({ graph, editable, onChange, onImage }) {
 
         const newNodes = clip.nodes.map((n) => {
             const node = { id: idMap.get(n.id), type: n.type, data: { ...n.data }, selected: true };
-            if (n.type === 'group') { node.width = n.width; node.height = n.height; }
+            if (n.width != null) node.width = n.width;
+            if (n.height != null) node.height = n.height;
             if (n.parentId && idMap.has(n.parentId)) {
                 // Parent came along: keep the child relative; the whole group shifts.
                 node.parentId = idMap.get(n.parentId);
