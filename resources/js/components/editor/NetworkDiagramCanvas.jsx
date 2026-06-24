@@ -4,6 +4,7 @@ import {
     ReactFlowProvider,
     Background,
     Controls,
+    MiniMap,
     Handle,
     Position,
     MarkerType,
@@ -27,7 +28,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
-    IconVectorSpline, IconLine, IconCornerDownRight,
+    IconVectorSpline, IconLine, IconCornerDownRight, IconMap2,
     IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
     IconLayoutAlignLeft, IconLayoutAlignCenter, IconLayoutAlignRight,
     IconLayoutAlignTop, IconLayoutAlignMiddle, IconLayoutAlignBottom,
@@ -85,6 +86,15 @@ const NODE_COLORS = [
 ];
 const COLOR_BY_ID = Object.fromEntries(NODE_COLORS.map((c) => [c.id, c]));
 const colorMeta = (id) => COLOR_BY_ID[id] ?? COLOR_BY_ID.default;
+
+// Swatch colour for a node in the minimap. Concrete hexes only (the minimap's
+// SVG fills can't resolve the CSS-var tokens the default palette uses).
+const miniMapNodeColor = (n) => {
+    const id = n.data?.color ?? (n.type === 'group' ? 'sage' : 'default');
+    if (id === 'default') return '#9FB994'; // sage-300 for the plain box / zone
+    const c = colorMeta(id);
+    return n.type === 'group' ? c.border : c.accent;
+};
 
 // A connection point on each side of a node. With ConnectionMode.Loose every
 // handle can be both a source and a target, so any node connects to any node.
@@ -500,6 +510,8 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
 
     // Optional snap-to-grid (editing aid, not persisted): aligns drags to the grid.
     const [snap, setSnap] = useState(false);
+    // Optional minimap overview (editing aid, not persisted).
+    const [showMap, setShowMap] = useState(false);
     // How many nodes are selected — drives the Duplicate button (≥1) and the
     // align (≥2) / distribute (≥3) controls.
     const [selCount, setSelCount] = useState(0);
@@ -1048,6 +1060,17 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     <Background color="#BFD2B5" gap={18} size={1.6} />
                     {/* Zoom / fit / lock — the lock toggles node interactivity. */}
                     {editable && <Controls showInteractive />}
+                    {editable && showMap && (
+                        <MiniMap
+                            pannable
+                            zoomable
+                            nodeColor={miniMapNodeColor}
+                            nodeStrokeWidth={2}
+                            maskColor="color-mix(in srgb, var(--sage-600) 12%, transparent)"
+                            className="!bottom-2 !right-2 !rounded-md !border !border-border !bg-card !shadow-sm"
+                            style={{ width: 140, height: 96 }}
+                        />
+                    )}
 
                     {editable && (
                         <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
@@ -1099,6 +1122,19 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                                 }`}
                             >
                                 <IconGridDots className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowMap((s) => !s)}
+                                aria-pressed={showMap}
+                                title={showMap ? 'Minimap: on' : 'Minimap: off'}
+                                className={`flex items-center justify-center rounded-sm border px-1.5 py-1 shadow-sm transition-colors ${
+                                    showMap
+                                        ? 'border-sage-300 bg-sage-100 text-sage-700'
+                                        : 'border-border bg-card text-text-secondary hover:bg-surface-hover hover:text-foreground'
+                                }`}
+                            >
+                                <IconMap2 className="h-3.5 w-3.5" stroke={1.5} />
                             </button>
                             <button
                                 type="button"
