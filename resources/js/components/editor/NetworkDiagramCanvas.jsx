@@ -606,9 +606,12 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const routingRef = useRef(defaultRouting);
     // Optional minimap overview (editing aid, not persisted).
     const [showMap, setShowMap] = useState(false);
-    // Read view only: pan boundary (graph bounds + margin), computed once nodes
-    // are measured. Lets viewers pan/zoom without scrolling off into empty space.
+    // Read view only: pan boundary (graph bounds + margin) and the matching
+    // zoom-out floor (the zoom at which that whole extent just fills the
+    // container), computed once nodes are measured. Lets viewers pan/zoom but
+    // never lose the diagram or shrink it into empty space.
     const [readExtent, setReadExtent] = useState(null);
+    const [readMinZoom, setReadMinZoom] = useState(null);
     // How many nodes are selected — drives the Duplicate button (≥1) and the
     // align (≥2) / distribute (≥3) controls.
     const [selCount, setSelCount] = useState(0);
@@ -869,6 +872,15 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
             if (!b || !Number.isFinite(b.width) || !Number.isFinite(b.height)) return;
             const m = READ_VIEW_MARGIN;
             setReadExtent([[b.x - m, b.y - m], [b.x + b.width + m, b.y + b.height + m]]);
+
+            // Zoom-out floor: the zoom that makes the bounds+margin box fill the
+            // container. Capped at 1 so a tiny diagram isn't forced to fill the
+            // frame, floored low so a huge one can still fit.
+            const rect = wrapperRef.current?.getBoundingClientRect();
+            if (rect?.width > 0 && rect?.height > 0) {
+                const fit = Math.min(rect.width / (b.width + 2 * m), rect.height / (b.height + 2 * m));
+                setReadMinZoom(Math.max(0.05, Math.min(fit, 1)));
+            }
         }, 80);
         return () => clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1187,7 +1199,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     zoomOnPinch
                     zoomOnDoubleClick
                     preventScrolling={editable}
-                    minZoom={0.2}
+                    minZoom={!editable && readMinZoom ? readMinZoom : 0.2}
                     translateExtent={!editable && readExtent ? readExtent : undefined}
                     deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
                     proOptions={{ hideAttribution: true }}
