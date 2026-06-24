@@ -26,6 +26,9 @@ import {
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
     IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
+    IconLayoutAlignLeft, IconLayoutAlignCenter, IconLayoutAlignRight,
+    IconLayoutAlignTop, IconLayoutAlignMiddle, IconLayoutAlignBottom,
+    IconLayoutDistributeHorizontal, IconLayoutDistributeVertical,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -447,6 +450,21 @@ const hydrateEdges = (raw) =>
         targetHandle: e.targetHandle ?? 'top',
     }));
 
+// Compact icon button for the toolbar overlays (align/distribute row).
+function ToolbarIconButton({ title, onClick, disabled, children }) {
+    return (
+        <button
+            type="button"
+            title={title}
+            onClick={onClick}
+            disabled={disabled}
+            className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+        >
+            {children}
+        </button>
+    );
+}
+
 const HISTORY_LIMIT = 60;
 
 // Snap step for the optional grid — matches the dotted Background gap so nodes
@@ -460,8 +478,12 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
 
     // Optional snap-to-grid (editing aid, not persisted): aligns drags to the grid.
     const [snap, setSnap] = useState(false);
-    // Whether any node is selected — drives the Duplicate button's enabled state.
-    const [hasSel, setHasSel] = useState(false);
+    // How many nodes are selected — drives the Duplicate button (≥1) and the
+    // align (≥2) / distribute (≥3) controls.
+    const [selCount, setSelCount] = useState(0);
+    const hasSel = selCount > 0;
+    const canAlign = selCount >= 2;
+    const canDistribute = selCount >= 3;
     // Internal clipboard for copy/paste/duplicate (not the system clipboard).
     const clipboard = useRef(null);
 
@@ -807,7 +829,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
             (e) => !delEdgeIds.has(e.id) && !delNodeIds.has(e.source) && !delNodeIds.has(e.target),
         ));
         selectionRef.current = { nodes: [], edges: [] };
-        setHasSel(false);
+        setSelCount(0);
         commit();
         return true;
     };
@@ -889,7 +911,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         setNodes(sortGroupsFirst([...existing, ...newNodes]));
         setEdges([...edgesRef.current, ...newEdges]);
         selectionRef.current = { nodes: newNodes, edges: [] };
-        setHasSel(true);
+        setSelCount(newNodes.length);
         commit();
         return true;
     };
@@ -897,6 +919,71 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const copySelection = () => { const c = buildClip(); if (!c) return false; clipboard.current = c; return true; };
     const paste = () => pasteFrom(clipboard.current);
     const duplicate = () => { const c = buildClip(); return c ? pasteFrom(c) : false; };
+
+    // ── Align / distribute ───────────────────────────────────────────────────
+    // Resolve the selected nodes into absolute boxes (children of a zone store
+    // positions relative to it, so go through React Flow's internal node).
+    const selectedBoxes = () =>
+        (selectionRef.current.nodes ?? []).map((s) => {
+            const ni = rf.getInternalNode(s.id);
+            const abs = ni?.internals?.positionAbsolute ?? s.position ?? { x: 0, y: 0 };
+            const w = ni?.measured?.width ?? s.width ?? 0;
+            const h = ni?.measured?.height ?? s.height ?? 0;
+            return { id: s.id, x: abs.x, y: abs.y, w, h };
+        });
+
+    // Write new ABSOLUTE positions back, converting to parent-relative for any
+    // node living inside a zone (using the zone's new position if it also moved).
+    const moveNodesTo = (absById) => {
+        if (!absById.size) return;
+        const parentAbs = (pid) => {
+            if (absById.has(pid)) return absById.get(pid);
+            return rf.getInternalNode(pid)?.internals?.positionAbsolute ?? { x: 0, y: 0 };
+        };
+        setNodes(sortGroupsFirst(nodesRef.current.map((n) => {
+            const abs = absById.get(n.id);
+            if (!abs) return n;
+            const position = n.parentId
+                ? { x: abs.x - parentAbs(n.parentId).x, y: abs.y - parentAbs(n.parentId).y }
+                : { x: abs.x, y: abs.y };
+            return { ...n, position };
+        })));
+        commit();
+    };
+
+    // axis 'x' aligns horizontal edges/centres; mode start|center|end.
+    const alignNodes = (axis, mode) => {
+        const items = selectedBoxes();
+        if (items.length < 2) return false;
+        const sizeKey = axis === 'x' ? 'w' : 'h';
+        const min = Math.min(...items.map((i) => i[axis]));
+        const max = Math.max(...items.map((i) => i[axis] + i[sizeKey]));
+        const mid = (min + max) / 2;
+        const target = (i) => mode === 'start' ? min : mode === 'end' ? max - i[sizeKey] : mid - i[sizeKey] / 2;
+        const absById = new Map(items.map((i) => [i.id, axis === 'x' ? { x: target(i), y: i.y } : { x: i.x, y: target(i) }]));
+        moveNodesTo(absById);
+        return true;
+    };
+
+    // Equal spacing between adjacent edges along an axis; the two outermost
+    // nodes stay put and the rest are spread evenly between them.
+    const distributeNodes = (axis) => {
+        const items = selectedBoxes();
+        if (items.length < 3) return false;
+        const sizeKey = axis === 'x' ? 'w' : 'h';
+        const sorted = [...items].sort((a, b) => a[axis] - b[axis]);
+        const first = sorted[0], last = sorted[sorted.length - 1];
+        const span = (last[axis] + last[sizeKey]) - first[axis];
+        const gap = (span - sorted.reduce((s, i) => s + i[sizeKey], 0)) / (sorted.length - 1);
+        const absById = new Map();
+        let cursor = first[axis];
+        for (const i of sorted) {
+            absById.set(i.id, axis === 'x' ? { x: cursor, y: i.y } : { x: i.x, y: cursor });
+            cursor += i[sizeKey] + gap;
+        }
+        moveNodesTo(absById);
+        return true;
+    };
 
     keyActions.current = { undo, redo, copySelection, paste, duplicate, deleteSelected, nudge };
 
@@ -922,7 +1009,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     onConnect={editable ? onConnect : undefined}
                     onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
                     onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
-                    onSelectionChange={(sel) => { selectionRef.current = sel; setHasSel((sel.nodes?.length ?? 0) > 0); }}
+                    onSelectionChange={(sel) => { selectionRef.current = sel; setSelCount(sel.nodes?.length ?? 0); }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
                     {...interactionProps}
                     // Read-only mount is a faithful, non-interactive render of the
@@ -941,7 +1028,8 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     {editable && <Controls showInteractive />}
 
                     {editable && (
-                        <div className="absolute left-2 top-2 z-10 flex gap-1">
+                        <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
+                            <div className="flex gap-1">
                             <button
                                 type="button"
                                 onClick={addNode}
@@ -1018,6 +1106,48 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                             >
                                 <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
                             </button>
+                            </div>
+
+                            {/* Align & distribute — only with a multi-selection, since
+                                a single node has nothing to align against. */}
+                            {canAlign && (
+                                <div className="flex gap-1">
+                                    <ToolbarIconButton title="Align left edges" onClick={() => alignNodes('x', 'start')}>
+                                        <IconLayoutAlignLeft className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <ToolbarIconButton title="Align horizontal centres" onClick={() => alignNodes('x', 'center')}>
+                                        <IconLayoutAlignCenter className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <ToolbarIconButton title="Align right edges" onClick={() => alignNodes('x', 'end')}>
+                                        <IconLayoutAlignRight className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <span className="mx-px w-px self-stretch bg-border" />
+                                    <ToolbarIconButton title="Align top edges" onClick={() => alignNodes('y', 'start')}>
+                                        <IconLayoutAlignTop className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <ToolbarIconButton title="Align vertical centres" onClick={() => alignNodes('y', 'center')}>
+                                        <IconLayoutAlignMiddle className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <ToolbarIconButton title="Align bottom edges" onClick={() => alignNodes('y', 'end')}>
+                                        <IconLayoutAlignBottom className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <span className="mx-px w-px self-stretch bg-border" />
+                                    <ToolbarIconButton
+                                        title="Distribute horizontally (needs 3+)"
+                                        onClick={() => distributeNodes('x')}
+                                        disabled={!canDistribute}
+                                    >
+                                        <IconLayoutDistributeHorizontal className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                    <ToolbarIconButton
+                                        title="Distribute vertically (needs 3+)"
+                                        onClick={() => distributeNodes('y')}
+                                        disabled={!canDistribute}
+                                    >
+                                        <IconLayoutDistributeVertical className="h-3.5 w-3.5" stroke={1.5} />
+                                    </ToolbarIconButton>
+                                </div>
+                            )}
                         </div>
                     )}
 
