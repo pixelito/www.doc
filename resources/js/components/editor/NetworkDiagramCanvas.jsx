@@ -508,8 +508,17 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
 
-    // Optional snap-to-grid (editing aid, not persisted): aligns drags to the grid.
-    const [snap, setSnap] = useState(false);
+    // Persisted per-diagram settings (snap-to-grid + the routing new connections
+    // take). Seeded from the saved graph and written back via persist().
+    const settingsSeed = seed.current.settings ?? {};
+    const [snap, setSnap] = useState(settingsSeed.snap ?? false);
+    const [defaultRouting, setDefaultRouting] = useState(
+        ROUTING_MODES.includes(settingsSeed.routing) ? settingsSeed.routing : 'curved',
+    );
+    // Synchronous mirrors so persist() (called from many places) always writes the
+    // current settings, not a lagged render's.
+    const snapRef = useRef(snap);
+    const routingRef = useRef(defaultRouting);
     // Optional minimap overview (editing aid, not persisted).
     const [showMap, setShowMap] = useState(false);
     // How many nodes are selected — drives the Duplicate button (≥1) and the
@@ -539,7 +548,16 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
             nodes: cleanNodes(nodesRef.current),
             edges: cleanEdges(edgesRef.current),
             viewport: viewportRef.current,
+            settings: { snap: snapRef.current, routing: routingRef.current },
         });
+    };
+
+    // Toggle/cycle the persisted settings: update the ref + state, then persist so
+    // the choice is remembered (no undo entry — these are preferences, not edits).
+    const toggleSnap = () => { const v = !snapRef.current; snapRef.current = v; setSnap(v); persist(); };
+    const cycleDefaultRouting = () => {
+        const v = ROUTING_MODES[(ROUTING_MODES.indexOf(routingRef.current) + 1) % ROUTING_MODES.length];
+        routingRef.current = v; setDefaultRouting(v); persist();
     };
 
     // ── Undo / redo ──────────────────────────────────────────────────────────
@@ -758,7 +776,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
 
     const onConnect = (params) => {
-        setEdges(addEdge(decorateEdge({ ...params, id: uid() }), edgesRef.current));
+        setEdges(addEdge(decorateEdge({ ...params, id: uid(), data: { routing: routingRef.current } }), edgesRef.current));
         commit();
     };
 
@@ -1112,7 +1130,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setSnap((s) => !s)}
+                                onClick={toggleSnap}
                                 aria-pressed={snap}
                                 title={snap ? 'Snap to grid: on' : 'Snap to grid: off'}
                                 className={`flex items-center justify-center rounded-sm border px-1.5 py-1 shadow-sm transition-colors ${
@@ -1123,6 +1141,16 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                             >
                                 <IconGridDots className="h-3.5 w-3.5" stroke={1.5} />
                             </button>
+                            {(() => { const R = ROUTING_ICON[defaultRouting]; return (
+                                <button
+                                    type="button"
+                                    onClick={cycleDefaultRouting}
+                                    title={`New connections: ${ROUTING_LABEL[defaultRouting]}`}
+                                    className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground"
+                                >
+                                    <R className="h-3.5 w-3.5" stroke={1.5} />
+                                </button>
+                            ); })()}
                             <button
                                 type="button"
                                 onClick={() => setShowMap((s) => !s)}
