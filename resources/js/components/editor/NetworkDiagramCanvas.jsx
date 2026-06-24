@@ -27,6 +27,9 @@ import { toPng } from 'html-to-image';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
+    IconServer2, IconArrowsSplit2, IconKey, IconWorld, IconWifi, IconDeviceLaptop,
+    IconDeviceMobile, IconPhone, IconPrinter, IconDeviceCctv, IconBroadcast,
+    IconBrandDocker, IconStack2, IconMail, IconActivity, IconLock, IconUser, IconUsers,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
     IconVectorSpline, IconLine, IconCornerDownRight, IconMap2,
     IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
@@ -54,21 +57,39 @@ const uid = () =>
 // context instead of polluting node.data (which is serialized into the graph).
 const NodeBehavior = createContext({
     editable: false, onLabelChange: () => {}, onKindChange: () => {},
-    onNodeColorChange: () => {}, onPersist: () => {},
+    onNodeColorChange: () => {}, onNodeColorLive: () => {}, onPersist: () => {},
 });
 
 // Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
 // default label are render-only. Generic is the plain box (no icon).
 const NODE_KINDS = [
-    { id: 'generic',     label: 'Node',        Icon: IconCircleDot },
-    { id: 'server',      label: 'Server',      Icon: IconServer },
-    { id: 'router',      label: 'Router',      Icon: IconRouter },
-    { id: 'switch',      label: 'Switch',      Icon: IconSwitch3 },
-    { id: 'firewall',    label: 'Firewall',    Icon: IconShieldLock },
-    { id: 'cloud',       label: 'Cloud',       Icon: IconCloud },
-    { id: 'database',    label: 'Database',    Icon: IconDatabase },
-    { id: 'workstation', label: 'Workstation', Icon: IconDeviceDesktop },
-    { id: 'ap',          label: 'Access Point', Icon: IconAccessPoint },
+    { id: 'generic',      label: 'Node',          Icon: IconCircleDot },
+    { id: 'server',       label: 'Server',        Icon: IconServer },
+    { id: 'database',     label: 'Database',      Icon: IconDatabase },
+    { id: 'storage',      label: 'Storage',       Icon: IconServer2 },
+    { id: 'router',       label: 'Router',        Icon: IconRouter },
+    { id: 'switch',       label: 'Switch',        Icon: IconSwitch3 },
+    { id: 'loadbalancer', label: 'Load balancer', Icon: IconArrowsSplit2 },
+    { id: 'firewall',     label: 'Firewall',      Icon: IconShieldLock },
+    { id: 'vpn',          label: 'VPN / Key',     Icon: IconKey },
+    { id: 'cloud',        label: 'Cloud',         Icon: IconCloud },
+    { id: 'internet',     label: 'Internet',      Icon: IconWorld },
+    { id: 'ap',           label: 'Access Point',  Icon: IconAccessPoint },
+    { id: 'wifi',         label: 'Wi-Fi',         Icon: IconWifi },
+    { id: 'workstation',  label: 'Workstation',   Icon: IconDeviceDesktop },
+    { id: 'laptop',       label: 'Laptop',        Icon: IconDeviceLaptop },
+    { id: 'mobile',       label: 'Mobile',        Icon: IconDeviceMobile },
+    { id: 'phone',        label: 'IP Phone',      Icon: IconPhone },
+    { id: 'printer',      label: 'Printer',       Icon: IconPrinter },
+    { id: 'camera',       label: 'Camera',        Icon: IconDeviceCctv },
+    { id: 'iot',          label: 'IoT / Sensor',  Icon: IconBroadcast },
+    { id: 'container',    label: 'Container',     Icon: IconBrandDocker },
+    { id: 'vm',           label: 'VM / Cluster',  Icon: IconStack2 },
+    { id: 'mail',         label: 'Mail',          Icon: IconMail },
+    { id: 'monitor',      label: 'Monitoring',    Icon: IconActivity },
+    { id: 'security',     label: 'Security',      Icon: IconLock },
+    { id: 'user',         label: 'User',          Icon: IconUser },
+    { id: 'users',        label: 'Team',          Icon: IconUsers },
 ];
 const KIND_BY_ID = Object.fromEntries(NODE_KINDS.map((k) => [k.id, k]));
 const kindMeta = (kind) => KIND_BY_ID[kind] ?? KIND_BY_ID.generic;
@@ -85,16 +106,65 @@ const NODE_COLORS = [
     { id: 'purple',     bg: '#EEE9F4', border: '#CDBDDD', accent: '#6A5286', swatch: '#D6C7E6' },
 ];
 const COLOR_BY_ID = Object.fromEntries(NODE_COLORS.map((c) => [c.id, c]));
-const colorMeta = (id) => COLOR_BY_ID[id] ?? COLOR_BY_ID.default;
+const isHexColor = (id) => typeof id === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(id);
+// Resolve a node's `color` (a preset id OR a custom #hex) to a render meta. For a
+// custom hex the fill/border are derived from it the same way the zones tint.
+const colorMeta = (id) => {
+    if (isHexColor(id)) {
+        return {
+            id,
+            bg: `color-mix(in srgb, ${id} 16%, var(--surface))`,
+            border: `color-mix(in srgb, ${id} 55%, var(--border))`,
+            accent: id,
+            swatch: id,
+        };
+    }
+    return COLOR_BY_ID[id] ?? COLOR_BY_ID.default;
+};
 
 // Swatch colour for a node in the minimap. Concrete hexes only (the minimap's
 // SVG fills can't resolve the CSS-var tokens the default palette uses).
 const miniMapNodeColor = (n) => {
     const id = n.data?.color ?? (n.type === 'group' ? 'sage' : 'default');
+    if (isHexColor(id)) return id;
     if (id === 'default') return '#9FB994'; // sage-300 for the plain box / zone
     const c = colorMeta(id);
     return n.type === 'group' ? c.border : c.accent;
 };
+
+// Swatch row: the preset colours plus a native colour input for any custom hex.
+// `onPick` commits a discrete choice (preset click); `onLive` streams the custom
+// picker's drag (the canvas debounces it into a single undo entry).
+function NodeColorRow({ value, onPick, onLive, includeDefault = true }) {
+    const isCustom = isHexColor(value);
+    const colors = includeDefault ? NODE_COLORS : NODE_COLORS.filter((c) => c.id !== 'default');
+    return (
+        <div className="flex items-center gap-1 px-0.5">
+            {colors.map((c) => (
+                <button
+                    key={c.id}
+                    type="button"
+                    title={`${c.id[0].toUpperCase()}${c.id.slice(1)}`}
+                    onClick={() => onPick(c.id)}
+                    className={`h-4 w-4 rounded-full border ${value === c.id ? 'border-foreground' : 'border-border'}`}
+                    style={{ background: c.swatch }}
+                />
+            ))}
+            <label
+                title="Custom colour"
+                className={`relative h-4 w-4 cursor-pointer overflow-hidden rounded-full border ${isCustom ? 'border-foreground' : 'border-border'}`}
+                style={{ background: isCustom ? value : 'conic-gradient(from 90deg, #B5573E, #C99650, #4B6840, #6E8AA7, #6A5286, #B5573E)' }}
+            >
+                <input
+                    type="color"
+                    value={isCustom ? value : '#7E9D72'}
+                    onChange={(e) => onLive(e.target.value)}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+            </label>
+        </div>
+    );
+}
 
 // A connection point on each side of a node. With ConnectionMode.Loose every
 // handle can be both a source and a target, so any node connects to any node.
@@ -106,7 +176,7 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange, onNodeColorChange, onPersist } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onPersist } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(data.label ?? '');
 
@@ -147,7 +217,7 @@ function LabeledNode({ id, data, selected }) {
             {editable && (
                 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
                     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
-                        <div className="flex items-center gap-0.5">
+                        <div className="grid grid-cols-9 gap-0.5">
                             {NODE_KINDS.map((k) => (
                                 <button
                                     key={k.id}
@@ -162,18 +232,11 @@ function LabeledNode({ id, data, selected }) {
                                 </button>
                             ))}
                         </div>
-                        <div className="flex items-center gap-1 px-0.5">
-                            {NODE_COLORS.map((c) => (
-                                <button
-                                    key={c.id}
-                                    type="button"
-                                    title={`${c.id[0].toUpperCase()}${c.id.slice(1)} fill`}
-                                    onClick={() => onNodeColorChange(id, c.id)}
-                                    className={`h-4 w-4 rounded-full border ${(data.color ?? 'default') === c.id ? 'border-foreground' : 'border-border'}`}
-                                    style={{ background: c.swatch }}
-                                />
-                            ))}
-                        </div>
+                        <NodeColorRow
+                            value={data.color ?? 'default'}
+                            onPick={(c) => onNodeColorChange(id, c)}
+                            onLive={(c) => onNodeColorLive(id, c)}
+                        />
                     </div>
                 </NodeToolbar>
             )}
@@ -214,7 +277,7 @@ function LabeledNode({ id, data, selected }) {
 // A zone / grouping container. Renders behind device nodes; nodes dropped inside
 // become its children (handled in onNodeDragStop) and move with it.
 function GroupNode({ id, data, selected }) {
-    const { editable, onLabelChange, onNodeColorChange, onPersist } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onNodeColorChange, onNodeColorLive, onPersist } = useContext(NodeBehavior);
     const color = colorMeta(data.color ?? 'sage');
     const [editing, setEditing] = useState(false);
     const [val, setVal] = useState(data.label ?? 'Zone');
@@ -241,16 +304,12 @@ function GroupNode({ id, data, selected }) {
             {editable && (
                 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
                     <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
-                        {NODE_COLORS.filter((c) => c.id !== 'default').map((c) => (
-                            <button
-                                key={c.id}
-                                type="button"
-                                title={`${c.id[0].toUpperCase()}${c.id.slice(1)} zone`}
-                                onClick={() => onNodeColorChange(id, c.id)}
-                                className={`h-4 w-4 rounded-full border ${(data.color ?? 'sage') === c.id ? 'border-foreground' : 'border-border'}`}
-                                style={{ background: c.swatch }}
-                            />
-                        ))}
+                        <NodeColorRow
+                            value={data.color ?? 'sage'}
+                            onPick={(c) => onNodeColorChange(id, c)}
+                            onLive={(c) => onNodeColorLive(id, c)}
+                            includeDefault={false}
+                        />
                     </div>
                 </NodeToolbar>
             )}
@@ -770,7 +829,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         captureTimer.current = setTimeout(runCapture, 800);
     };
 
-    useEffect(() => () => { clearTimeout(captureTimer.current); clearTimeout(nudgeTimer.current); }, []);
+    useEffect(() => () => { clearTimeout(captureTimer.current); clearTimeout(nudgeTimer.current); clearTimeout(colorTimer.current); }, []);
 
     const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
@@ -810,6 +869,17 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const onNodeColorChange = (id, color) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n)));
         commit();
+    };
+
+    // Live custom-colour drag: apply immediately but collapse the stream of native
+    // picker events into a single undo entry (debounced), like the arrow nudge.
+    const colorTimer = useRef(null);
+    const onNodeColorLive = (id, color) => {
+        setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n)));
+        persist();
+        scheduleCapture();
+        clearTimeout(colorTimer.current);
+        colorTimer.current = setTimeout(() => { colorTimer.current = null; pushHistory(); }, 400);
     };
 
     const addNode = () => {
@@ -1046,7 +1116,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete, onPersist: commit }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
