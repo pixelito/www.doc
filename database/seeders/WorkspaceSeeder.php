@@ -118,7 +118,22 @@ class WorkspaceSeeder extends Seeder
                         'position' => 2,
                         'content'  => [
                             'Our system is a standard Laravel + Inertia.js + React SPA. The backend owns all data and business logic; the frontend handles rendering and user interaction.',
-                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/architecture/900/480', 'alt' => 'High-level architecture diagram'],
+                            ['type' => 'diagram', 'name' => 'Request Lifecycle',
+                                'settings' => ['routing' => 'step', 'snap' => false],
+                                'nodes' => [
+                                    ['id' => 'browser', 'label' => 'Browser',    'kind' => 'workstation', 'color' => 'blue',       'x' => 0,   'y' => 80],
+                                    ['id' => 'nginx',   'label' => 'Nginx',      'kind' => 'router',      'color' => 'sage',       'x' => 180, 'y' => 80],
+                                    ['id' => 'app',     'label' => 'Laravel App', 'kind' => 'server',     'color' => 'sage',       'x' => 360, 'y' => 80],
+                                    ['id' => 'pg',      'label' => 'PostgreSQL', 'kind' => 'database',    'color' => 'sage',       'x' => 560, 'y' => 10],
+                                    ['id' => 'redis',   'label' => 'Redis',      'kind' => 'database',    'color' => 'terracotta', 'x' => 560, 'y' => 150],
+                                ],
+                                'edges' => [
+                                    ['from' => 'browser', 'to' => 'nginx', 'fromSide' => 'right', 'toSide' => 'left', 'routing' => 'step'],
+                                    ['from' => 'nginx',   'to' => 'app',   'fromSide' => 'right', 'toSide' => 'left', 'routing' => 'step'],
+                                    ['from' => 'app',     'to' => 'pg',    'fromSide' => 'right', 'toSide' => 'left', 'routing' => 'step', 'label' => 'SQL'],
+                                    ['from' => 'app',     'to' => 'redis', 'fromSide' => 'right', 'toSide' => 'left', 'routing' => 'step', 'label' => 'cache/queue'],
+                                ],
+                            ],
                             ['type' => 'heading', 'level' => 2, 'text' => 'Request lifecycle'],
                             ['type' => 'orderedList', 'items' => [
                                 'Browser sends request → Laravel router',
@@ -503,7 +518,24 @@ class WorkspaceSeeder extends Seeder
                         'tags'     => ['network', 'ops'],
                         'content'  => [
                             'This workspace covers the on-premises and cloud networking infrastructure. All changes to production network config require peer review and a change-management ticket.',
-                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/networkmap/900/480', 'alt' => 'Network topology diagram'],
+                            ['type' => 'diagram', 'name' => 'HQ Network Topology',
+                                'settings' => ['routing' => 'step', 'snap' => false],
+                                'nodes' => [
+                                    ['id' => 'net',  'label' => 'Internet',      'kind' => 'cloud',    'color' => 'blue',       'x' => 280, 'y' => 0],
+                                    ['id' => 'fw',   'label' => 'pfSense HA',     'kind' => 'firewall', 'color' => 'terracotta', 'x' => 280, 'y' => 110],
+                                    ['id' => 'core', 'label' => 'Catalyst Core',  'kind' => 'switch',   'color' => 'sage',       'x' => 280, 'y' => 220],
+                                    ['id' => 'srv',  'label' => 'App Servers',    'kind' => 'server',   'color' => 'sage',       'x' => 90,  'y' => 340],
+                                    ['id' => 'db',   'label' => 'PostgreSQL',     'kind' => 'database', 'color' => 'sage',       'x' => 280, 'y' => 340],
+                                    ['id' => 'wifi', 'label' => 'Wi-Fi APs',      'kind' => 'ap',       'color' => 'amber',      'x' => 470, 'y' => 340],
+                                ],
+                                'edges' => [
+                                    ['from' => 'net',  'to' => 'fw',   'routing' => 'step'],
+                                    ['from' => 'fw',   'to' => 'core', 'routing' => 'step'],
+                                    ['from' => 'core', 'to' => 'srv',  'routing' => 'step'],
+                                    ['from' => 'core', 'to' => 'db',   'routing' => 'step'],
+                                    ['from' => 'core', 'to' => 'wifi', 'routing' => 'step'],
+                                ],
+                            ],
                             ['type' => 'heading', 'level' => 2, 'text' => 'Site summary'],
                             ['type' => 'bulletList', 'items' => [
                                 'HQ — 192.168.1.0/24 (management), 10.10.0.0/16 (servers)',
@@ -526,7 +558,18 @@ class WorkspaceSeeder extends Seeder
                         'tags'     => ['network'],
                         'content'  => [
                             'All VLANs are configured on the core Cisco Catalyst 9300 stack. Changes require a tested rollback plan and a 30-minute maintenance window.',
-                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/vlan/900/400', 'alt' => 'VLAN segmentation diagram'],
+                            ['type' => 'diagram', 'name' => 'VLAN Segmentation',
+                                'nodes' => [
+                                    ['id' => 'zMgmt',  'group' => true, 'label' => 'VLAN 10 · Management', 'color' => 'blue',       'x' => 20,  'y' => 20,  'w' => 230, 'h' => 120],
+                                    ['id' => 'zSrv',   'group' => true, 'label' => 'VLAN 20 · Servers',    'color' => 'sage',       'x' => 280, 'y' => 20,  'w' => 250, 'h' => 120],
+                                    ['id' => 'zStaff', 'group' => true, 'label' => 'VLAN 30 · Staff',      'color' => 'amber',      'x' => 20,  'y' => 180, 'w' => 230, 'h' => 120],
+                                    ['id' => 'zGuest', 'group' => true, 'label' => 'VLAN 50 · Guest',      'color' => 'terracotta', 'x' => 280, 'y' => 180, 'w' => 250, 'h' => 120],
+                                    ['id' => 'mgmt',  'label' => 'Mgmt Switch',  'kind' => 'switch',      'color' => 'blue',       'parent' => 'zMgmt',  'x' => 50, 'y' => 55],
+                                    ['id' => 'apps',  'label' => 'App Hosts',    'kind' => 'server',      'color' => 'sage',       'parent' => 'zSrv',   'x' => 55, 'y' => 55],
+                                    ['id' => 'staff', 'label' => 'Workstations', 'kind' => 'workstation', 'color' => 'amber',      'parent' => 'zStaff', 'x' => 45, 'y' => 55],
+                                    ['id' => 'guest', 'label' => 'Guest Wi-Fi',  'kind' => 'ap',          'color' => 'terracotta', 'parent' => 'zGuest', 'x' => 50, 'y' => 55],
+                                ],
+                            ],
                             ['type' => 'heading', 'level' => 2, 'text' => 'VLAN table'],
                             ['type' => 'bulletList', 'items' => [
                                 'VLAN 10 — Management — 192.168.1.0/24 — switches, APs, OOB',
@@ -1171,6 +1214,7 @@ class WorkspaceSeeder extends Seeder
             'orderedList'   => $this->list('orderedList', $item['items']),
             'codeBlock'     => $this->codeBlock($item['language'] ?? null, $item['code']),
             'blockquote'    => $this->blockquote($item['text']),
+            'diagram'       => $this->diagram($item['name'], $item['nodes'], $item['edges'] ?? [], $item['settings'] ?? []),
             'horizontalRule' => ['type' => 'horizontalRule'],
             default         => $this->paragraph((string) ($item['text'] ?? '')),
         };
@@ -1195,6 +1239,88 @@ class WorkspaceSeeder extends Seeder
         return [
             'type'  => 'image',
             'attrs' => ['src' => $src, 'alt' => $alt, 'title' => null, 'width' => null, 'align' => 'left'],
+        ];
+    }
+
+    /**
+     * Build a networkDiagram node from a compact spec. `imageSrc` is left null —
+     * the derived PNG (used by exports/search) is generated when the diagram is
+     * first opened and saved; the read view renders the live graph regardless.
+     *
+     * Node spec:  ['id','label','kind','color','x','y', 'w'?,'h'?, 'parent'?]
+     *             ['id','group'=>true,'label','color','x','y','w','h']  (a zone)
+     * Edge spec:  ['from','to', 'label'?,'routing'?,'arrows'?,'lineStyle'?,'color'?,'fromSide'?,'toSide'?]
+     */
+    protected function diagram(string $name, array $nodes, array $edges = [], array $settings = []): array
+    {
+        // Zones (groups) must precede their children in the node array.
+        $ordered = array_merge(
+            array_filter($nodes, fn ($n) => $n['group'] ?? false),
+            array_filter($nodes, fn ($n) => ! ($n['group'] ?? false)),
+        );
+
+        $graphNodes = [];
+        foreach ($ordered as $n) {
+            if ($n['group'] ?? false) {
+                $graphNodes[] = [
+                    'id'       => $n['id'],
+                    'type'     => 'group',
+                    'position' => ['x' => $n['x'], 'y' => $n['y']],
+                    'width'    => $n['w'] ?? 240,
+                    'height'   => $n['h'] ?? 150,
+                    'data'     => ['label' => $n['label'] ?? 'Zone', 'color' => $n['color'] ?? 'sage'],
+                ];
+                continue;
+            }
+            $node = [
+                'id'       => $n['id'],
+                'type'     => 'labeled',
+                'position' => ['x' => $n['x'], 'y' => $n['y']],
+                'data'     => [
+                    'label' => $n['label'] ?? 'Node',
+                    'kind'  => $n['kind'] ?? 'generic',
+                    'color' => $n['color'] ?? 'default',
+                ],
+            ];
+            if (isset($n['parent'])) $node['parentId'] = $n['parent'];
+            if (isset($n['w']))      $node['width']    = $n['w'];
+            if (isset($n['h']))      $node['height']   = $n['h'];
+            $graphNodes[] = $node;
+        }
+
+        $graphEdges = array_map(fn ($e) => [
+            'id'           => 'e-' . $e['from'] . '-' . $e['to'],
+            'source'       => $e['from'],
+            'target'       => $e['to'],
+            'sourceHandle' => $e['fromSide'] ?? 'bottom',
+            'targetHandle' => $e['toSide'] ?? 'top',
+            'data'         => [
+                'label'     => $e['label'] ?? '',
+                'lineStyle' => $e['lineStyle'] ?? 'solid',
+                'arrows'    => $e['arrows'] ?? 'end',
+                'routing'   => $e['routing'] ?? 'curved',
+                'color'     => $e['color'] ?? '#8E938E',
+            ],
+        ], $edges);
+
+        $graph = [
+            'nodes'    => array_values($graphNodes),
+            'edges'    => array_values($graphEdges),
+            'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1],
+        ];
+        if ($settings) {
+            $graph['settings'] = $settings;
+        }
+
+        return [
+            'type'  => 'networkDiagram',
+            'attrs' => [
+                'graph'    => $graph,
+                'name'     => $name,
+                'imageSrc' => null,
+                'width'    => null,
+                'align'    => 'left',
+            ],
         ];
     }
 
