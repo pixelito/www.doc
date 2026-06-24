@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck } from '@tabler/icons-react';
+import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -166,9 +166,21 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
             className="group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
         >
-            <div className="flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
+            <div className="relative flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
+                {/* Tree guides: a vertical rail per ancestor level + an elbow into
+                    the row, so subpages read as children, not just indented text. */}
+                {depth > 0 && (
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
+                        {Array.from({ length: depth }).map((_, i) => (
+                            <span key={i} className="absolute inset-y-0 w-px bg-border-subtle" style={{ left: i * INDENT + 20 }} />
+                        ))}
+                        <span className="absolute h-px w-2 bg-border-subtle" style={{ left: (depth - 1) * INDENT + 20, top: '50%' }} />
+                    </span>
+                )}
                 {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
-                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                {isRoot
+                    ? <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                    : <IconCornerDownRight className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />}
                 <Link
                     href={`/documents/${node.id}`}
                     className={`truncate text-sm transition-colors hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
