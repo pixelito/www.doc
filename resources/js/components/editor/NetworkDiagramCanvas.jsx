@@ -25,6 +25,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
+    IconArrowBackUp, IconArrowForwardUp,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -414,24 +415,31 @@ const cleanEdges = (edges) =>
         data: edgeData(e),
     }));
 
+// Inflate a persisted graph back into React Flow's working shape — used both to
+// seed the canvas and to restore a snapshot on undo/redo.
+const hydrateNodes = (raw) =>
+    sortGroupsFirst((raw ?? []).map((n) =>
+        n.type === 'group'
+            ? { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 }
+            : { ...n, type: 'labeled' },
+    ));
+const hydrateEdges = (raw) =>
+    (raw ?? []).map((e) => decorateEdge({
+        ...e,
+        // Legacy edges (saved before per-side handles) were always bottom→top.
+        sourceHandle: e.sourceHandle ?? 'bottom',
+        targetHandle: e.targetHandle ?? 'top',
+    }));
+
+const HISTORY_LIMIT = 60;
+
 function Canvas({ graph, editable, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
 
-    const [nodes, setNodesState] = useState(() =>
-        sortGroupsFirst((seed.current.nodes ?? []).map((n) =>
-            n.type === 'group'
-                ? { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 }
-                : { ...n, type: 'labeled' },
-        )));
-    const [edges, setEdgesState] = useState(() =>
-        (seed.current.edges ?? []).map((e) => decorateEdge({
-            ...e,
-            // Legacy edges (saved before per-side handles) were always bottom→top.
-            sourceHandle: e.sourceHandle ?? 'bottom',
-            targetHandle: e.targetHandle ?? 'top',
-        })));
+    const [nodes, setNodesState] = useState(() => hydrateNodes(seed.current.nodes));
+    const [edges, setEdgesState] = useState(() => hydrateEdges(seed.current.edges));
 
     // Synchronous mirrors so persistence reads final values, not lagged state.
     const nodesRef = useRef(nodes);
@@ -450,6 +458,97 @@ function Canvas({ graph, editable, onChange, onImage }) {
             viewport: viewportRef.current,
         });
     };
+
+    // ── Undo / redo ──────────────────────────────────────────────────────────
+    // A stack of cleaned graph snapshots. A new entry is pushed whenever a
+    // structural change settles (via `commit()`); pure pan/zoom is excluded so
+    // history isn't flooded. Undo/redo restore a snapshot and write it back.
+    const snapshot = () => ({
+        nodes: cleanNodes(nodesRef.current),
+        edges: cleanEdges(edgesRef.current),
+        viewport: viewportRef.current,
+    });
+    const history = useRef({ stack: [], index: -1 });
+    const [hist, setHist] = useState({ canUndo: false, canRedo: false });
+    const syncHist = () => {
+        const h = history.current;
+        setHist({ canUndo: h.index > 0, canRedo: h.index < h.stack.length - 1 });
+    };
+
+    // Seed the history with the initial graph once mounted.
+    useEffect(() => {
+        if (!editable) return;
+        history.current = { stack: [snapshot()], index: 0 };
+        syncHist();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const pushHistory = () => {
+        const h = history.current;
+        const stack = h.stack.slice(0, h.index + 1);   // drop any redo tail
+        stack.push(snapshot());
+        const trimmed = stack.length > HISTORY_LIMIT ? stack.slice(-HISTORY_LIMIT) : stack;
+        history.current = { stack: trimmed, index: trimmed.length - 1 };
+        syncHist();
+    };
+
+    // persist + record an undo step + refresh the derived PNG.
+    const commit = () => { persist(); pushHistory(); scheduleCapture(); };
+
+    const restore = (snap) => {
+        setNodes(hydrateNodes(snap.nodes));
+        setEdges(hydrateEdges(snap.edges));
+        viewportRef.current = snap.viewport ?? viewportRef.current;
+        rf.setViewport(viewportRef.current);
+        persist();          // reflect the restored state into the document
+        scheduleCapture();
+    };
+    const undo = () => {
+        const h = history.current;
+        if (h.index <= 0) return;
+        h.index -= 1;
+        restore(h.stack[h.index]);
+        syncHist();
+    };
+    const redo = () => {
+        const h = history.current;
+        if (h.index >= h.stack.length - 1) return;
+        h.index += 1;
+        restore(h.stack[h.index]);
+        syncHist();
+    };
+
+    // Undo/redo keyboard shortcuts. React Flow doesn't take focus, so clicking the
+    // canvas leaves focus on the host ProseMirror editor — a wrapper listener would
+    // never see the keystroke and Cmd/Ctrl+Z would hit the document's undo instead.
+    // Instead we track whether this diagram is the "active" one (last pointer-down
+    // landed inside it) and intercept the combo on `document` in the CAPTURE phase,
+    // which runs before ProseMirror's handler so we can stop it from undoing the doc.
+    const activeRef = useRef(false);
+    const undoRef = useRef(undo); undoRef.current = undo;
+    const redoRef = useRef(redo); redoRef.current = redo;
+    useEffect(() => {
+        if (!editable) return;
+        const onPointerDown = (e) => { activeRef.current = !!wrapperRef.current?.contains(e.target); };
+        const onKeyDown = (e) => {
+            if (!activeRef.current) return;
+            // Skip while a canvas label editor (an <input>) is focused so it keeps
+            // its own text undo; the host ProseMirror root is also contentEditable
+            // but is exactly the focus we want to override, so don't guard on that.
+            const t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+            if (!(e.metaKey || e.ctrlKey)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undoRef.current(); }
+            else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); e.stopPropagation(); redoRef.current(); }
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+        };
+    }, [editable]);
 
     // Derive the PNG that read view / PDF / DOCX / search / version snapshots
     // show. Debounced after edits settle; renders all nodes (fit to bounds,
@@ -515,26 +614,22 @@ function Canvas({ graph, editable, onChange, onImage }) {
 
     const onConnect = (params) => {
         setEdges(addEdge(decorateEdge({ ...params, id: uid() }), edgesRef.current));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const onEdgeChange = (id, patch) => {
         setEdges(edgesRef.current.map((e) => (e.id === id ? decorateEdge({ ...e, data: { ...edgeData(e), ...patch } }) : e)));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const onEdgeDelete = (id) => {
         setEdges(edgesRef.current.filter((e) => e.id !== id));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const onLabelChange = (id, label) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const onKindChange = (id, kind) => {
@@ -546,14 +641,12 @@ function Canvas({ graph, editable, onChange, onImage }) {
             const label = (!n.data?.label || n.data.label === prevDefault) ? kindMeta(kind).label : n.data.label;
             return { ...n, data: { ...n.data, kind, label } };
         }));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const onNodeColorChange = (id, color) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n)));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const addNode = () => {
@@ -565,8 +658,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
             data: { label: 'Node' },
         };
         setNodes([...nodesRef.current, node]);
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     const addZone = () => {
@@ -580,8 +672,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         };
         // Groups must precede their children in the array (React Flow requirement).
         setNodes(sortGroupsFirst([zone, ...nodesRef.current]));
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     // Drop a node into a zone (or out of one): re-parent it and convert its
@@ -627,8 +718,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
             (e) => !delEdgeIds.has(e.id) && !delNodeIds.has(e.source) && !delNodeIds.has(e.target),
         ));
         selectionRef.current = { nodes: [], edges: [] };
-        persist();
-        scheduleCapture();
+        commit();
     };
 
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
@@ -638,7 +728,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete, onPersist: () => { persist(); scheduleCapture(); } }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete, onPersist: commit }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
@@ -649,7 +739,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
-                    onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); persist(); scheduleCapture(); }) : undefined}
+                    onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
                     onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
                     onSelectionChange={(sel) => { selectionRef.current = sel; }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
@@ -678,6 +768,26 @@ function Canvas({ graph, editable, onChange, onImage }) {
                             >
                                 <IconPlus className="h-3.5 w-3.5" stroke={1.5} /> Node
                             </button>
+                            <span className="mx-px w-px self-stretch bg-border" />
+                            <button
+                                type="button"
+                                onClick={undo}
+                                disabled={!hist.canUndo}
+                                title="Undo (Ctrl+Z)"
+                                className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+                            >
+                                <IconArrowBackUp className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={redo}
+                                disabled={!hist.canRedo}
+                                title="Redo (Ctrl+Shift+Z)"
+                                className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+                            >
+                                <IconArrowForwardUp className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                            <span className="mx-px w-px self-stretch bg-border" />
                             <button
                                 type="button"
                                 onClick={addZone}
