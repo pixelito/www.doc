@@ -154,7 +154,10 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, isDropParent }) {
+// Tree-guide line colour — visible against the cream rows but not loud.
+const GUIDE = 'bg-text-tertiary/55';
+
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, pathLast, isDropParent }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -170,22 +173,34 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             }`}
         >
             <div className="relative flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
-                {/* Tree guides: a vertical rail per ancestor level + an elbow into
-                    the row, so subpages read as children, not just indented text. */}
+                {/* Tree guides. For each level a vertical spine: ancestor spines
+                    pass straight through only while that ancestor has more siblings
+                    below; the row's own spine runs from the top to an elbow at the
+                    centre and continues down only if this row isn't the last child —
+                    so the last subpage closes with an └ corner. */}
                 {depth > 0 && (
                     <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
-                        {Array.from({ length: depth }).map((_, i) => (
-                            <span key={i} className="absolute inset-y-0 w-px bg-border-subtle" style={{ left: i * INDENT + 20 }} />
-                        ))}
-                        <span className="absolute h-px w-2 bg-border-subtle" style={{ left: (depth - 1) * INDENT + 20, top: '50%' }} />
+                        {Array.from({ length: depth }).map((_, i) => {
+                            const x = i * INDENT + 20;
+                            const continues = pathLast ? !pathLast[i + 1] : true;
+                            if (i === depth - 1) {
+                                return (
+                                    <React.Fragment key={i}>
+                                        <span className={`absolute w-px ${GUIDE}`} style={{ left: x, top: 0, bottom: continues ? 0 : '50%' }} />
+                                        <span className={`absolute h-px w-2 ${GUIDE}`} style={{ left: x, top: '50%' }} />
+                                    </React.Fragment>
+                                );
+                            }
+                            return continues ? <span key={i} className={`absolute inset-y-0 w-px ${GUIDE}`} style={{ left: x }} /> : null;
+                        })}
                     </span>
                 )}
-                {/* A page with children drops a short rail from its own row down to
-                    the first child's, so the parent visibly connects to its subtree. */}
+                {/* A page with children drops a spine from its own row's centre down
+                    to the first child, so the parent connects into its subtree. */}
                 {hasChildren && (
                     <span
                         aria-hidden
-                        className="pointer-events-none absolute bottom-0 top-1/2 w-px bg-border-subtle"
+                        className={`pointer-events-none absolute bottom-0 top-1/2 w-px ${GUIDE}`}
                         style={{ left: depth * INDENT + 20 }}
                     />
                 )}
@@ -274,6 +289,31 @@ export default function WorkspaceShow({ workspace, tree }) {
     }, [rootNodes, activeTag]);
 
     const options = useMemo(() => flattenOptions(rootNodes), [rootNodes]);
+
+    // For each row, the "is last child" flag of every node on its path root→row.
+    // The tree guides use it to draw spines that stop at the last child (└) and
+    // skip levels whose ancestor was itself a last child.
+    const guideFlags = useMemo(() => {
+        const flat = flattenForDnd(rootNodes);
+        const byId = new Map(flat.map((i) => [i.id, i]));
+        const groups = new Map();
+        for (const it of flat) {
+            const k = it.parentId ?? 'root';
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(it);
+        }
+        const lastSet = new Set();
+        for (const arr of groups.values()) lastSet.add(arr[arr.length - 1].id);
+        const map = new Map();
+        for (const it of flat) {
+            const flags = [];
+            for (let cur = it; cur; cur = cur.parentId != null ? byId.get(cur.parentId) : null) {
+                flags.unshift(lastSet.has(cur.id));
+            }
+            map.set(it.id, flags);   // index k = isLast of the path node at depth k
+        }
+        return map;
+    }, [rootNodes]);
 
     // Flat list for the tree, with the dragged row's descendants hidden while dragging.
     const flattenedItems = useMemo(() => {
@@ -478,6 +518,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             canCreate={perms.create && !reordering}
                                             canReorder={perms.update && reordering}
                                             ghost={item.id === activeId}
+                                            pathLast={guideFlags.get(item.id)}
                                             isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
                                         />
                                     ))}
