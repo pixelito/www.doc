@@ -13,6 +13,8 @@ import {
     BaseEdge,
     EdgeLabelRenderer,
     getBezierPath,
+    getStraightPath,
+    getSmoothStepPath,
     getViewportForBounds,
     useReactFlow,
     applyNodeChanges,
@@ -25,6 +27,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
+    IconVectorSpline, IconLine, IconCornerDownRight,
     IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
     IconLayoutAlignLeft, IconLayoutAlignCenter, IconLayoutAlignRight,
     IconLayoutAlignTop, IconLayoutAlignMiddle, IconLayoutAlignBottom,
@@ -277,8 +280,15 @@ const EDGE_COLORS = ['#8E938E', '#4B6840', '#6E8AA7', '#C99650', '#B5573E']; // 
 const ARROW_MODES = ['end', 'both', 'none'];
 const ARROW_ICON = { end: IconArrowNarrowRight, both: IconArrowsHorizontal, none: IconMinus };
 
+// How a connection routes from node to node. `curved` is the default bezier;
+// `straight` is a direct line; `step` is an orthogonal (right-angle) path with
+// gently rounded corners.
+const ROUTING_MODES = ['curved', 'straight', 'step'];
+const ROUTING_ICON = { curved: IconVectorSpline, straight: IconLine, step: IconCornerDownRight };
+const ROUTING_LABEL = { curved: 'Curved', straight: 'Straight', step: 'Step' };
+
 const edgeData = (e) => ({
-    label: '', lineStyle: 'solid', arrows: 'end', color: EDGE_COLORS[0], ...(e.data || {}),
+    label: '', lineStyle: 'solid', arrows: 'end', routing: 'curved', color: EDGE_COLORS[0], ...(e.data || {}),
 });
 
 // Build React Flow's visual props (type + colored arrow markers) from edge.data,
@@ -297,8 +307,12 @@ const decorateEdge = (e) => {
 
 function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerStart, markerEnd, data, selected }) {
     const { editable, onEdgeChange, onEdgeDelete } = useContext(NodeBehavior);
-    const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
     const d = edgeData({ data });
+    const geom = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
+    const [path, labelX, labelY] =
+        d.routing === 'straight' ? getStraightPath({ sourceX, sourceY, targetX, targetY })
+        : d.routing === 'step' ? getSmoothStepPath({ ...geom, borderRadius: 8 })
+        : getBezierPath(geom);
 
     return (
         <>
@@ -342,6 +356,14 @@ function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                                 onClick={() => onEdgeChange(id, { arrows: ARROW_MODES[(ARROW_MODES.indexOf(d.arrows) + 1) % ARROW_MODES.length] })}
                             >
                                 <A className="h-3.5 w-3.5" stroke={1.5} />
+                            </EdgeIconButton>
+                        ); })()}
+                        {(() => { const R = ROUTING_ICON[d.routing]; return (
+                            <EdgeIconButton
+                                title={`Routing: ${ROUTING_LABEL[d.routing]}`}
+                                onClick={() => onEdgeChange(id, { routing: ROUTING_MODES[(ROUTING_MODES.indexOf(d.routing) + 1) % ROUTING_MODES.length] })}
+                            >
+                                <R className="h-3.5 w-3.5" stroke={1.5} />
                             </EdgeIconButton>
                         ); })()}
                         <span className="mx-0.5 h-4 w-px bg-border" />
