@@ -9,21 +9,22 @@ import {
     MarkerType,
     ConnectionMode,
     NodeToolbar,
+    NodeResizer,
     BaseEdge,
     EdgeLabelRenderer,
     getBezierPath,
+    getViewportForBounds,
+    useReactFlow,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
-    getNodesBounds,
-    getViewportForBounds,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng } from 'html-to-image';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
-    IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus,
+    IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -43,7 +44,10 @@ const uid = () =>
 
 // Handlers the custom node needs but that must NOT be persisted — passed via
 // context instead of polluting node.data (which is serialized into the graph).
-const NodeBehavior = createContext({ editable: false, onLabelChange: () => {}, onKindChange: () => {} });
+const NodeBehavior = createContext({
+    editable: false, onLabelChange: () => {}, onKindChange: () => {},
+    onNodeColorChange: () => {}, onPersist: () => {},
+});
 
 // Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
 // default label are render-only. Generic is the plain box (no icon).
@@ -176,7 +180,78 @@ function LabeledNode({ id, data, selected }) {
     );
 }
 
-const nodeTypes = { labeled: LabeledNode };
+// A zone / grouping container. Renders behind device nodes; nodes dropped inside
+// become its children (handled in onNodeDragStop) and move with it.
+function GroupNode({ id, data, selected }) {
+    const { editable, onLabelChange, onNodeColorChange, onPersist } = useContext(NodeBehavior);
+    const color = colorMeta(data.color ?? 'sage');
+    const [editing, setEditing] = useState(false);
+    const [val, setVal] = useState(data.label ?? 'Zone');
+
+    useEffect(() => { setVal(data.label ?? 'Zone'); }, [data.label]);
+
+    const commit = () => { setEditing(false); onLabelChange(id, val.trim() || 'Zone'); };
+
+    return (
+        <div
+            className="relative h-full w-full rounded-md border-2"
+            style={{ background: `color-mix(in srgb, ${color.swatch} 30%, transparent)`, borderColor: color.border }}
+        >
+            {editable && (
+                <NodeResizer
+                    minWidth={140}
+                    minHeight={90}
+                    isVisible={selected}
+                    lineClassName="!border-sage-400"
+                    handleClassName="!h-2 !w-2 !rounded-sm !border-sage-400 !bg-surface"
+                    onResizeEnd={onPersist}
+                />
+            )}
+            {editable && (
+                <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+                    <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
+                        {NODE_COLORS.filter((c) => c.id !== 'default').map((c) => (
+                            <button
+                                key={c.id}
+                                type="button"
+                                title={`${c.id[0].toUpperCase()}${c.id.slice(1)} zone`}
+                                onClick={() => onNodeColorChange(id, c.id)}
+                                className={`h-4 w-4 rounded-full border ${(data.color ?? 'sage') === c.id ? 'border-foreground' : 'border-border'}`}
+                                style={{ background: c.swatch }}
+                            />
+                        ))}
+                    </div>
+                </NodeToolbar>
+            )}
+            <div className="absolute left-2 top-1.5 max-w-[85%]" onDoubleClick={() => editable && setEditing(true)}>
+                {editing ? (
+                    <input
+                        autoFocus
+                        onFocus={(e) => e.target.select()}
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        onBlur={commit}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                            if (e.key === 'Escape') { setEditing(false); setVal(data.label ?? 'Zone'); }
+                        }}
+                        className="nodrag rounded-sm border border-sage-400 bg-canvas px-1 text-xs outline-none"
+                    />
+                ) : (
+                    <span className="text-xs font-semibold" style={{ color: color.accent }}>{data.label || 'Zone'}</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+const nodeTypes = { labeled: LabeledNode, group: GroupNode };
+
+const sortGroupsFirst = (nodes) => {
+    const groups = nodes.filter((n) => n.type === 'group');
+    const rest = nodes.filter((n) => n.type !== 'group');
+    return [...groups, ...rest];
+};
 
 // ── Edges ────────────────────────────────────────────────────────────────────
 
@@ -309,12 +384,26 @@ const edgeTypes = { configurable: ConfigurableEdge };
 
 // Persisted shape — strip React Flow's transient fields and render-only data.
 const cleanNodes = (nodes) =>
-    nodes.map((n) => ({
-        id: n.id,
-        type: 'labeled',
-        position: n.position,
-        data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default' },
-    }));
+    nodes.map((n) => {
+        if (n.type === 'group') {
+            return {
+                id: n.id,
+                type: 'group',
+                position: n.position,
+                width: n.width,
+                height: n.height,
+                data: { label: n.data?.label ?? 'Zone', color: n.data?.color ?? 'sage' },
+            };
+        }
+        const out = {
+            id: n.id,
+            type: 'labeled',
+            position: n.position,
+            data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default' },
+        };
+        if (n.parentId) out.parentId = n.parentId;   // membership in a zone
+        return out;
+    });
 const cleanEdges = (edges) =>
     edges.map((e) => ({
         id: e.id,
@@ -328,9 +417,14 @@ const cleanEdges = (edges) =>
 function Canvas({ graph, editable, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
+    const rf = useReactFlow();
 
     const [nodes, setNodesState] = useState(() =>
-        (seed.current.nodes ?? []).map((n) => ({ ...n, type: 'labeled' })));
+        sortGroupsFirst((seed.current.nodes ?? []).map((n) =>
+            n.type === 'group'
+                ? { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 }
+                : { ...n, type: 'labeled' },
+        )));
     const [edges, setEdgesState] = useState(() =>
         (seed.current.edges ?? []).map((e) => decorateEdge({
             ...e,
@@ -375,7 +469,9 @@ function Canvas({ graph, editable, onChange, onImage }) {
 
         capturing.current = true;
         try {
-            const bounds = getNodesBounds(nodes);
+            // Instance method resolves absolute positions (children of a group
+            // store positions relative to it).
+            const bounds = rf.getNodesBounds(nodes.map((n) => n.id));
             const width = Math.min(1600, Math.max(320, Math.round(bounds.width) + 96));
             const height = Math.min(1200, Math.max(180, Math.round(bounds.height) + 96));
             const vp = getViewportForBounds(bounds, width, height, 0.4, 2, 0.12);
@@ -461,7 +557,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
     };
 
     const addNode = () => {
-        const n = nodesRef.current.length;
+        const n = nodesRef.current.filter((x) => x.type !== 'group').length;
         const node = {
             id: uid(),
             type: 'labeled',
@@ -473,12 +569,60 @@ function Canvas({ graph, editable, onChange, onImage }) {
         scheduleCapture();
     };
 
+    const addZone = () => {
+        const zone = {
+            id: uid(),
+            type: 'group',
+            position: { x: 24, y: 24 },
+            width: 280,
+            height: 180,
+            data: { label: 'Zone', color: 'sage' },
+        };
+        // Groups must precede their children in the array (React Flow requirement).
+        setNodes(sortGroupsFirst([zone, ...nodesRef.current]));
+        persist();
+        scheduleCapture();
+    };
+
+    // Drop a node into a zone (or out of one): re-parent it and convert its
+    // position to be relative to the new parent, so it moves with the zone.
+    const reparentOnDragStop = (dragged) => {
+        if (dragged.type === 'group') return;
+        const abs = rf.getInternalNode(dragged.id)?.internals?.positionAbsolute ?? dragged.position;
+        const target = rf.getIntersectingNodes(dragged).find((g) => g.type === 'group');
+        const newParent = target ? target.id : undefined;
+        if (newParent === (dragged.parentId ?? undefined)) return;
+
+        const gAbs = newParent
+            ? (rf.getInternalNode(newParent)?.internals?.positionAbsolute ?? { x: 0, y: 0 })
+            : { x: 0, y: 0 };
+        const position = { x: abs.x - gAbs.x, y: abs.y - gAbs.y };
+
+        setNodes(sortGroupsFirst(nodesRef.current.map((n) => {
+            if (n.id !== dragged.id) return n;
+            const next = { ...n, position };
+            if (newParent) next.parentId = newParent; else delete next.parentId;
+            return next;
+        })));
+    };
+
     const deleteSelected = () => {
         const delNodeIds = new Set(selectionRef.current.nodes.map((x) => x.id));
         const delEdgeIds = new Set(selectionRef.current.edges.map((x) => x.id));
         if (!delNodeIds.size && !delEdgeIds.size) return;
 
-        setNodes(nodesRef.current.filter((x) => !delNodeIds.has(x.id)));
+        const next = nodesRef.current
+            .filter((x) => !delNodeIds.has(x.id))
+            .map((n) => {
+                // If a node's parent zone is being deleted, keep it where it sits.
+                if (n.parentId && delNodeIds.has(n.parentId)) {
+                    const abs = rf.getInternalNode(n.id)?.internals?.positionAbsolute ?? n.position;
+                    const { parentId, ...rest } = n;
+                    return { ...rest, position: abs };
+                }
+                return n;
+            });
+        setNodes(sortGroupsFirst(next));
         setEdges(edgesRef.current.filter(
             (e) => !delEdgeIds.has(e.id) && !delNodeIds.has(e.source) && !delNodeIds.has(e.target),
         ));
@@ -494,7 +638,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete }}>
+        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onEdgeChange, onEdgeDelete, onPersist: () => { persist(); scheduleCapture(); } }}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
@@ -505,7 +649,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
-                    onNodeDragStop={editable ? (() => { persist(); scheduleCapture(); }) : undefined}
+                    onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); persist(); scheduleCapture(); }) : undefined}
                     onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
                     onSelectionChange={(sel) => { selectionRef.current = sel; }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
@@ -533,6 +677,14 @@ function Canvas({ graph, editable, onChange, onImage }) {
                                 className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground"
                             >
                                 <IconPlus className="h-3.5 w-3.5" stroke={1.5} /> Node
+                            </button>
+                            <button
+                                type="button"
+                                onClick={addZone}
+                                title="Add a grouping zone"
+                                className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                <IconSquareDashed className="h-3.5 w-3.5" stroke={1.5} /> Zone
                             </button>
                             <button
                                 type="button"
