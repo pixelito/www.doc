@@ -25,7 +25,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
-    IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy,
+    IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -453,7 +453,7 @@ const HISTORY_LIMIT = 60;
 // land on the dots.
 const SNAP_GRID = [18, 18];
 
-function Canvas({ graph, editable, onChange, onImage }) {
+function Canvas({ graph, editable, name, onChange, onImage }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
@@ -608,46 +608,77 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const captureTimer = useRef(null);
     const capturing = useRef(false);
 
+    // Rasterise the whole graph (fit to bounds, independent of current pan/zoom)
+    // to a PNG data URL. Shared by the auto-capture and the manual download.
+    // Returns null when there's nothing to render.
+    const renderPng = async () => {
+        const nodes = nodesRef.current;
+        if (!nodes.length) return null;
+        const viewportEl = wrapperRef.current?.querySelector('.react-flow__viewport');
+        if (!viewportEl) return null;
+
+        // Instance method resolves absolute positions (children of a group store
+        // positions relative to it).
+        const bounds = rf.getNodesBounds(nodes.map((n) => n.id));
+        const width = Math.min(1600, Math.max(320, Math.round(bounds.width) + 96));
+        const height = Math.min(1200, Math.max(180, Math.round(bounds.height) + 96));
+        const vp = getViewportForBounds(bounds, width, height, 0.4, 2, 0.12);
+
+        return toPng(viewportEl, {
+            backgroundColor: '#FBFAF5',
+            width,
+            height,
+            pixelRatio: 2,   // sharper export PNG (read view uses the live canvas)
+            // Don't try to inline @font-face CSS: it can't be read when styles
+            // are served from another origin (CDN / split dev host), which only
+            // spams the console and wastes a fetch every capture — labels fall
+            // back to a system font in the PNG regardless.
+            skipFonts: true,
+            style: {
+                width: `${width}px`,
+                height: `${height}px`,
+                transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+            },
+        });
+    };
+
     const runCapture = async () => {
         if (capturing.current) { scheduleCapture(); return; }
-        const nodes = nodesRef.current;
-        if (!nodes.length) { onImage?.(null); return; }
-
-        const viewportEl = wrapperRef.current?.querySelector('.react-flow__viewport');
-        if (!viewportEl) return;
+        if (!nodesRef.current.length) { onImage?.(null); return; }
 
         capturing.current = true;
         try {
-            // Instance method resolves absolute positions (children of a group
-            // store positions relative to it).
-            const bounds = rf.getNodesBounds(nodes.map((n) => n.id));
-            const width = Math.min(1600, Math.max(320, Math.round(bounds.width) + 96));
-            const height = Math.min(1200, Math.max(180, Math.round(bounds.height) + 96));
-            const vp = getViewportForBounds(bounds, width, height, 0.4, 2, 0.12);
-
-            const dataUrl = await toPng(viewportEl, {
-                backgroundColor: '#FBFAF5',
-                width,
-                height,
-                pixelRatio: 2,   // sharper export PNG (read view uses the live canvas)
-                // Don't try to inline @font-face CSS: it can't be read when styles
-                // are served from another origin (CDN / split dev host), which only
-                // spams the console and wastes a fetch every capture — labels fall
-                // back to a system font in the PNG regardless.
-                skipFonts: true,
-                style: {
-                    width: `${width}px`,
-                    height: `${height}px`,
-                    transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
-                },
-            });
-
-            const { url } = await uploadFile(dataUriToFile(dataUrl, 'network-diagram.png'));
-            onImage?.(url);
+            const dataUrl = await renderPng();
+            if (dataUrl) {
+                const { url } = await uploadFile(dataUriToFile(dataUrl, 'network-diagram.png'));
+                onImage?.(url);
+            }
         } catch (e) {
             console.warn('Network diagram capture failed', e);
         } finally {
             capturing.current = false;
+        }
+    };
+
+    // Download the diagram on its own as a PNG file (works in read view too).
+    const [downloading, setDownloading] = useState(false);
+    const downloadPng = async () => {
+        if (downloading) return;
+        setDownloading(true);
+        try {
+            const dataUrl = await renderPng();
+            if (!dataUrl) return;
+            const slug = (name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `${slug || 'network-diagram'}.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (e) {
+            console.warn('Network diagram download failed', e);
+        } finally {
+            setDownloading(false);
         }
     };
 
@@ -969,7 +1000,31 @@ function Canvas({ graph, editable, onChange, onImage }) {
                             >
                                 <IconTrash className="h-3.5 w-3.5" stroke={1.5} /> Delete
                             </button>
+                            <span className="mx-px w-px self-stretch bg-border" />
+                            <button
+                                type="button"
+                                onClick={downloadPng}
+                                disabled={downloading || nodes.length === 0}
+                                title="Download diagram as PNG"
+                                className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+                            >
+                                <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
                         </div>
+                    )}
+
+                    {/* Read view: a single unobtrusive download control so viewers
+                        can export the diagram on its own. */}
+                    {!editable && nodes.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={downloadPng}
+                            disabled={downloading}
+                            title="Download diagram as PNG"
+                            className="absolute right-2 top-2 z-10 flex items-center justify-center rounded-sm border border-border bg-card/90 p-1.5 text-text-secondary shadow-sm backdrop-blur transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40"
+                        >
+                            <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
+                        </button>
                     )}
                 </ReactFlow>
             </div>

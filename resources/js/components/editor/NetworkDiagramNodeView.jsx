@@ -37,7 +37,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                             (PDF/DOCX/search/version snapshots). */}
                         <div className="overflow-hidden rounded-md border border-border bg-canvas" style={{ height: 420 }}>
                             <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
-                                <Canvas graph={graph} editable={false} />
+                                <Canvas graph={graph} editable={false} name={name} />
                             </Suspense>
                         </div>
                         <figcaption className="mt-1.5 text-center text-xs text-text-secondary">{name || 'Untitled diagram'}</figcaption>
@@ -78,7 +78,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                 </div>
                 <div style={{ height: 440 }}>
                     <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
-                        <Canvas graph={graph} editable={editable} onChange={onChange} onImage={onImage} />
+                        <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onImage={onImage} />
                     </Suspense>
                 </div>
             </div>
