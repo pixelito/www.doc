@@ -584,6 +584,10 @@ const HISTORY_LIMIT = 60;
 // land on the dots.
 const SNAP_GRID = [18, 18];
 
+// Padding (flow units) added around the graph's bounding box to form the
+// read-view pan boundary, so viewers can pan/zoom but not wander into the void.
+const READ_VIEW_MARGIN = 80;
+
 function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
@@ -602,6 +606,9 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const routingRef = useRef(defaultRouting);
     // Optional minimap overview (editing aid, not persisted).
     const [showMap, setShowMap] = useState(false);
+    // Read view only: pan boundary (graph bounds + margin), computed once nodes
+    // are measured. Lets viewers pan/zoom without scrolling off into empty space.
+    const [readExtent, setReadExtent] = useState(null);
     // How many nodes are selected — drives the Duplicate button (≥1) and the
     // align (≥2) / distribute (≥3) controls.
     const [selCount, setSelCount] = useState(0);
@@ -852,6 +859,20 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     };
 
     useEffect(() => () => { clearTimeout(captureTimer.current); clearTimeout(nudgeTimer.current); clearTimeout(colorTimer.current); }, []);
+
+    // Read view: once the nodes have a measured size, derive the pan boundary from
+    // their bounding box (+ margin) so dragging/zooming can't lose the diagram.
+    useEffect(() => {
+        if (editable || !nodesRef.current.length) return;
+        const t = setTimeout(() => {
+            const b = rf.getNodesBounds(nodesRef.current.map((n) => n.id));
+            if (!b || !Number.isFinite(b.width) || !Number.isFinite(b.height)) return;
+            const m = READ_VIEW_MARGIN;
+            setReadExtent([[b.x - m, b.y - m], [b.x + b.width + m, b.y + b.height + m]]);
+        }, 80);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
@@ -1156,13 +1177,18 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     onSelectionChange={(sel) => { selectionRef.current = sel; setSelCount(sel.nodes?.length ?? 0); }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
                     {...interactionProps}
-                    // Read-only mount is a faithful, non-interactive render of the
-                    // graph — no panning/zooming so it doesn't hijack page scroll.
-                    panOnDrag={editable}
+                    // Read view stays non-editing but is still navigable: drag to pan,
+                    // pinch / double-click / the Controls buttons to zoom, all clamped
+                    // to translateExtent (graph bounds + margin) so it can't be lost.
+                    // Scroll-to-zoom stays editor-only so reading the page over an
+                    // embedded diagram scrolls the article instead of hijacking the wheel.
+                    panOnDrag
                     zoomOnScroll={editable}
-                    zoomOnPinch={editable}
-                    zoomOnDoubleClick={editable}
+                    zoomOnPinch
+                    zoomOnDoubleClick
                     preventScrolling={editable}
+                    minZoom={0.2}
+                    translateExtent={!editable && readExtent ? readExtent : undefined}
                     deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
                     proOptions={{ hideAttribution: true }}
                     fitView={(seed.current.nodes ?? []).length > 0}
@@ -1170,6 +1196,8 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     <Background color="#BFD2B5" gap={18} size={1.6} />
                     {/* Zoom / fit / lock — the lock toggles node interactivity. */}
                     {editable && <Controls showInteractive />}
+                    {/* Read view: zoom in/out + fit-to-recenter (no interactivity lock). */}
+                    {!editable && nodes.length > 0 && <Controls showInteractive={false} />}
                     {editable && showMap && (
                         <MiniMap
                             pannable
