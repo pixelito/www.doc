@@ -515,6 +515,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         scheduleCapture();
     };
     const undo = () => {
+        flushNudge();   // record a pending arrow-nudge run before stepping back
         const h = history.current;
         if (h.index <= 0) return;
         h.index -= 1;
@@ -522,6 +523,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         syncHist();
     };
     const redo = () => {
+        flushNudge();
         const h = history.current;
         if (h.index >= h.stack.length - 1) return;
         h.index += 1;
@@ -549,10 +551,23 @@ function Canvas({ graph, editable, onChange, onImage }) {
             // but is exactly the focus we want to override, so don't guard on that.
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
-            if (!(e.metaKey || e.ctrlKey)) return;
             const a = keyActions.current;
-            const k = e.key.toLowerCase();
             const stop = () => { e.preventDefault(); e.stopPropagation(); };
+
+            // Plain keys (no Ctrl/Cmd): delete selection + arrow nudge. Each only
+            // swallows the event when it acts on a selection, so they fall through
+            // to the editor otherwise.
+            if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+                if (e.key === 'Delete' || e.key === 'Backspace') { if (a.deleteSelected()) stop(); return; }
+                const step = e.shiftKey ? 10 : 1;
+                if (e.key === 'ArrowUp')    { if (a.nudge(0, -step)) stop(); return; }
+                if (e.key === 'ArrowDown')  { if (a.nudge(0,  step)) stop(); return; }
+                if (e.key === 'ArrowLeft')  { if (a.nudge(-step, 0)) stop(); return; }
+                if (e.key === 'ArrowRight') { if (a.nudge( step, 0)) stop(); return; }
+                return;
+            }
+
+            const k = e.key.toLowerCase();
             if (k === 'z' && !e.shiftKey) { stop(); a.undo(); }
             else if ((k === 'z' && e.shiftKey) || k === 'y') { stop(); a.redo(); }
             // Only swallow copy/paste/duplicate when we actually act on the graph,
@@ -626,7 +641,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
         captureTimer.current = setTimeout(runCapture, 800);
     };
 
-    useEffect(() => () => clearTimeout(captureTimer.current), []);
+    useEffect(() => () => { clearTimeout(captureTimer.current); clearTimeout(nudgeTimer.current); }, []);
 
     const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
     const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
@@ -719,7 +734,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const deleteSelected = () => {
         const delNodeIds = new Set(selectionRef.current.nodes.map((x) => x.id));
         const delEdgeIds = new Set(selectionRef.current.edges.map((x) => x.id));
-        if (!delNodeIds.size && !delEdgeIds.size) return;
+        if (!delNodeIds.size && !delEdgeIds.size) return false;
 
         const next = nodesRef.current
             .filter((x) => !delNodeIds.has(x.id))
@@ -739,6 +754,28 @@ function Canvas({ graph, editable, onChange, onImage }) {
         selectionRef.current = { nodes: [], edges: [] };
         setHasSel(false);
         commit();
+        return true;
+    };
+
+    // Arrow-key nudge. Positions update live on each press, but the undo entry is
+    // debounced so holding an arrow collapses the whole run into one step.
+    const nudgeTimer = useRef(null);
+    const flushNudge = () => {
+        if (!nudgeTimer.current) return;
+        clearTimeout(nudgeTimer.current);
+        nudgeTimer.current = null;
+        pushHistory();
+    };
+    const nudge = (dx, dy) => {
+        const ids = new Set((selectionRef.current.nodes ?? []).map((n) => n.id));
+        if (!ids.size) return false;
+        setNodes(nodesRef.current.map((n) =>
+            ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n));
+        persist();
+        scheduleCapture();
+        clearTimeout(nudgeTimer.current);
+        nudgeTimer.current = setTimeout(() => { nudgeTimer.current = null; pushHistory(); }, 350);
+        return true;
     };
 
     // ── Copy / paste / duplicate ─────────────────────────────────────────────
@@ -804,7 +841,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
     const paste = () => pasteFrom(clipboard.current);
     const duplicate = () => { const c = buildClip(); return c ? pasteFrom(c) : false; };
 
-    keyActions.current = { undo, redo, copySelection, paste, duplicate };
+    keyActions.current = { undo, redo, copySelection, paste, duplicate, deleteSelected, nudge };
 
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
     // the Controls lock button can toggle it; the read-only mount pins it all off.
@@ -909,7 +946,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                             <button
                                 type="button"
                                 onClick={deleteSelected}
-                                title="Delete selected node or connection"
+                                title="Delete selected node or connection (Del)"
                                 className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-danger hover:text-white"
                             >
                                 <IconTrash className="h-3.5 w-3.5" stroke={1.5} /> Delete
