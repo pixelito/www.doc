@@ -15,13 +15,24 @@ const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
  *   read-only → the derived PNG (`imageSrc`); a placeholder until one exists
  *               (the PNG is generated in phase 3).
  */
-export default function NetworkDiagramNodeView({ node, updateAttributes, editor, deleteNode }) {
+export default function NetworkDiagramNodeView({ node, updateAttributes, editor, deleteNode, getPos }) {
     const editable = editor.isEditable;
     const graph = node.attrs.graph ?? EMPTY_GRAPH;
     const name = (node.attrs.name ?? '').trim();
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
     const onImage = useCallback((src) => updateAttributes({ imageSrc: src }), [updateAttributes]);
+
+    // Select this node in ProseMirror when its canvas is interacted with — the
+    // canvas swallows the click that would normally create the NodeSelection, so
+    // without this the toolbar's diagram button never lights up while editing.
+    const onActivate = useCallback(() => {
+        if (typeof getPos !== 'function') return;
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        if (editor.state.selection.from === pos && editor.isActive('networkDiagram')) return;
+        editor.commands.setNodeSelection(pos);
+    }, [editor, getPos]);
 
     // Confirm before removing the whole diagram — its layout would be lost.
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -78,7 +89,7 @@ export default function NetworkDiagramNodeView({ node, updateAttributes, editor,
                 </div>
                 <div style={{ height: 440 }}>
                     <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
-                        <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onImage={onImage} />
+                        <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onImage={onImage} onActivate={onActivate} />
                     </Suspense>
                 </div>
             </div>

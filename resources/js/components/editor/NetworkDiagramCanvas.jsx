@@ -453,7 +453,7 @@ const HISTORY_LIMIT = 60;
 // land on the dots.
 const SNAP_GRID = [18, 18];
 
-function Canvas({ graph, editable, name, onChange, onImage }) {
+function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
@@ -559,7 +559,13 @@ function Canvas({ graph, editable, name, onChange, onImage }) {
     const keyActions = useRef({});
     useEffect(() => {
         if (!editable) return;
-        const onPointerDown = (e) => { activeRef.current = !!wrapperRef.current?.contains(e.target); };
+        const onPointerDown = (e) => {
+            const inside = !!wrapperRef.current?.contains(e.target);
+            activeRef.current = inside;
+            // Select the node so the toolbar reflects "inside a diagram" — but not
+            // when starting to type in a label input (it would blur the input).
+            if (inside && e.target?.tagName !== 'INPUT' && e.target?.tagName !== 'TEXTAREA') onActivate?.();
+        };
         const onKeyDown = (e) => {
             if (!activeRef.current) return;
             // Skip while a canvas label editor (an <input>) is focused so it keeps
@@ -570,16 +576,18 @@ function Canvas({ graph, editable, name, onChange, onImage }) {
             const a = keyActions.current;
             const stop = () => { e.preventDefault(); e.stopPropagation(); };
 
-            // Plain keys (no Ctrl/Cmd): delete selection + arrow nudge. Each only
-            // swallows the event when it acts on a selection, so they fall through
-            // to the editor otherwise.
+            // Plain keys (no Ctrl/Cmd): delete selection + arrow nudge. Delete and
+            // typing are always swallowed while the diagram is active — the canvas
+            // selects its own (atom) node in ProseMirror, where a stray Backspace
+            // or keystroke would otherwise delete or replace the whole block.
             if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-                if (e.key === 'Delete' || e.key === 'Backspace') { if (a.deleteSelected()) stop(); return; }
+                if (e.key === 'Delete' || e.key === 'Backspace') { a.deleteSelected(); stop(); return; }
                 const step = e.shiftKey ? 10 : 1;
                 if (e.key === 'ArrowUp')    { if (a.nudge(0, -step)) stop(); return; }
                 if (e.key === 'ArrowDown')  { if (a.nudge(0,  step)) stop(); return; }
                 if (e.key === 'ArrowLeft')  { if (a.nudge(-step, 0)) stop(); return; }
                 if (e.key === 'ArrowRight') { if (a.nudge( step, 0)) stop(); return; }
+                if (e.key.length === 1) stop();   // printable key — don't replace the node
                 return;
             }
 
@@ -928,7 +936,7 @@ function Canvas({ graph, editable, name, onChange, onImage }) {
                     proOptions={{ hideAttribution: true }}
                     fitView={(seed.current.nodes ?? []).length > 0}
                 >
-                    <Background color="#DAE6D4" gap={18} />
+                    <Background color="#BFD2B5" gap={18} size={1.6} />
                     {/* Zoom / fit / lock — the lock toggles node interactivity. */}
                     {editable && <Controls showInteractive />}
 

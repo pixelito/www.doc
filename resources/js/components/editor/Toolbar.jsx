@@ -216,6 +216,7 @@ export default function Toolbar({ editor }) {
 
     const inTable        = editor.isActive('table');
     const inImage        = editor.isActive('image');
+    const inDiagram      = editor.isActive('networkDiagram');
     const textColor      = editor.getAttributes('textStyle').color ?? null;
     const highlightColor = editor.getAttributes('highlight').color ?? null;
     const imgAlign  = inImage ? (editor.getAttributes('image').align ?? 'left') : null;
@@ -457,7 +458,7 @@ export default function Toolbar({ editor }) {
             </ToolbarButton>
 
             {/* ── Network diagram ───────────────────────────────────── */}
-            <ToolbarButton title="Insert network diagram" active={false}
+            <ToolbarButton title="Insert network diagram" active={inDiagram}
                 onClick={() => editor.chain().focus().insertNetworkDiagram().run()}>
                 <IconTopologyStar3 className="h-3.5 w-3.5" stroke={2} />
             </ToolbarButton>
