@@ -48,8 +48,8 @@ export default function VersionShow({ document: doc, workspace, version }) {
             </nav>
 
             {/* Snapshot banner */}
-            <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-[#E8C58E] bg-[#FAF1E2] px-4 py-3">
-                <div className="text-sm text-[#7A5520]">
+            <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-warning-border bg-warning-surface px-4 py-3">
+                <div className="text-sm text-warning-text">
                     <span className="font-medium">Read-only snapshot</span>
                     {' · '}Saved {timeAgo(version.created_at)}
                     {version.creator && <> by <span className="font-medium">{version.creator.name}</span></>}

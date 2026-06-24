@@ -194,7 +194,7 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Pending */}
                 {state === 'pending' && (
                     <div className="flex flex-col items-center gap-3 py-8 text-text-secondary">
-                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-400" stroke={1.5} />
+                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-500" stroke={1.5} />
                         <p className="text-sm">Generating {format.toUpperCase()}…</p>
                     </div>
                 )}
@@ -202,7 +202,7 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Done */}
                 {state === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-6">
-                        <IconCircleCheck className="h-10 w-10 text-sage-400" stroke={1.5} />
+                        <IconCircleCheck className="h-10 w-10 text-sage-500" stroke={1.5} />
                         <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleClose}>Close</Button>
@@ -670,7 +670,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                 onClick={() => setShowNewTag(true)}
                                 className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-0.5 text-xs text-text-tertiary transition-colors hover:border-sage-300 hover:text-sage-600"
                             >
-                                <IconPlus className="h-3 w-3" stroke={2} />
+                                <IconPlus className="h-3 w-3" stroke={1.5} />
                                 New tag
                             </button>
                         )}

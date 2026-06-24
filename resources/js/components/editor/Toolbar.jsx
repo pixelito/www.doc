@@ -230,23 +230,23 @@ export default function Toolbar({ editor }) {
             {/* ── Inline marks ──────────────────────────────────────── */}
             <ToolbarButton title="Bold (Ctrl+B)" active={editor.isActive('bold')}
                 onClick={() => editor.chain().focus().toggleBold().run()}>
-                <IconBold className="h-3.5 w-3.5" stroke={2} />
+                <IconBold className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Italic (Ctrl+I)" active={editor.isActive('italic')}
                 onClick={() => editor.chain().focus().toggleItalic().run()}>
-                <IconItalic className="h-3.5 w-3.5" stroke={2} />
+                <IconItalic className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Underline (Ctrl+U)" active={editor.isActive('underline')}
                 onClick={() => editor.chain().focus().toggleUnderline().run()}>
-                <IconUnderline className="h-3.5 w-3.5" stroke={2} />
+                <IconUnderline className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Strikethrough" active={editor.isActive('strike')}
                 onClick={() => editor.chain().focus().toggleStrike().run()}>
-                <IconStrikethrough className="h-3.5 w-3.5" stroke={2} />
+                <IconStrikethrough className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Inline code" active={editor.isActive('code')}
                 onClick={() => editor.chain().focus().toggleCode().run()}>
-                <IconCode className="h-3.5 w-3.5" stroke={2} />
+                <IconCode className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             <Divider />
@@ -255,7 +255,7 @@ export default function Toolbar({ editor }) {
             <ToolbarButton title="Text colour" active={!!textColor || openPicker === 'textColor'}
                 onClick={() => togglePicker('textColor')}>
                 <span className="relative flex h-3.5 w-3.5 items-center justify-center">
-                    <IconPalette className="h-3.5 w-3.5" stroke={2} />
+                    <IconPalette className="h-3.5 w-3.5" stroke={1.5} />
                     {textColor && (
                         <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full"
                             style={{ backgroundColor: textColor }} />
@@ -279,7 +279,7 @@ export default function Toolbar({ editor }) {
             <ToolbarButton title="Highlight" active={!!highlightColor || openPicker === 'highlight'}
                 onClick={() => togglePicker('highlight')}>
                 <span className="relative flex h-3.5 w-3.5 items-center justify-center">
-                    <IconHighlight className="h-3.5 w-3.5" stroke={2} />
+                    <IconHighlight className="h-3.5 w-3.5" stroke={1.5} />
                     {highlightColor && (
                         <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full"
                             style={{ backgroundColor: highlightColor }} />
@@ -305,15 +305,15 @@ export default function Toolbar({ editor }) {
             {/* ── Headings ──────────────────────────────────────────── */}
             <ToolbarButton title="Heading 1" active={editor.isActive('heading', { level: 1 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
-                <IconH1 className="h-3.5 w-3.5" stroke={2} />
+                <IconH1 className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Heading 2" active={editor.isActive('heading', { level: 2 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-                <IconH2 className="h-3.5 w-3.5" stroke={2} />
+                <IconH2 className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Heading 3" active={editor.isActive('heading', { level: 3 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
-                <IconH3 className="h-3.5 w-3.5" stroke={2} />
+                <IconH3 className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             <Divider />
@@ -321,19 +321,19 @@ export default function Toolbar({ editor }) {
             {/* ── Lists & blocks ────────────────────────────────────── */}
             <ToolbarButton title="Bullet list" active={editor.isActive('bulletList')}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}>
-                <IconList className="h-3.5 w-3.5" stroke={2} />
+                <IconList className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Ordered list" active={editor.isActive('orderedList')}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}>
-                <IconListNumbers className="h-3.5 w-3.5" stroke={2} />
+                <IconListNumbers className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Blockquote" active={editor.isActive('blockquote')}
                 onClick={() => editor.chain().focus().toggleBlockquote().run()}>
-                <IconBlockquote className="h-3.5 w-3.5" stroke={2} />
+                <IconBlockquote className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Code block" active={editor.isActive('codeBlock')}
                 onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
-                <IconBraces className="h-3.5 w-3.5" stroke={2} />
+                <IconBraces className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             <Divider />
@@ -353,8 +353,8 @@ export default function Toolbar({ editor }) {
                 }}
             >
                 {editor.isActive('link')
-                    ? <IconLinkOff className="h-3.5 w-3.5" stroke={2} />
-                    : <IconLink    className="h-3.5 w-3.5" stroke={2} />}
+                    ? <IconLinkOff className="h-3.5 w-3.5" stroke={1.5} />
+                    : <IconLink    className="h-3.5 w-3.5" stroke={1.5} />}
             </ToolbarButton>
 
             {openPicker === 'link' && (
@@ -383,7 +383,7 @@ export default function Toolbar({ editor }) {
             {!inTable && (
                 <ToolbarButton title="Insert table" active={openPicker === 'table'}
                     onClick={() => togglePicker('table')}>
-                    <IconTable className="h-3.5 w-3.5" stroke={2} />
+                    <IconTable className="h-3.5 w-3.5" stroke={1.5} />
                 </ToolbarButton>
             )}
 
@@ -420,33 +420,33 @@ export default function Toolbar({ editor }) {
                     <Divider />
                     <ToolbarButton title="Add row above" active={false}
                         onClick={() => editor.chain().focus().addRowBefore().run()}>
-                        <IconRowInsertTop className="h-3.5 w-3.5" stroke={2} />
+                        <IconRowInsertTop className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <ToolbarButton title="Add row below" active={false}
                         onClick={() => editor.chain().focus().addRowAfter().run()}>
-                        <IconRowInsertBottom className="h-3.5 w-3.5" stroke={2} />
+                        <IconRowInsertBottom className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <ToolbarButton title="Delete row" active={false}
                         onClick={() => editor.chain().focus().deleteRow().run()}>
-                        <IconRowRemove className="h-3.5 w-3.5" stroke={2} />
+                        <IconRowRemove className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <Divider />
                     <ToolbarButton title="Add column left" active={false}
                         onClick={() => editor.chain().focus().addColumnBefore().run()}>
-                        <IconColumnInsertLeft className="h-3.5 w-3.5" stroke={2} />
+                        <IconColumnInsertLeft className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <ToolbarButton title="Add column right" active={false}
                         onClick={() => editor.chain().focus().addColumnAfter().run()}>
-                        <IconColumnInsertRight className="h-3.5 w-3.5" stroke={2} />
+                        <IconColumnInsertRight className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <ToolbarButton title="Delete column" active={false}
                         onClick={() => editor.chain().focus().deleteColumn().run()}>
-                        <IconColumnRemove className="h-3.5 w-3.5" stroke={2} />
+                        <IconColumnRemove className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                     <Divider />
                     <ToolbarButton title="Delete table" active={false}
                         onClick={() => editor.chain().focus().deleteTable().run()}>
-                        <IconTableOff className="h-3.5 w-3.5" stroke={2} />
+                        <IconTableOff className="h-3.5 w-3.5" stroke={1.5} />
                     </ToolbarButton>
                 </>
             )}
@@ -454,13 +454,13 @@ export default function Toolbar({ editor }) {
             {/* ── Horizontal rule ───────────────────────────────────── */}
             <ToolbarButton title="Horizontal rule" active={false}
                 onClick={() => editor.chain().focus().setHorizontalRule().run()}>
-                <IconMinus className="h-3.5 w-3.5" stroke={2} />
+                <IconMinus className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             {/* ── Network diagram ───────────────────────────────────── */}
             <ToolbarButton title="Insert network diagram" active={inDiagram}
                 onClick={() => editor.chain().focus().insertNetworkDiagram().run()}>
-                <IconTopologyStar3 className="h-3.5 w-3.5" stroke={2} />
+                <IconTopologyStar3 className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             {/* ── Image ─────────────────────────────────────────────── */}
@@ -474,7 +474,7 @@ export default function Toolbar({ editor }) {
                         setImageUrl('');
                     }
                 })}>
-                <IconPhoto className="h-3.5 w-3.5" stroke={2} />
+                <IconPhoto className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
             {/* Hidden file input */}
@@ -489,7 +489,7 @@ export default function Toolbar({ editor }) {
 
             {openPicker === 'image' && (
                 <div className="ml-1 flex items-center gap-1">
-                    <div className="flex overflow-hidden rounded border border-border text-xs">
+                    <div className="flex overflow-hidden rounded-sm border border-border text-xs">
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); setImageMode('upload'); }}
                             className={`px-2 py-0.5 ${imageMode === 'upload' ? 'bg-sage-100 text-sage-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
                             {inImage ? 'Replace (Upload)' : 'Upload'}
@@ -545,21 +545,21 @@ export default function Toolbar({ editor }) {
                 onClick={() => inImage
                     ? editor.commands.updateAttributes('image', { align: 'left' })
                     : editor.chain().focus().setTextAlign('left').run()}>
-                <IconAlignLeft className="h-3.5 w-3.5" stroke={2} />
+                <IconAlignLeft className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Align center"
                 active={inImage ? imgAlign === 'center' : textAlign === 'center'}
                 onClick={() => inImage
                     ? editor.commands.updateAttributes('image', { align: 'center' })
                     : editor.chain().focus().setTextAlign('center').run()}>
-                <IconAlignCenter className="h-3.5 w-3.5" stroke={2} />
+                <IconAlignCenter className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
             <ToolbarButton title="Align right"
                 active={inImage ? imgAlign === 'right' : textAlign === 'right'}
                 onClick={() => inImage
                     ? editor.commands.updateAttributes('image', { align: 'right' })
                     : editor.chain().focus().setTextAlign('right').run()}>
-                <IconAlignRight className="h-3.5 w-3.5" stroke={2} />
+                <IconAlignRight className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
         </div>

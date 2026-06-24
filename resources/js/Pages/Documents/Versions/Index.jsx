@@ -57,7 +57,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                         {v.title}
                                     </Link>
                                     {i === 0 && (
-                                        <span className="ml-2 rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold text-sage-600">
+                                        <span className="ml-2 rounded-sm bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold text-sage-600">
                                             current
                                         </span>
                                     )}

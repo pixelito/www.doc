@@ -39,7 +39,7 @@ function SaveButton({ saving, success, label = 'Save changes' }) {
             {saving
                 ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
                 : success
-                ? <IconCheck className="h-3.5 w-3.5" stroke={2} />
+                ? <IconCheck className="h-3.5 w-3.5" stroke={1.5} />
                 : null
             }
             {saving ? 'Saving…' : success ? 'Saved' : label}
@@ -148,7 +148,7 @@ export default function ProfilePage({ user }) {
                     </div>
                     {colorSaved && (
                         <span className="flex items-center gap-1 text-xs text-sage-600">
-                            <IconCheck className="h-3.5 w-3.5" stroke={2} /> Saved
+                            <IconCheck className="h-3.5 w-3.5" stroke={1.5} /> Saved
                         </span>
                     )}
                 </div>

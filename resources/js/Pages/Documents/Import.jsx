@@ -34,7 +34,7 @@ function FileDrop({ onFile, file }) {
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
             className={[
-                'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed px-6 py-10 transition-colors duration-150',
+                'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed px-6 py-10 transition-colors duration-150',
                 dragging ? 'border-sage-400 bg-sage-50' : 'border-border hover:border-sage-300 hover:bg-surface-hover',
             ].join(' ')}
         >
@@ -204,7 +204,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
                         )}
 
                         {isPdf && (
-                            <div className="flex items-start gap-2 rounded-sm border border-[#E8C58E] bg-[#FAF1E2] px-3 py-2.5 text-sm text-[#7A5520]">
+                            <div className="flex items-start gap-2 rounded-sm border border-warning-border bg-warning-surface px-3 py-2.5 text-sm text-warning-text">
                                 <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" stroke={1.5} />
                                 <span>PDF import extracts text only — formatting and images are not preserved.</span>
                             </div>

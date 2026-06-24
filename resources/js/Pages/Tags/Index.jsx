@@ -68,7 +68,7 @@ export default function TagsIndex({ tags }) {
                                     className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4"
                                 >
                                     <span className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600 transition-colors hover:bg-sage-200">
-                                        <IconTag className="h-2.5 w-2.5 shrink-0" stroke={2} />
+                                        <IconTag className="h-2.5 w-2.5 shrink-0" stroke={1.5} />
                                         {tag.name}
                                     </span>
                                 </Link>

@@ -19,7 +19,7 @@ export default function TagShow({ tag, groups }) {
             {/* Header */}
             <div className="mb-6 flex items-center gap-2.5">
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2.5 py-1 text-[13px] font-medium text-sage-600">
-                    <IconTag className="h-3.5 w-3.5 shrink-0" stroke={2} />
+                    <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
                     {tag.name}
                 </span>
                 <span className="text-sm text-text-tertiary">

@@ -62,6 +62,11 @@
     --color-warning: var(--warning);
     --color-danger: var(--danger);
 
+    /* Warning callout surface (amber banners) */
+    --color-warning-surface: var(--warning-surface);
+    --color-warning-border: var(--warning-border);
+    --color-warning-text: var(--warning-text);
+
     /* Radii variables dynamically linked to your parameters */
     --radius-sm: var(--radius-sm);
     --radius-md: var(--radius-md);
@@ -117,6 +122,12 @@
     /* reuse sage-400 */
     --warning: #C99650;
     /* warm amber */
+    --warning-surface: #FAF1E2;
+    /* amber callout background */
+    --warning-border: #E8C58E;
+    /* amber callout border */
+    --warning-text: #7A5520;
+    /* amber callout text (AA on the surface) */
     --danger: #B5573E;
     /* warm terracotta */
 

@@ -315,7 +315,7 @@ function GroupNode({ id, data, selected }) {
 
     return (
         <div
-            className="relative h-full w-full rounded-md border-2"
+            className="relative h-full w-full rounded-md border"
             style={{ background: `color-mix(in srgb, ${color.swatch} 30%, transparent)`, borderColor: color.border }}
         >
             {editable && (

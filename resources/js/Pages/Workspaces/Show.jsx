@@ -148,7 +148,7 @@ function RowActions({ node, workspaceId, onAddChild }) {
                 <IconFileImport className="h-3.5 w-3.5" stroke={1.5} />
             </ActionButton>
             <ActionButton onClick={() => onAddChild(node.id)} title="Add subpage">
-                <IconPlus className="h-3.5 w-3.5" stroke={2} />
+                <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
             </ActionButton>
         </div>
     );
@@ -194,7 +194,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                 ))}
                 {isDropParent && (
                     <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700">
-                        <IconCornerDownRight className="h-3 w-3" stroke={2} />
+                        <IconCornerDownRight className="h-3 w-3" stroke={1.5} />
                         New parent
                     </span>
                 )}
