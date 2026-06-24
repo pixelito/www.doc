@@ -189,10 +189,12 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                             if (i === depth - 1) {
                                 return (
                                     <React.Fragment key={i}>
-                                        {/* straight spine: down to the corner, and past it if not the last child */}
-                                        <span className={`absolute border-l ${GUIDE}`} style={{ left: x, top: 0, bottom: continues ? 0 : '50%' }} />
-                                        {/* rounded ╰ turning right into the row */}
-                                        <span className={`absolute border-l border-b ${GUIDE} rounded-bl-[7px]`} style={{ left: x, top: `calc(50% - ${GUIDE_R}px)`, height: GUIDE_R, width: GUIDE_REACH }} />
+                                        {/* one continuous ╰ path: spine from the top down to the
+                                            centre, rounding right into the row */}
+                                        <span className={`absolute border-l border-b ${GUIDE} rounded-bl-[7px]`} style={{ left: x, top: 0, height: '50%', width: GUIDE_REACH }} />
+                                        {/* carry the spine on to the next sibling — starts at the
+                                            corner radius so it meets the curve with no gap */}
+                                        {continues && <span className={`absolute border-l ${GUIDE}`} style={{ left: x, top: `calc(50% - ${GUIDE_R}px)`, bottom: 0 }} />}
                                     </React.Fragment>
                                 );
                             }
@@ -200,12 +202,11 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                         })}
                     </span>
                 )}
-                {/* A page with children: a rounded ╭ that reaches right into the row
-                    and drops a spine down to the first child, closing the parent. */}
+                {/* A page with children: one continuous ╭ path that reaches right into
+                    the row and drops the spine to the first child, closing the parent. */}
                 {hasChildren && (
                     <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
-                        <span className={`absolute border-l ${GUIDE}`} style={{ left: depth * INDENT + 20, top: '50%', bottom: 0 }} />
-                        <span className={`absolute border-l border-t ${GUIDE} rounded-tl-[7px]`} style={{ left: depth * INDENT + 20, top: '50%', height: GUIDE_R, width: GUIDE_REACH }} />
+                        <span className={`absolute border-l border-t ${GUIDE} rounded-tl-[7px]`} style={{ left: depth * INDENT + 20, top: '50%', bottom: 0, width: GUIDE_REACH }} />
                     </span>
                 )}
                 {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
