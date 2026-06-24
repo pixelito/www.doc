@@ -30,6 +30,7 @@ import {
     IconServer2, IconArrowsSplit2, IconKey, IconWorld, IconWifi, IconDeviceLaptop,
     IconDeviceMobile, IconPhone, IconPrinter, IconDeviceCctv, IconBroadcast,
     IconBrandDocker, IconStack2, IconMail, IconActivity, IconLock, IconUser, IconUsers,
+    IconChevronDown, IconChevronUp,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
     IconVectorSpline, IconLine, IconCornerDownRight, IconMap2,
     IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy, IconDownload,
@@ -62,21 +63,23 @@ const NodeBehavior = createContext({
 
 // Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
 // default label are render-only. Generic is the plain box (no icon).
+// `core` kinds are the common ones shown by default in the type picker; the rest
+// hide behind an "expand" toggle so the picker isn't overcrowded.
 const NODE_KINDS = [
-    { id: 'generic',      label: 'Node',          Icon: IconCircleDot },
-    { id: 'server',       label: 'Server',        Icon: IconServer },
-    { id: 'database',     label: 'Database',      Icon: IconDatabase },
+    { id: 'generic',      label: 'Node',          Icon: IconCircleDot,    core: true },
+    { id: 'server',       label: 'Server',        Icon: IconServer,       core: true },
+    { id: 'database',     label: 'Database',      Icon: IconDatabase,     core: true },
+    { id: 'router',       label: 'Router',        Icon: IconRouter,       core: true },
+    { id: 'switch',       label: 'Switch',        Icon: IconSwitch3,      core: true },
+    { id: 'firewall',     label: 'Firewall',      Icon: IconShieldLock,   core: true },
+    { id: 'cloud',        label: 'Cloud',         Icon: IconCloud,        core: true },
+    { id: 'workstation',  label: 'Workstation',   Icon: IconDeviceDesktop, core: true },
     { id: 'storage',      label: 'Storage',       Icon: IconServer2 },
-    { id: 'router',       label: 'Router',        Icon: IconRouter },
-    { id: 'switch',       label: 'Switch',        Icon: IconSwitch3 },
     { id: 'loadbalancer', label: 'Load balancer', Icon: IconArrowsSplit2 },
-    { id: 'firewall',     label: 'Firewall',      Icon: IconShieldLock },
     { id: 'vpn',          label: 'VPN / Key',     Icon: IconKey },
-    { id: 'cloud',        label: 'Cloud',         Icon: IconCloud },
     { id: 'internet',     label: 'Internet',      Icon: IconWorld },
     { id: 'ap',           label: 'Access Point',  Icon: IconAccessPoint },
     { id: 'wifi',         label: 'Wi-Fi',         Icon: IconWifi },
-    { id: 'workstation',  label: 'Workstation',   Icon: IconDeviceDesktop },
     { id: 'laptop',       label: 'Laptop',        Icon: IconDeviceLaptop },
     { id: 'mobile',       label: 'Mobile',        Icon: IconDeviceMobile },
     { id: 'phone',        label: 'IP Phone',      Icon: IconPhone },
@@ -93,6 +96,8 @@ const NODE_KINDS = [
 ];
 const KIND_BY_ID = Object.fromEntries(NODE_KINDS.map((k) => [k.id, k]));
 const kindMeta = (kind) => KIND_BY_ID[kind] ?? KIND_BY_ID.generic;
+const CORE_KINDS = NODE_KINDS.filter((k) => k.core);
+const EXTRA_KIND_IDS = new Set(NODE_KINDS.filter((k) => ! k.core).map((k) => k.id));
 
 // Node fill colours for grouping by zone / VLAN. `id` is persisted in
 // node.data.color; the rest is render-only (light fill + matching border +
@@ -183,6 +188,10 @@ function LabeledNode({ id, data, selected }) {
     useEffect(() => { setValue(data.label ?? ''); }, [data.label]);
 
     const kind = data.kind ?? 'generic';
+    // Start the icon picker expanded if this node already uses a non-core icon,
+    // so its current type is visible without hunting for the expand toggle.
+    const [kindsExpanded, setKindsExpanded] = useState(() => EXTRA_KIND_IDS.has(kind));
+    const shownKinds = kindsExpanded ? NODE_KINDS : CORE_KINDS;
     const Icon = kindMeta(kind).Icon;
     const color = colorMeta(data.color ?? 'default');
 
@@ -218,7 +227,7 @@ function LabeledNode({ id, data, selected }) {
                 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
                     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
                         <div className="grid grid-cols-9 gap-0.5">
-                            {NODE_KINDS.map((k) => (
+                            {shownKinds.map((k) => (
                                 <button
                                     key={k.id}
                                     type="button"
@@ -231,6 +240,16 @@ function LabeledNode({ id, data, selected }) {
                                     <k.Icon className="h-3.5 w-3.5" stroke={1.5} />
                                 </button>
                             ))}
+                            <button
+                                type="button"
+                                title={kindsExpanded ? 'Show fewer icons' : 'More icons'}
+                                onClick={() => setKindsExpanded((e) => !e)}
+                                className="flex h-6 w-6 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                {kindsExpanded
+                                    ? <IconChevronUp className="h-3.5 w-3.5" stroke={1.5} />
+                                    : <IconChevronDown className="h-3.5 w-3.5" stroke={1.5} />}
+                            </button>
                         </div>
                         <NodeColorRow
                             value={data.color ?? 'default'}
