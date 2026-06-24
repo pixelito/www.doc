@@ -25,7 +25,7 @@ import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
-    IconArrowBackUp, IconArrowForwardUp, IconGridDots,
+    IconArrowBackUp, IconArrowForwardUp, IconGridDots, IconCopy,
 } from '@tabler/icons-react';
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
@@ -444,6 +444,10 @@ function Canvas({ graph, editable, onChange, onImage }) {
 
     // Optional snap-to-grid (editing aid, not persisted): aligns drags to the grid.
     const [snap, setSnap] = useState(false);
+    // Whether any node is selected — drives the Duplicate button's enabled state.
+    const [hasSel, setHasSel] = useState(false);
+    // Internal clipboard for copy/paste/duplicate (not the system clipboard).
+    const clipboard = useRef(null);
 
     const [nodes, setNodesState] = useState(() => hydrateNodes(seed.current.nodes));
     const [edges, setEdgesState] = useState(() => hydrateEdges(seed.current.edges));
@@ -532,8 +536,9 @@ function Canvas({ graph, editable, onChange, onImage }) {
     // landed inside it) and intercept the combo on `document` in the CAPTURE phase,
     // which runs before ProseMirror's handler so we can stop it from undoing the doc.
     const activeRef = useRef(false);
-    const undoRef = useRef(undo); undoRef.current = undo;
-    const redoRef = useRef(redo); redoRef.current = redo;
+    // Latest action closures for the (mount-time) key handler; assigned once the
+    // copy/paste helpers below are defined to avoid a temporal-dead-zone error.
+    const keyActions = useRef({});
     useEffect(() => {
         if (!editable) return;
         const onPointerDown = (e) => { activeRef.current = !!wrapperRef.current?.contains(e.target); };
@@ -545,9 +550,16 @@ function Canvas({ graph, editable, onChange, onImage }) {
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
             if (!(e.metaKey || e.ctrlKey)) return;
+            const a = keyActions.current;
             const k = e.key.toLowerCase();
-            if (k === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undoRef.current(); }
-            else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); e.stopPropagation(); redoRef.current(); }
+            const stop = () => { e.preventDefault(); e.stopPropagation(); };
+            if (k === 'z' && !e.shiftKey) { stop(); a.undo(); }
+            else if ((k === 'z' && e.shiftKey) || k === 'y') { stop(); a.redo(); }
+            // Only swallow copy/paste/duplicate when we actually act on the graph,
+            // so an empty selection / clipboard falls through to normal behaviour.
+            else if (k === 'c') { if (a.copySelection()) stop(); }
+            else if (k === 'v') { if (a.paste()) stop(); }
+            else if (k === 'd') { if (a.duplicate()) stop(); }
         };
         document.addEventListener('pointerdown', onPointerDown, true);
         document.addEventListener('keydown', onKeyDown, true);
@@ -725,8 +737,74 @@ function Canvas({ graph, editable, onChange, onImage }) {
             (e) => !delEdgeIds.has(e.id) && !delNodeIds.has(e.source) && !delNodeIds.has(e.target),
         ));
         selectionRef.current = { nodes: [], edges: [] };
+        setHasSel(false);
         commit();
     };
+
+    // ── Copy / paste / duplicate ─────────────────────────────────────────────
+    // Snapshot the current selection (nodes + edges wholly between them) into a
+    // portable clip. Absolute positions are stored so paste doesn't depend on a
+    // node's parent zone still existing.
+    const buildClip = () => {
+        const sel = selectionRef.current.nodes ?? [];
+        if (!sel.length) return null;
+        const selIds = new Set(sel.map((n) => n.id));
+        const nodes = sel.map((s) => {
+            const n = nodesRef.current.find((x) => x.id === s.id) ?? s;
+            const abs = rf.getInternalNode(n.id)?.internals?.positionAbsolute ?? n.position;
+            const out = { id: n.id, type: n.type, data: { ...n.data }, abs: { x: abs.x, y: abs.y } };
+            if (n.type === 'group') { out.width = n.width; out.height = n.height; }
+            if (n.parentId) out.parentId = n.parentId;
+            return out;
+        });
+        const edges = edgesRef.current
+            .filter((e) => selIds.has(e.source) && selIds.has(e.target))
+            .map((e) => ({
+                source: e.source, target: e.target,
+                sourceHandle: e.sourceHandle ?? null, targetHandle: e.targetHandle ?? null,
+                data: edgeData(e),
+            }));
+        return { nodes, edges };
+    };
+
+    // Drop a clip into the graph at an offset: mint fresh ids, remap edges and
+    // parent membership, select the new nodes (so paste/duplicate can chain).
+    const pasteFrom = (clip, offset = { x: 24, y: 24 }) => {
+        if (!clip || !clip.nodes.length) return false;
+        const idMap = new Map(clip.nodes.map((n) => [n.id, uid()]));
+        const absById = new Map(clip.nodes.map((n) => [n.id, n.abs]));
+
+        const newNodes = clip.nodes.map((n) => {
+            const node = { id: idMap.get(n.id), type: n.type, data: { ...n.data }, selected: true };
+            if (n.type === 'group') { node.width = n.width; node.height = n.height; }
+            if (n.parentId && idMap.has(n.parentId)) {
+                // Parent came along: keep the child relative; the whole group shifts.
+                node.parentId = idMap.get(n.parentId);
+                const pAbs = absById.get(n.parentId);
+                node.position = { x: n.abs.x - pAbs.x, y: n.abs.y - pAbs.y };
+            } else {
+                node.position = { x: n.abs.x + offset.x, y: n.abs.y + offset.y };
+            }
+            return node;
+        });
+        const newEdges = clip.edges.map((e) => decorateEdge({
+            ...e, id: uid(), source: idMap.get(e.source), target: idMap.get(e.target),
+        }));
+
+        const existing = nodesRef.current.map((x) => (x.selected ? { ...x, selected: false } : x));
+        setNodes(sortGroupsFirst([...existing, ...newNodes]));
+        setEdges([...edgesRef.current, ...newEdges]);
+        selectionRef.current = { nodes: newNodes, edges: [] };
+        setHasSel(true);
+        commit();
+        return true;
+    };
+
+    const copySelection = () => { const c = buildClip(); if (!c) return false; clipboard.current = c; return true; };
+    const paste = () => pasteFrom(clipboard.current);
+    const duplicate = () => { const c = buildClip(); return c ? pasteFrom(c) : false; };
+
+    keyActions.current = { undo, redo, copySelection, paste, duplicate };
 
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
     // the Controls lock button can toggle it; the read-only mount pins it all off.
@@ -750,7 +828,7 @@ function Canvas({ graph, editable, onChange, onImage }) {
                     onConnect={editable ? onConnect : undefined}
                     onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
                     onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
-                    onSelectionChange={(sel) => { selectionRef.current = sel; }}
+                    onSelectionChange={(sel) => { selectionRef.current = sel; setHasSel((sel.nodes?.length ?? 0) > 0); }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
                     {...interactionProps}
                     // Read-only mount is a faithful, non-interactive render of the
@@ -817,6 +895,15 @@ function Canvas({ graph, editable, onChange, onImage }) {
                                 }`}
                             >
                                 <IconGridDots className="h-3.5 w-3.5" stroke={1.5} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={duplicate}
+                                disabled={!hasSel}
+                                title="Duplicate selection (Ctrl+D)"
+                                className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+                            >
+                                <IconCopy className="h-3.5 w-3.5" stroke={1.5} />
                             </button>
                             <span className="mx-px w-px self-stretch bg-border" />
                             <button
