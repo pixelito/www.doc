@@ -159,6 +159,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
         useSortable({ id, disabled: !canReorder });
 
     const isRoot = depth === 0;
+    const hasChildren = (node.children?.length ?? 0) > 0;
 
     return (
         <li
@@ -178,6 +179,15 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                         ))}
                         <span className="absolute h-px w-2 bg-border-subtle" style={{ left: (depth - 1) * INDENT + 20, top: '50%' }} />
                     </span>
+                )}
+                {/* A page with children drops a short rail from its own row down to
+                    the first child's, so the parent visibly connects to its subtree. */}
+                {hasChildren && (
+                    <span
+                        aria-hidden
+                        className="pointer-events-none absolute bottom-0 top-1/2 w-px bg-border-subtle"
+                        style={{ left: depth * INDENT + 20 }}
+                    />
                 )}
                 {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
                 {isRoot
