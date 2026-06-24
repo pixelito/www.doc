@@ -155,7 +155,9 @@ function RowActions({ node, workspaceId, onAddChild }) {
 }
 
 // Tree-guide line colour — visible against the cream rows but not loud.
-const GUIDE = 'bg-text-tertiary/55';
+const GUIDE = 'border-text-tertiary/55';
+const GUIDE_R = 7;      // corner radius (px) where the tree lines turn
+const GUIDE_REACH = 14; // how far the elbow reaches toward the row content (px)
 
 function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, pathLast, isDropParent }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -173,11 +175,12 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             }`}
         >
             <div className="relative flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
-                {/* Tree guides. For each level a vertical spine: ancestor spines
-                    pass straight through only while that ancestor has more siblings
-                    below; the row's own spine runs from the top to an elbow at the
-                    centre and continues down only if this row isn't the last child —
-                    so the last subpage closes with an └ corner. */}
+                {/* Tree guides, drawn as bordered boxes so corners round and join
+                    without gaps. Per indent level a vertical spine: ancestor spines
+                    pass through only while that ancestor still has siblings below;
+                    the row's own spine reaches the centre and turns right into the
+                    row with a rounded ╰, continuing down only if it isn't the last
+                    child (so the last subpage closes the corner). */}
                 {depth > 0 && (
                     <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
                         {Array.from({ length: depth }).map((_, i) => {
@@ -186,23 +189,24 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                             if (i === depth - 1) {
                                 return (
                                     <React.Fragment key={i}>
-                                        <span className={`absolute w-px ${GUIDE}`} style={{ left: x, top: 0, bottom: continues ? 0 : '50%' }} />
-                                        <span className={`absolute h-px w-2 ${GUIDE}`} style={{ left: x, top: '50%' }} />
+                                        {/* straight spine: down to the corner, and past it if not the last child */}
+                                        <span className={`absolute border-l ${GUIDE}`} style={{ left: x, top: 0, bottom: continues ? 0 : '50%' }} />
+                                        {/* rounded ╰ turning right into the row */}
+                                        <span className={`absolute border-l border-b ${GUIDE} rounded-bl-[7px]`} style={{ left: x, top: `calc(50% - ${GUIDE_R}px)`, height: GUIDE_R, width: GUIDE_REACH }} />
                                     </React.Fragment>
                                 );
                             }
-                            return continues ? <span key={i} className={`absolute inset-y-0 w-px ${GUIDE}`} style={{ left: x }} /> : null;
+                            return continues ? <span key={i} className={`absolute inset-y-0 border-l ${GUIDE}`} style={{ left: x }} /> : null;
                         })}
                     </span>
                 )}
-                {/* A page with children drops a spine from its own row's centre down
-                    to the first child, so the parent connects into its subtree. */}
+                {/* A page with children: a rounded ╭ that reaches right into the row
+                    and drops a spine down to the first child, closing the parent. */}
                 {hasChildren && (
-                    <span
-                        aria-hidden
-                        className={`pointer-events-none absolute bottom-0 top-1/2 w-px ${GUIDE}`}
-                        style={{ left: depth * INDENT + 20 }}
-                    />
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
+                        <span className={`absolute border-l ${GUIDE}`} style={{ left: depth * INDENT + 20, top: '50%', bottom: 0 }} />
+                        <span className={`absolute border-l border-t ${GUIDE} rounded-tl-[7px]`} style={{ left: depth * INDENT + 20, top: '50%', height: GUIDE_R, width: GUIDE_REACH }} />
+                    </span>
                 )}
                 {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
                 {isRoot
