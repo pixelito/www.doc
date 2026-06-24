@@ -419,7 +419,7 @@ function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                 {d.label && (
                     <div
                         className="rounded-sm border border-border-subtle bg-surface/95 px-1 py-px text-[10px] font-medium text-text-secondary"
-                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'none' }}
+                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'none', zIndex: 5 }}
                     >
                         {d.label}
                     </div>
@@ -428,7 +428,10 @@ function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                 {editable && selected && (
                     <div
                         className="nodrag nopan flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md"
-                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 30}px)`, pointerEvents: 'all' }}
+                        // High z-index so the controls sit ABOVE nodes: the edge-label
+                        // layer renders before the nodes layer, so without this a nearby
+                        // node covers the toolbar and swallows its clicks.
+                        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 30}px)`, pointerEvents: 'all', zIndex: 1000 }}
                     >
                         <EdgeLabelInput value={d.label} onCommit={(label) => onEdgeChange(id, { label })} />
                         <EdgeIconButton
