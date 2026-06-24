@@ -206,7 +206,7 @@ function LabeledNode({ id, data, selected }) {
         // (minWidth keeps small labels legible).
         <div
             onDoubleClick={() => editable && setEditing(true)}
-            className={`flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
+            className={`group flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
                 selected ? 'ring-1 ring-sage-400' : ''
             }`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
@@ -260,6 +260,10 @@ function LabeledNode({ id, data, selected }) {
                 </NodeToolbar>
             )}
 
+            {/* Connection points stay in the DOM so edges keep anchoring to them,
+                but the dots are hidden until you'd actually use one: never in the
+                read view, and in the editor only while the node is hovered or
+                selected (a connected edge already marks its own side). */}
             {HANDLE_SIDES.map(({ id, position }) => (
                 <Handle
                     key={id}
@@ -267,7 +271,11 @@ function LabeledNode({ id, data, selected }) {
                     type="source"
                     position={position}
                     isConnectable={editable}
-                    className="!h-2 !w-2 !border !border-border !bg-sage-300"
+                    className={`!h-2 !w-2 !border !border-border !bg-sage-300 !transition-opacity ${
+                        editable
+                            ? (selected ? '!opacity-100' : '!opacity-0 group-hover:!opacity-100')
+                            : '!opacity-0 !pointer-events-none'
+                    }`}
                 />
             ))}
 
