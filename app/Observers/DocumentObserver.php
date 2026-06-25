@@ -21,6 +21,10 @@ class DocumentObserver
             $document->content = TipTap::normalize($document->content);
         }
 
+        if ($document->isDirty('content')) {
+            $document->content_html = RenderDocument::toHtml($document->content ?? []);
+        }
+
         $userId = Auth::id();
 
         if (! $document->exists && $userId && ! $document->created_by_id) {
@@ -49,12 +53,11 @@ class DocumentObserver
         // Bubble the activity timestamp up to the workspace.
         $document->workspace?->touch();
 
-        // Render the HTML first so the snapshot captures THIS save's content,
-        // not the stale html left over from the previous save.
+        $html = (string) $document->content_html;
+
         $this->syncLinks($document);
-        $html = $this->updateRenderedHtml($document);
         $this->snapshotVersion($document, $html);
-        $this->updateSearchVector($document, $html);
+        $this->updateSearchVector($document);
     }
 
     public function deleted(Document $document): void
@@ -83,45 +86,24 @@ class DocumentObserver
         ]);
     }
 
-    /**
-     * Render content JSON → HTML and cache it on the document row.
-     * Returns the rendered HTML so updateSearchVector can reuse it.
-     */
-    protected function updateRenderedHtml(Document $document): string
-    {
-        if (! $document->wasChanged('content') && ! $document->wasRecentlyCreated) {
-            return (string) $document->content_html;
-        }
 
-        $html = RenderDocument::toHtml($document->content);
-
-        if ($html !== $document->content_html) {
-            $document->content_html = $html;
-            $document->saveQuietly();
-        }
-
-        return $html;
-    }
 
     /**
      * Maintain the Postgres tsvector column for full-text search.
      * Title gets weight A, body text weight B — so title matches rank higher.
      */
-    protected function updateSearchVector(Document $document, string $html): void
+    protected function updateSearchVector(Document $document): void
     {
-        // Replace tags with a space rather than strip_tags(), which concatenates
-        // adjacent block text ("...</p><p>..." → "...") and can fuse tokens across
-        // element boundaries. Mirrors search:reindex's SQL so both indexing paths
-        // produce the same vector.
-        $bodyText = preg_replace('/<[^>]+>/', ' ', $html);
+        $bodyText = TipTap::plainText($document->content ?? []);
+        $lang = config('database.search_language', 'english');
 
         DB::statement(
             "UPDATE documents
              SET search_vector =
-                 setweight(to_tsvector('english', ?), 'A') ||
-                 setweight(to_tsvector('english', ?), 'B')
+                 setweight(to_tsvector(?, ?), 'A') ||
+                 setweight(to_tsvector(?, ?), 'B')
              WHERE id = ?",
-            [$document->title, $bodyText, $document->getKey()]
+            [$lang, $document->title, $lang, $bodyText, $document->getKey()]
         );
     }
 

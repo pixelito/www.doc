@@ -40,6 +40,7 @@ class SearchController extends Controller
     private function searchDocuments(string $q): array
     {
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+        $lang = config('database.search_language', 'english');
 
         // FTS for indexed documents, ILIKE title fallback for unindexed ones
         $rows = DB::select("
@@ -63,17 +64,17 @@ class SearchController extends Controller
                 ) AS tags,
                 CASE
                     WHEN d.search_vector IS NOT NULL
-                         AND d.search_vector @@ plainto_tsquery('english', ?)
-                    THEN ts_rank(d.search_vector, plainto_tsquery('english', ?))
+                         AND d.search_vector @@ plainto_tsquery('{$lang}', ?)
+                    THEN ts_rank(d.search_vector, plainto_tsquery('{$lang}', ?))
                     ELSE 0.05
                 END AS rank,
                 CASE
                     WHEN d.search_vector IS NOT NULL
-                         AND d.search_vector @@ plainto_tsquery('english', ?)
+                         AND d.search_vector @@ plainto_tsquery('{$lang}', ?)
                     THEN ts_headline(
-                        'english',
+                        '{$lang}',
                         COALESCE(d.content_html, ''),
-                        plainto_tsquery('english', ?),
+                        plainto_tsquery('{$lang}', ?),
                         'MaxWords=30, MinWords=15, StartSel=<mark>, StopSel=</mark>, HighlightAll=false'
                     )
                     ELSE NULL
@@ -85,7 +86,7 @@ class SearchController extends Controller
                 d.deleted_at IS NULL
                 AND w.deleted_at IS NULL
                 AND (
-                    (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('english', ?))
+                    (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery('{$lang}', ?))
                     OR d.title ILIKE ?
                 )
             ORDER BY rank DESC
