@@ -14,6 +14,7 @@ use Tiptap\Nodes\TableCell;
 use Tiptap\Nodes\TableHeader;
 use Tiptap\Nodes\TableRow;
 use Tiptap\Utils\InlineStyle;
+use Tiptap\Extensions\TextAlign;
 
 class RenderDocument
 {
@@ -38,6 +39,7 @@ class RenderDocument
                 new TableHeader,
                 new TableCell,
                 new WikiLinkNode,
+                new TextAlign(['types' => ['heading', 'paragraph']]),
             ],
         ]))->setContent($doc)->getHTML();
     }
@@ -110,11 +112,28 @@ class NetworkDiagramNode extends Node
         $caption = '<figcaption class="network-diagram-caption" style="text-align:center;font-size:0.85em;color:#5C625C;margin-top:4px;">'
             . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</figcaption>';
 
-        if ($src) {
-            $style = 'max-width:100%;display:block;';
-            if ($align === 'center')    $style .= 'margin:0 auto;';
-            elseif ($align === 'right') $style .= 'margin-left:auto;';
+        $style = 'max-width:100%;display:block;';
+        if ($align === 'center')    $style .= 'margin:0 auto;';
+        elseif ($align === 'right') $style .= 'margin-left:auto;';
 
+        // Prefer a vector render straight from the canonical graph: it always
+        // exists, so PDF/export no longer go blank when the client never captured
+        // an `imageSrc` PNG. Inlined as a data-URI SVG (Dompdf renders it via
+        // php-svg-lib; arrowheads are <polygon>, not <marker>, for that reason).
+        $svg = \App\Support\DiagramSvg::render(
+            json_decode(json_encode($attrs->graph ?? null), true)
+        );
+        if ($svg) {
+            $img = '<img'
+                . ' src="data:image/svg+xml;base64,' . base64_encode($svg['svg']) . '"'
+                . ' alt="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '" class="network-diagram"'
+                . ' style="' . $style . 'width:' . $svg['width'] . 'px;" />';
+
+            return ['content' => '<figure class="network-diagram-figure" style="margin:0;">' . $img . $caption . $hidden . '</figure>'];
+        }
+
+        // Fallback: a previously derived PNG (graph empty but image present).
+        if ($src) {
             $img = '<img'
                 . ' src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"'
                 . ' alt="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '" class="network-diagram"'
