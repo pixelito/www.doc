@@ -154,12 +154,23 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
-// Tree-guide line colour — visible against the cream rows but not loud.
-const GUIDE = 'border-text-tertiary/55';
-const GUIDE_R = 7;      // corner radius (px) where the tree lines turn
-const GUIDE_REACH = 14; // how far the elbow reaches toward the row content (px)
+// ── Tree guides (see .examples/tree-view-unlimited-nesting.webp) ─────────────
+// The drag handle lives in its own fixed gutter at the far left (GRIP_GUTTER wide),
+// OUTSIDE the tree indent, so the spines and branches never cross it. Within the
+// content, each level's node (icon/dot) sits at NODE_X + depth*INDENT from the row's
+// left edge: pl-3 (12) + grip gutter (20) + half node (8) = 40 at depth 0. A level's
+// spine drops straight down UNDER its parent's node and branches one INDENT right into
+// each child's node, so the whole thing reads as one continuous line with rounded turns.
+const GUIDE = 'border-text-tertiary/55';   // line colour: visible on cream, not loud
+const GUIDE_R = 7;            // corner radius where the lines turn
+const NODE_X = 40;            // x of a depth-0 node (centre) from the row's left edge
+const GUIDE_REACH = INDENT - 6; // branch length: spine across to the child icon's left edge
+const GRIP_GUTTER = 'w-5';    // fixed drag-handle gutter (20px) — keep in sync with NODE_X
+// Rows carry a 1px border; every vertical segment bleeds GUIDE_BLEED past the row edge(s)
+// so neighbouring slices overlap across that hairline and read as one continuous line.
+const GUIDE_BLEED = 1;
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, pathLast, isDropParent }) {
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -170,64 +181,71 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
         <li
             ref={setNodeRef}
             style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
-            className={`group grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors ${
+            className={`group relative grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors ${
                 isDropParent ? 'bg-sage-50 ring-1 ring-inset ring-sage-300' : 'hover:bg-surface-hover/60'
             }`}
         >
-            <div className="relative flex min-w-0 items-center gap-2 py-2.5 pr-4" style={{ paddingLeft: `${depth * INDENT + 12}px` }}>
-                {/* Tree guides, drawn as bordered boxes so corners round and join
-                    without gaps. Per indent level a vertical spine: ancestor spines
-                    pass through only while that ancestor still has siblings below;
-                    the row's own spine reaches the centre and turns right into the
-                    row with a rounded ╰, continuing down only if it isn't the last
-                    child (so the last subpage closes the corner). */}
-                {depth > 0 && (
-                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
-                        {Array.from({ length: depth }).map((_, i) => {
-                            const x = i * INDENT + 20;
-                            const continues = pathLast ? !pathLast[i + 1] : true;
-                            if (i === depth - 1) {
-                                return (
-                                    <React.Fragment key={i}>
-                                        {/* one continuous ╰ path: spine from the top down to the
-                                            centre, rounding right into the row */}
-                                        <span className={`absolute border-l border-b ${GUIDE} rounded-bl-[7px]`} style={{ left: x, top: 0, height: '50%', width: GUIDE_REACH }} />
-                                        {/* carry the spine on to the next sibling — starts at the
-                                            corner radius so it meets the curve with no gap */}
-                                        {continues && <span className={`absolute border-l ${GUIDE}`} style={{ left: x, top: `calc(50% - ${GUIDE_R}px)`, bottom: 0 }} />}
-                                    </React.Fragment>
-                                );
-                            }
-                            return continues ? <span key={i} className={`absolute inset-y-0 border-l ${GUIDE}`} style={{ left: x }} /> : null;
-                        })}
-                    </span>
-                )}
-                {/* A page with children: one continuous ╭ path that reaches right into
-                    the row and drops the spine to the first child, closing the parent. */}
-                {hasChildren && (
-                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0">
-                        <span className={`absolute border-l border-t ${GUIDE} rounded-tl-[7px]`} style={{ left: depth * INDENT + 20, top: '50%', bottom: 0, width: GUIDE_REACH }} />
-                    </span>
-                )}
-                {canReorder ? <GripHandle listeners={listeners} attributes={attributes} /> : <span className="w-4 shrink-0" />}
-                {isRoot
-                    ? <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                    : <IconCornerDownRight className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />}
-                <Link
-                    href={`/documents/${node.id}`}
-                    className={`truncate text-sm transition-colors hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
-                >
-                    {node.title}
-                </Link>
-                {node.tags.slice(0, isRoot ? 2 : 1).map((t) => (
-                    <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
-                ))}
-                {isDropParent && (
-                    <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700">
-                        <IconCornerDownRight className="h-3 w-3" stroke={1.5} />
-                        New parent
-                    </span>
-                )}
+            {/* Tree guides on a full-height layer anchored to the <li> (not the
+                vertically-centred content cell, which was the source of the gaps). Each
+                level's spine sits UNDER its parent's node: the row's own spine drops from
+                the top to its centre and rounds right into its node with a ╰, carrying on
+                down only if it isn't the last child. A page with children drops a spine
+                straight from under its own node to its first child. Ancestor spines pass
+                straight through while that ancestor still has siblings below. Every
+                segment bleeds GUIDE_BLEED past the 1px row borders so the per-row slices
+                overlap and read as one continuous line. Hidden mid-drag: depths and the
+                last-child flags shift while reordering, which would paint stray segments. */}
+            {!dragging && (depth > 0 || hasChildren) && (
+                <span aria-hidden className="pointer-events-none absolute inset-0">
+                    {depth > 0 && Array.from({ length: depth }).map((_, i) => {
+                        const x = NODE_X + i * INDENT;   // spine under the depth-(i+1) node
+                        const continues = pathLast ? !pathLast[i + 1] : true;
+                        if (i === depth - 1) {
+                            return (
+                                <React.Fragment key={i}>
+                                    {/* ╰: spine down to the centre, rounding right into this node */}
+                                    <span className={`absolute border-l border-b ${GUIDE} rounded-bl-[7px]`} style={{ left: x, top: -GUIDE_BLEED, height: `calc(50% + ${GUIDE_BLEED}px)`, width: GUIDE_REACH }} />
+                                    {/* carry the spine down to the next sibling */}
+                                    {continues && <span className={`absolute border-l ${GUIDE}`} style={{ left: x, top: `calc(50% - ${GUIDE_R}px)`, bottom: -GUIDE_BLEED }} />}
+                                </React.Fragment>
+                            );
+                        }
+                        return continues ? <span key={i} className={`absolute border-l ${GUIDE}`} style={{ left: x, top: -GUIDE_BLEED, bottom: -GUIDE_BLEED }} /> : null;
+                    })}
+                    {hasChildren && (
+                        /* spine dropping to the first child — starts just below this row's
+                           own icon (8px = half the 16px icon) so it doesn't run through it */
+                        <span className={`absolute border-l ${GUIDE}`} style={{ left: NODE_X + depth * INDENT, top: 'calc(50% + 8px)', bottom: -GUIDE_BLEED }} />
+                    )}
+                </span>
+            )}
+            <div className="relative flex min-w-0 items-center py-2.5 pr-4 pl-3">
+                {/* Fixed drag-handle gutter, kept out of the tree indent so the guides
+                    never cross it (empty but reserved when not reordering). */}
+                <span className={`flex ${GRIP_GUTTER} shrink-0 items-center justify-center`}>
+                    {canReorder && <GripHandle listeners={listeners} attributes={attributes} />}
+                </span>
+                <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${depth * INDENT}px` }}>
+                    {/* Every page is a document, so all rows share the file icon; the
+                        rounded guide lines carry the hierarchy, and the branch stops at
+                        the icon's left edge. */}
+                    <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                    <Link
+                        href={`/documents/${node.id}`}
+                        className={`truncate text-sm transition-colors hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
+                    >
+                        {node.title}
+                    </Link>
+                    {node.tags.slice(0, isRoot ? 2 : 1).map((t) => (
+                        <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
+                    ))}
+                    {isDropParent && (
+                        <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700">
+                            <IconCornerDownRight className="h-3 w-3" stroke={1.5} />
+                            New parent
+                        </span>
+                    )}
+                </div>
             </div>
             <div className="py-2.5 pr-4">
                 <span className="text-xs text-text-tertiary">{node.updated_at}</span>
@@ -523,6 +541,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                                             canCreate={perms.create && !reordering}
                                             canReorder={perms.update && reordering}
                                             ghost={item.id === activeId}
+                                            dragging={activeId != null}
                                             pathLast={guideFlags.get(item.id)}
                                             isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
                                         />
