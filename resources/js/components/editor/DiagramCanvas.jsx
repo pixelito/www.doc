@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, memo, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -16,14 +16,13 @@ import {
     getBezierPath,
     getStraightPath,
     getSmoothStepPath,
-    getViewportForBounds,
     useReactFlow,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { toPng } from 'html-to-image';
+import { buildDiagramSvg } from './diagramSvg';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
@@ -362,7 +361,9 @@ function GroupNode({ id, data, selected }) {
     );
 }
 
-const nodeTypes = { labeled: LabeledNode, group: GroupNode };
+// memo() so a node only re-renders when its own props change — during a drag only
+// the moved node updates, instead of every node re-rendering on each frame.
+const nodeTypes = { labeled: memo(LabeledNode), group: memo(GroupNode) };
 
 const sortGroupsFirst = (nodes) => {
     const groups = nodes.filter((n) => n.type === 'group');
@@ -519,7 +520,7 @@ function EdgeIconButton({ active, danger, title, onClick, children }) {
     );
 }
 
-const edgeTypes = { configurable: ConfigurableEdge };
+const edgeTypes = { configurable: memo(ConfigurableEdge) };
 
 // Persisted shape — strip React Flow's transient fields and render-only data.
 const cleanNodes = (nodes) =>
@@ -587,6 +588,21 @@ function ToolbarIconButton({ title, onClick, disabled, children }) {
 }
 
 const HISTORY_LIMIT = 60;
+
+// Hoisted so it isn't a fresh object on every render (which makes React Flow
+// re-run its option effects each drag frame).
+const PRO_OPTIONS = { hideAttribution: true };
+
+// requestIdleCallback (with a setTimeout fallback for Safari) so the background PNG
+// capture rasterises while the main thread is idle, instead of hitching right after
+// a drag.
+const requestIdle = typeof window !== 'undefined' && window.requestIdleCallback
+    ? window.requestIdleCallback.bind(window)
+    : (fn) => setTimeout(() => fn({ didTimeout: true }), 1);
+const cancelIdle = typeof window !== 'undefined' && window.cancelIdleCallback
+    ? window.cancelIdleCallback.bind(window)
+    : clearTimeout;
+
 
 // Snap step for the optional grid — matches the dotted Background gap so nodes
 // land on the dots.
@@ -787,40 +803,61 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     // the URL back. On an empty diagram the image is cleared; failures keep the
     // last good image rather than blanking it.
     const captureTimer = useRef(null);
+    const captureIdle = useRef(null);
     const capturing = useRef(false);
 
-    // Rasterise the whole graph (fit to bounds, independent of current pan/zoom)
-    // to a PNG data URL. Shared by the auto-capture and the manual download.
-    // Returns null when there's nothing to render.
-    const renderPng = async () => {
-        const nodes = nodesRef.current;
-        if (!nodes.length) return null;
-        const viewportEl = wrapperRef.current?.querySelector('.react-flow__viewport');
-        if (!viewportEl) return null;
-
-        // Instance method resolves absolute positions (children of a group store
-        // positions relative to it).
-        const bounds = rf.getNodesBounds(nodes.map((n) => n.id));
-        const width = Math.min(1600, Math.max(320, Math.round(bounds.width) + 96));
-        const height = Math.min(1200, Math.max(180, Math.round(bounds.height) + 96));
-        const vp = getViewportForBounds(bounds, width, height, 0.4, 2, 0.12);
-
-        return toPng(viewportEl, {
-            backgroundColor: '#FBFAF5',
-            width,
-            height,
-            pixelRatio: 2,   // sharper export PNG (read view uses the live canvas)
-            // Don't try to inline @font-face CSS: it can't be read when styles
-            // are served from another origin (CDN / split dev host), which only
-            // spams the console and wastes a fetch every capture — labels fall
-            // back to a system font in the PNG regardless.
-            skipFonts: true,
-            style: {
-                width: `${width}px`,
-                height: `${height}px`,
-                transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
-            },
+    // Resolve every node to an absolute box (children of a zone store their position
+    // relative to it) with its measured size — the inputs the SVG builder needs.
+    const placeNodes = () => {
+        const rfNodes = rf.getNodes();
+        const byId = new Map(rfNodes.map((n) => [n.id, n]));
+        return rfNodes.map((n) => {
+            const isGroup = n.type === 'group';
+            const w = n.measured?.width ?? n.width ?? (isGroup ? 240 : 150);
+            const h = n.measured?.height ?? n.height ?? (isGroup ? 150 : 40);
+            let x = n.position.x, y = n.position.y;
+            let currentParentId = n.parentId;
+            while (currentParentId) {
+                const parent = byId.get(currentParentId);
+                if (!parent) break;
+                x += parent.position.x;
+                y += parent.position.y;
+                currentParentId = parent.parentId;
+            }
+            return { id: n.id, type: isGroup ? 'group' : 'labeled', x, y, w, h,
+                label: n.data?.label, color: n.data?.color, iconKind: n.data?.kind };
         });
+    };
+
+    // Rasterise a generated SVG to a PNG data URL via an offscreen canvas. The SVG is
+    // pure shapes + text from a blob URL, so the canvas isn't tainted and toDataURL
+    // works. Output is capped so large diagrams don't blow up the PNG.
+    const svgToPng = (svg, width, height) => new Promise((resolve, reject) => {
+        const scale = Math.min(2, 1400 / Math.max(width, height, 1));
+        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(width * scale));
+                canvas.height = Math.max(1, Math.round(height * scale));
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/png'));
+            } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('diagram SVG raster failed')); };
+        img.src = url;
+    });
+
+    // Derive the export PNG from the canonical graph (not the live DOM): build an SVG
+    // and rasterise it. Far cheaper than html-to-image, so it never hitches editing.
+    // Shared by the auto-capture and the manual download; null when there's nothing.
+    const renderPng = async () => {
+        const placed = placeNodes();
+        if (!placed.length) return null;
+        const built = buildDiagramSvg(placed, edgesRef.current);
+        if (!built) return null;
+        return svgToPng(built.svg, built.width, built.height);
     };
 
     const runCapture = async () => {
@@ -866,10 +903,21 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const scheduleCapture = () => {
         if (!editable) return;
         clearTimeout(captureTimer.current);
-        captureTimer.current = setTimeout(runCapture, 800);
+        cancelIdle(captureIdle.current);
+        // Debounce generously so a run of edits (dragging several nodes around) never
+        // triggers a capture mid-work; then wait for the main thread to be idle before
+        // rasterising, so it can't hitch an active gesture.
+        captureTimer.current = setTimeout(() => {
+            captureIdle.current = requestIdle(runCapture, { timeout: 2000 });
+        }, 1500);
     };
 
-    useEffect(() => () => { clearTimeout(captureTimer.current); clearTimeout(nudgeTimer.current); clearTimeout(colorTimer.current); }, []);
+    useEffect(() => () => {
+        clearTimeout(captureTimer.current);
+        cancelIdle(captureIdle.current);
+        clearTimeout(nudgeTimer.current);
+        clearTimeout(colorTimer.current);
+    }, []);
 
     // Read view: once the nodes have a measured size, derive the pan boundary from
     // their bounding box (+ margin) so dragging/zooming can't lose the diagram.
@@ -1229,7 +1277,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     minZoom={!editable && readMinZoom ? readMinZoom : 0.2}
                     translateExtent={!editable && readExtent ? readExtent : undefined}
                     deleteKeyCode={null}   /* explicit Delete button — avoids clashing with the editor */
-                    proOptions={{ hideAttribution: true }}
+                    proOptions={PRO_OPTIONS}
                     fitView={(seed.current.nodes ?? []).length > 0}
                 >
                     <Background color="#BFD2B5" gap={18} size={1.6} />

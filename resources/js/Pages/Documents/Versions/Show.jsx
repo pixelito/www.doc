@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconChevronRight, IconHistory, IconArrowBack, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
+import TipTapEditor from '@/components/editor/TipTapEditor';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -91,15 +92,15 @@ export default function VersionShow({ document: doc, workspace, version }) {
                     )}
                 </div>
 
-                {/* Body — same CSS classes as the live read-only TipTap view */}
-                <div className="tiptap-read-area">
-                    <div
-                        className="tiptap"
-                        dangerouslySetInnerHTML={{
-                            __html: version.content_html ?? '<p class="text-text-tertiary text-sm">No content.</p>',
-                        }}
-                    />
-                </div>
+                {/* Body — rendered through the same read-only TipTap path as the
+                    live page (not the cached content_html), so diagrams show as
+                    view-only canvases from their graph JSON instead of a derived
+                    PNG that may be missing/stale for this snapshot. */}
+                <TipTapEditor
+                    key={version.id}
+                    content={version.content}
+                    editable={false}
+                />
             </div>
         </DocsLayout>
 
