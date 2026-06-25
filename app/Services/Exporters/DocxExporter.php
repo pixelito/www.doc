@@ -120,7 +120,7 @@ class DocxExporter implements ExporterContract
         $level = $node['attrs']['level'] ?? 1;
         $level = min(max($level, 1), 4);
         $text  = $this->extractText($node);
-        $this->section->addTitle($text, $level);
+        $this->section->addTitle(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $level);
     }
 
     private function addParagraph(array $node): void
@@ -160,7 +160,7 @@ class DocxExporter implements ExporterContract
             } else {
                 $text   = $this->extractText($child);
                 $style  = $type === 'ordered' ? 'List Number' : 'List Bullet';
-                $this->section->addListItem($text, $depth, null, ['listType' => $type === 'ordered' ? 3 : 1]);
+                $this->section->addListItem(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $depth, null, ['listType' => $type === 'ordered' ? 3 : 1]);
             }
         }
     }
@@ -170,7 +170,7 @@ class DocxExporter implements ExporterContract
         foreach ($node['content'] ?? [] as $child) {
             $text    = $this->extractText($child);
             $para    = $this->section->addText(
-                $text,
+                htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'),
                 ['italic' => true, 'color' => '5C625C', 'size' => 10],
                 ['indentation' => ['left' => 720], 'spaceAfter' => 100]
             );
@@ -210,7 +210,7 @@ class DocxExporter implements ExporterContract
                 $isHeader = ($cellNode['type'] ?? '') === 'tableHeader';
                 $cell     = $row->addCell(null, $isHeader ? ['bgColor' => 'EDF2EA'] : []);
                 $text     = $this->extractText($cellNode);
-                $cell->addText($text, $isHeader ? ['bold' => true, 'size' => 10] : ['size' => 10]);
+                $cell->addText(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $isHeader ? ['bold' => true, 'size' => 10] : ['size' => 10]);
             }
         }
 
@@ -269,7 +269,7 @@ class DocxExporter implements ExporterContract
             $marks = $node['marks'] ?? [];
             $style = $this->marksToFontStyle($marks);
             $text  = $node['text'] ?? '';
-            $run->addText(htmlspecialchars($text), $style);
+            $run->addText(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $style);
             return;
         }
 
@@ -297,7 +297,7 @@ class DocxExporter implements ExporterContract
             match ($mark['type'] ?? '') {
                 'bold'      => $style['bold'] = true,
                 'italic'    => $style['italic'] = true,
-                'underline' => $style['underline'] = true,
+                'underline' => $style['underline'] = 'single',
                 'strike'    => $style['strikethrough'] = true,
                 'code'      => $style['name'] = 'Courier New',
                 default     => null,
