@@ -5,17 +5,17 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // React Flow is heavy, so the editable canvas is split out and only fetched
 // when a diagram is actually edited (read view / diagram-free pages skip it).
-const Canvas = lazy(() => import('./NetworkDiagramCanvas'));
+const Canvas = lazy(() => import('./DiagramCanvas'));
 
 const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
 
 /**
- * NodeView for the networkDiagram block.
+ * NodeView for the diagram block (persisted node type: `networkDiagram`).
  *   editable  → live React Flow canvas (edits write back to the `graph` attr)
  *   read-only → the derived PNG (`imageSrc`); a placeholder until one exists
  *               (the PNG is generated in phase 3).
  */
-export default function NetworkDiagramNodeView({ node, updateAttributes, editor, deleteNode, getPos }) {
+export default function DiagramNodeView({ node, updateAttributes, editor, deleteNode, getPos }) {
     const editable = editor.isEditable;
     const graph = node.attrs.graph ?? EMPTY_GRAPH;
     const name = (node.attrs.name ?? '').trim();

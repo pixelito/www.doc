@@ -457,9 +457,9 @@ export default function Toolbar({ editor }) {
                 <IconMinus className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 
-            {/* ── Network diagram ───────────────────────────────────── */}
-            <ToolbarButton title="Insert network diagram" active={inDiagram}
-                onClick={() => editor.chain().focus().insertNetworkDiagram().run()}>
+            {/* ── Diagram ───────────────────────────────────────────── */}
+            <ToolbarButton title="Insert diagram" active={inDiagram}
+                onClick={() => editor.chain().focus().insertDiagram().run()}>
                 <IconTopologyStar3 className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
 

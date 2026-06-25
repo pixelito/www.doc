@@ -60,10 +60,10 @@ const ALL_COMMANDS = [
             editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
     },
     {
-        title: 'Network Diagram',
+        title: 'Diagram',
         group: 'Blocks',
         command: ({ editor, range }) =>
-            editor.chain().focus().deleteRange(range).insertNetworkDiagram().run(),
+            editor.chain().focus().deleteRange(range).insertDiagram().run(),
     },
 ];
 

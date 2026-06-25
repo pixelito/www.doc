@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -41,9 +41,9 @@ import {
 import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
 /**
- * The editable React Flow canvas for a networkDiagram node. Lazy-loaded by
- * NetworkDiagramNodeView so React Flow only enters the bundle when a diagram is
- * actually edited.
+ * The editable React Flow canvas for a diagram node. Lazy-loaded by the diagram
+ * node view so React Flow only enters the bundle when a diagram is actually edited.
+ * (The persisted TipTap node type is still `networkDiagram` — a data contract.)
  *
  * The node's `graph` attr is the source of truth; this canvas seeds its working
  * state from it once and reports changes back via `onChange` (cleaned of React
@@ -1172,6 +1172,25 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
 
     keyActions.current = { undo, redo, copySelection, paste, duplicate, deleteSelected, nudge };
 
+    // Stable context value for the node/edge components. The handlers above are
+    // recreated every render but only ever touch refs, so we route them through a
+    // ref and hand the Provider an identity-stable object (changing only with
+    // `editable`). Without this the value is a fresh literal each render, so every
+    // node and edge (all context consumers) re-renders on every drag frame — which
+    // is what made dragging feel laggy. Now only the dragged node re-renders.
+    const behaviorRef = useRef(null);
+    behaviorRef.current = { onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
+    const behavior = useMemo(() => ({
+        editable,
+        onLabelChange: (...a) => behaviorRef.current.onLabelChange(...a),
+        onKindChange: (...a) => behaviorRef.current.onKindChange(...a),
+        onNodeColorChange: (...a) => behaviorRef.current.onNodeColorChange(...a),
+        onNodeColorLive: (...a) => behaviorRef.current.onNodeColorLive(...a),
+        onEdgeChange: (...a) => behaviorRef.current.onEdgeChange(...a),
+        onEdgeDelete: (...a) => behaviorRef.current.onEdgeDelete(...a),
+        onPersist: (...a) => behaviorRef.current.onPersist(...a),
+    }), [editable]);
+
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
     // the Controls lock button can toggle it; the read-only mount pins it all off.
     const interactionProps = editable
@@ -1179,7 +1198,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
 
     return (
-        <NodeBehavior.Provider value={{ editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit }}>
+        <NodeBehavior.Provider value={behavior}>
             <div ref={wrapperRef} style={{ width: '100%', height: '100%' }}>
                 <ReactFlow
                     nodes={nodes}
@@ -1396,7 +1415,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     );
 }
 
-export default function NetworkDiagramCanvas(props) {
+export default function DiagramCanvas(props) {
     return (
         <ReactFlowProvider>
             <Canvas {...props} />

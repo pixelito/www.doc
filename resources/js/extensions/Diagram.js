@@ -1,11 +1,12 @@
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import NetworkDiagramNodeView from '@/components/editor/NetworkDiagramNodeView';
+import DiagramNodeView from '@/components/editor/DiagramNodeView';
 
 const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
 
 /**
- * Block node holding a React Flow network diagram.
+ * Block node holding a React Flow diagram (persisted node type: `networkDiagram`,
+ * kept as-is so existing documents keep rendering).
  *
  * The diagram's editable data — `graph` ({ nodes, edges, viewport }) — is the
  * canonical source of truth and rides along in the node's attrs (so it's stored
@@ -17,7 +18,7 @@ const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
  * RenderDocument as a static image/placeholder. The editable React Flow
  * NodeView arrives in Phase 2.
  */
-export const NetworkDiagram = Node.create({
+export const Diagram = Node.create({
     name: 'networkDiagram',
     group: 'block',
     atom: true,        // leaf node — the canvas manages its own internals
@@ -79,12 +80,12 @@ export const NetworkDiagram = Node.create({
     },
 
     addNodeView() {
-        return ReactNodeViewRenderer(NetworkDiagramNodeView);
+        return ReactNodeViewRenderer(DiagramNodeView);
     },
 
     addCommands() {
         return {
-            insertNetworkDiagram: () => ({ commands }) =>
+            insertDiagram: () => ({ commands }) =>
                 commands.insertContent({ type: this.name, attrs: { graph: EMPTY_GRAPH } }),
         };
     },
