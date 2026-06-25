@@ -33,7 +33,7 @@ class DocxExporter implements ExporterContract
 
         // Header
         $header = $this->section->addHeader();
-        $header->addText($document->title, ['bold' => true, 'size' => 9], ['alignment' => 'left']);
+        $header->addText(htmlspecialchars($document->title, ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['bold' => true, 'size' => 9], ['alignment' => 'left']);
 
         // Footer with page number
         $footer = $this->section->addFooter();
@@ -280,7 +280,7 @@ class DocxExporter implements ExporterContract
 
         if ($type === 'wikiLink') {
             $title = $node['attrs']['title'] ?? '';
-            $run->addText("[[{$title}]]", ['color' => '5C625C']);
+            $run->addText(htmlspecialchars("[[{$title}]]", ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['color' => '5C625C']);
             return;
         }
 
