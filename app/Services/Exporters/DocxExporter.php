@@ -15,6 +15,9 @@ class DocxExporter implements ExporterContract
     /** @var \PhpOffice\PhpWord\Element\Section */
     private $section;
 
+    /** @var array<string> */
+    private array $tempFiles = [];
+
     /**
      * Context stack so nested lists know their depth + type.
      * Each entry: ['type' => 'bullet'|'ordered', 'depth' => int]
@@ -54,6 +57,10 @@ class DocxExporter implements ExporterContract
 
         Storage::disk('local')->put($filename, file_get_contents($tempPath));
         @unlink($tempPath);
+
+        foreach ($this->tempFiles as $tmp) {
+            @unlink($tmp);
+        }
 
         return $filename;
     }
@@ -224,7 +231,7 @@ class DocxExporter implements ExporterContract
 
     private function addImage(array $node): void
     {
-        $this->embedStorageImage($node['attrs']['src'] ?? '', ['width' => 400, 'height' => 300, 'ratio' => true]);
+        $this->embedImage($node['attrs']['src'] ?? '', ['width' => 400, 'height' => 300, 'ratio' => true]);
     }
 
     private function addNetworkDiagram(array $node): void
@@ -232,7 +239,7 @@ class DocxExporter implements ExporterContract
         // The diagram's derived PNG (`imageSrc`) is what every static consumer
         // shows; the graph JSON is editor-only. Nothing renders until a capture
         // exists (a just-inserted, never-edited diagram has no image).
-        $this->embedStorageImage($node['attrs']['imageSrc'] ?? '', ['width' => 450, 'ratio' => true]);
+        $this->embedImage($node['attrs']['imageSrc'] ?? '', ['width' => 450, 'ratio' => true]);
 
         $name  = trim((string) ($node['attrs']['name'] ?? ''));
         $label = $name !== '' ? $name : 'Untitled diagram';
@@ -243,15 +250,32 @@ class DocxExporter implements ExporterContract
         );
     }
 
-    /** Embed an image only if it is served from our own storage; skip external URLs. */
-    private function embedStorageImage(string $src, array $style): void
+    /** Embed an image from local storage or a base64 data URL. */
+    private function embedImage(string $src, array $style): void
     {
-        if (!$src || !str_starts_with($src, '/storage/')) return;
+        if (!$src) return;
 
-        $relativePath = substr($src, strlen('/storage/'));
-        $localPath    = storage_path("app/public/{$relativePath}");
-        if (file_exists($localPath)) {
-            $this->section->addImage($localPath, $style);
+        if (str_starts_with($src, 'data:image/')) {
+            if (preg_match('/^data:image\/(\w+);base64,/', $src, $type)) {
+                $data = substr($src, strpos($src, ',') + 1);
+                $data = base64_decode($data);
+                if ($data !== false) {
+                    $ext = $type[1] === 'jpeg' ? 'jpg' : $type[1];
+                    $tempFile = sys_get_temp_dir() . '/' . uniqid('docx_img_') . '.' . $ext;
+                    file_put_contents($tempFile, $data);
+                    $this->tempFiles[] = $tempFile;
+                    $this->section->addImage($tempFile, $style);
+                }
+            }
+            return;
+        }
+
+        if (str_starts_with($src, '/storage/')) {
+            $relativePath = substr($src, strlen('/storage/'));
+            $localPath    = storage_path("app/public/{$relativePath}");
+            if (file_exists($localPath)) {
+                $this->section->addImage($localPath, $style);
+            }
         }
     }
 
@@ -280,7 +304,7 @@ class DocxExporter implements ExporterContract
 
         if ($type === 'wikiLink') {
             $title = $node['attrs']['title'] ?? '';
-            $run->addText(htmlspecialchars("[[{$title}]]", ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['color' => '5C625C']);
+            $run->addText(htmlspecialchars($title, ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['color' => '42637E']);
             return;
         }
 
