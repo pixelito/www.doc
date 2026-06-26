@@ -17,6 +17,27 @@ use Inertia\Response;
 
 class DocumentController extends Controller
 {
+    public function exportDiagram(Request $request)
+    {
+        $validated = $request->validate([
+            'graph' => 'required|array',
+            'name'  => 'nullable|string',
+        ]);
+
+        $rendered = \App\Support\DiagramSvg::render($validated['graph']);
+        $svg = $rendered['svg'];
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(trim($validated['name'] ?? 'network-diagram')));
+        $slug = trim($slug, '-');
+        if (!$slug) {
+            $slug = 'network-diagram';
+        }
+
+        return response($svg, 200, [
+            'Content-Type' => 'image/svg+xml;charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $slug . '.svg"',
+        ]);
+    }
+
     public function show(Document $document): Response
     {
         $this->authorize('view', $document);

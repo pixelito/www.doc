@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::get('documents/{document}/children', [DocumentController::class, 'children'])->name('documents.children');
     Route::patch('documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
+    Route::post('documents/diagram-export', [DocumentController::class, 'exportDiagram'])->name('documents.diagram.export');
 
     Route::patch('workspaces/reorder', [WorkspaceController::class, 'reorder'])->name('workspaces.reorder');
     // Bulk save of a workspace's whole page tree — the "Reorder" mode's single

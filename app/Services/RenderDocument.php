@@ -132,16 +132,6 @@ class NetworkDiagramNode extends Node
             return ['content' => '<figure class="network-diagram-figure" style="margin:0;">' . $img . $caption . $hidden . '</figure>'];
         }
 
-        // Fallback: a previously derived PNG (graph empty but image present).
-        if ($src) {
-            $img = '<img'
-                . ' src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"'
-                . ' alt="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '" class="network-diagram"'
-                . ' style="' . $style . '" />';
-
-            return ['content' => '<figure class="network-diagram-figure" style="margin:0;">' . $img . $caption . $hidden . '</figure>'];
-        }
-
         return ['content' => '<div data-network-diagram="true" class="network-diagram-placeholder"></div>' . $caption . $hidden];
     }
 

@@ -300,6 +300,8 @@ class DiagramSvg
             . self::n($bx - $px) . ',' . self::n($by - $py) . '" fill="' . $color . '"/>';
     }
 
+
+
     private static function build(array $nodes, array $edges): array
     {
         $pad  = 28;
@@ -340,7 +342,7 @@ class DiagramSvg
                 . '" fill-opacity="0.3" stroke="' . $c['border'] . '" stroke-opacity="' . $bo . '" stroke-width="1"/>';
             if ($g['label'] !== '') {
                 $parts[] = '<text x="' . self::n($b['x'] + 8) . '" y="' . self::n($b['y'] + 15)
-                    . '" font-family="sans-serif" font-size="12" font-weight="600" fill="' . $c['accent'] . '">'
+                    . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . $c['accent'] . '">'
                     . self::esc(self::truncate($g['label'], $b['w'] - 14)) . '</text>';
             }
         }
@@ -372,7 +374,7 @@ class DiagramSvg
                 $parts[] = '<rect x="' . self::n($p['lx'] - $lw / 2) . '" y="' . self::n($p['ly'] - $lh / 2)
                     . '" width="' . self::n($lw) . '" height="' . $lh . '" rx="2" fill="#FBFAF5" fill-opacity="0.95" stroke="#E9E7DC" stroke-width="1"/>';
                 $parts[] = '<text x="' . self::n($p['lx']) . '" y="' . self::n($p['ly'] + 3.5)
-                    . '" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="500" fill="#5C625C">'
+                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="10" font-weight="normal" fill="#5C625C">'
                     . self::esc($data['label']) . '</text>';
             }
         }
@@ -388,7 +390,7 @@ class DiagramSvg
             $bo = $c['borderOpacity'] ?? 1;
             $parts[] = '<rect x="' . self::n($b['x']) . '" y="' . self::n($b['y']) . '" width="' . self::n($b['w'])
                 . '" height="' . self::n($b['h']) . '" rx="6" fill="' . $c['bg'] . '" fill-opacity="' . $op
-                . '" stroke="' . $c['border'] . '" stroke-opacity="' . $bo . '" stroke-width="1"/>';
+                . '" stroke="' . $c['border'] . '" stroke-opacity="' . $bo . '" stroke-width="1" filter="url(#shadow)"/>';
 
             $cx      = $b['x'] + $b['w'] / 2;
             $cy      = $b['y'] + $b['h'] / 2;
@@ -401,17 +403,42 @@ class DiagramSvg
                 $ix     = $cx - $groupW / 2;
                 $parts[] = self::icon($kind, $ix, $cy - 8, $c['accent']);
                 $parts[] = '<text x="' . self::n($ix + 22) . '" y="' . self::n($cy + 4)
-                    . '" font-family="sans-serif" font-size="12" font-weight="500" fill="' . self::LABEL_COLOR . '">'
+                    . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
                     . self::esc($label) . '</text>';
             } else {
                 $parts[] = '<text x="' . self::n($cx) . '" y="' . self::n($cy + 4)
-                    . '" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="500" fill="' . self::LABEL_COLOR . '">'
+                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
                     . self::esc($label) . '</text>';
             }
         }
+        
+        $lexendRegular = base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf')));
+        $lexendBold = base64_encode(file_get_contents(base_path('fonts/Lexend-Bold.ttf')));
 
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height
+        $styles = "<style>
+            @font-face {
+                font-family: 'Lexend';
+                font-style: normal;
+                font-weight: normal;
+                src: url(data:font/truetype;charset=utf-8;base64,{$lexendRegular}) format('truetype');
+            }
+            @font-face {
+                font-family: 'Lexend';
+                font-style: normal;
+                font-weight: bold;
+                src: url(data:font/truetype;charset=utf-8;base64,{$lexendBold}) format('truetype');
+            }
+        </style>
+        <defs>
+            <filter id=\"shadow\" x=\"-10%\" y=\"-10%\" width=\"120%\" height=\"120%\">
+                <feDropShadow dx=\"0\" dy=\"1\" stdDeviation=\"2\" flood-opacity=\"0.1\" />
+            </filter>
+        </defs>";
+
+        $svg = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' . $width . '" height="' . $height
             . '" viewBox="0 0 ' . $width . ' ' . $height . '">'
+            . $styles
             . '<rect width="' . $width . '" height="' . $height . '" fill="' . self::CANVAS_BG . '"/>'
             . implode('', $parts) . '</svg>';
 
