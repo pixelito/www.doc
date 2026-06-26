@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Document;
 use App\Models\Link;
 use App\Services\RenderDocument;
+use App\Support\SearchVector;
 use App\Support\TipTap;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,20 +91,17 @@ class DocumentObserver
 
     /**
      * Maintain the Postgres tsvector column for full-text search.
-     * Title gets weight A, body text weight B — so title matches rank higher.
+     * Title gets weight A, content_html (tags stripped) weight B — so title
+     * matches rank higher. Shares its SQL with `search:reindex` via SearchVector
+     * so the live and bulk paths index identical text (incl. diagram labels).
      */
     protected function updateSearchVector(Document $document): void
     {
-        $bodyText = TipTap::plainText($document->content ?? []);
         $lang = config('database.search_language', 'english');
 
         DB::statement(
-            "UPDATE documents
-             SET search_vector =
-                 setweight(to_tsvector(?, ?), 'A') ||
-                 setweight(to_tsvector(?, ?), 'B')
-             WHERE id = ?",
-            [$lang, $document->title, $lang, $bodyText, $document->getKey()]
+            'UPDATE documents SET search_vector = ' . SearchVector::expression() . ' WHERE id = ?',
+            [$lang, $lang, $document->getKey()]
         );
     }
 

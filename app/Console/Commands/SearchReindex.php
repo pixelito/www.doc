@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\SearchVector;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -13,14 +14,12 @@ class SearchReindex extends Command
 {
     public function handle(): int
     {
-        $count = DB::affectingStatement("
-            UPDATE documents
-            SET search_vector =
-                setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
-                setweight(to_tsvector('english',
-                    regexp_replace(coalesce(content_html, ''), '<[^>]+>', ' ', 'g')
-                ), 'B')
-        ");
+        $lang = config('database.search_language', 'english');
+
+        $count = DB::affectingStatement(
+            'UPDATE documents SET search_vector = ' . SearchVector::expression(),
+            [$lang, $lang]
+        );
 
         $this->info("Reindexed {$count} document(s).");
 

@@ -8,24 +8,29 @@ function docWith(array $node): array
     return ['type' => 'doc', 'content' => [$node]];
 }
 
-test('a network diagram with a rendered image emits that image', function () {
+test('a network diagram renders its graph as an inline SVG image', function () {
     $html = RenderDocument::toHtml(docWith([
         'type'  => 'networkDiagram',
         'attrs' => [
-            'graph'    => ['nodes' => [], 'edges' => [], 'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1]],
+            'graph'    => ['nodes' => [
+                ['id' => 'n1', 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => 'core-router']],
+            ], 'edges' => [], 'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1]],
             'imageSrc' => '/storage/assets/abc123.png',
             'align'    => 'center',
         ],
     ]));
 
+    // The image is rendered from the canonical graph as an inline SVG data-URI —
+    // not the (legacy) client-captured imageSrc PNG, which is ignored here.
     expect($html)
         ->toContain('<img')
-        ->toContain('src="/storage/assets/abc123.png"')
+        ->toContain('src="data:image/svg+xml;base64,')
         ->toContain('class="network-diagram"')
-        ->toContain('margin:0 auto;');
+        ->toContain('margin:0 auto;')
+        ->not->toContain('/storage/assets/abc123.png');
 });
 
-test('a network diagram with no rendered image yet falls back to a placeholder', function () {
+test('a network diagram with an empty graph falls back to a placeholder', function () {
     $html = RenderDocument::toHtml(docWith([
         'type'  => 'networkDiagram',
         'attrs' => ['graph' => ['nodes' => [], 'edges' => [], 'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1]]],
@@ -88,7 +93,9 @@ test('a named diagram renders the name as a caption and the image alt', function
         'type'  => 'networkDiagram',
         'attrs' => [
             'name'     => 'Office LAN',
-            'graph'    => ['nodes' => [], 'edges' => []],
+            'graph'    => ['nodes' => [
+                ['id' => 'n1', 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => 'fw']],
+            ], 'edges' => []],
             'imageSrc' => '/storage/assets/abc123.png',
         ],
     ]));
@@ -105,7 +112,12 @@ test('a named diagram renders the name as a caption and the image alt', function
 test('an unnamed diagram captions and alts as "Untitled diagram"', function () {
     $html = RenderDocument::toHtml(docWith([
         'type'  => 'networkDiagram',
-        'attrs' => ['graph' => ['nodes' => [], 'edges' => []], 'imageSrc' => '/storage/assets/abc123.png'],
+        'attrs' => [
+            'graph'    => ['nodes' => [
+                ['id' => 'n1', 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => 'host']],
+            ], 'edges' => []],
+            'imageSrc' => '/storage/assets/abc123.png',
+        ],
     ]));
 
     expect($html)
@@ -131,7 +143,12 @@ test('a diagram node sitting next to text does not disturb the surrounding conte
         'type'    => 'doc',
         'content' => [
             ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Topology below.']]],
-            ['type' => 'networkDiagram', 'attrs' => ['imageSrc' => '/storage/assets/abc123.png']],
+            ['type' => 'networkDiagram', 'attrs' => [
+                'graph'    => ['nodes' => [
+                    ['id' => 'n1', 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => 'core']],
+                ], 'edges' => []],
+                'imageSrc' => '/storage/assets/abc123.png',
+            ]],
             ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Notes above.']]],
         ],
     ]);
@@ -139,5 +156,5 @@ test('a diagram node sitting next to text does not disturb the surrounding conte
     expect($html)
         ->toContain('Topology below.')
         ->toContain('Notes above.')
-        ->toContain('/storage/assets/abc123.png');
+        ->toContain('class="network-diagram"');
 });

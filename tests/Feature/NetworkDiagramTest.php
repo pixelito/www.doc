@@ -157,10 +157,13 @@ test('the DOCX export embeds the diagram PNG', function () {
     }
 });
 
-test('a diagram with no rendered image yet exports without an embedded media file', function () {
+test('a diagram with no captured imageSrc still exports media rendered from its graph', function () {
     Storage::fake('local');
     login();
 
+    // No client-captured PNG (imageSrc null): the diagram is rendered server-side
+    // from its canonical graph (SVG + PNG fallback), so the export never goes
+    // blank — media still lands under word/media/.
     $document = Document::factory()->create([
         'content' => diagramDoc(graphWithLabels(['router']), null),
     ]);
@@ -178,5 +181,5 @@ test('a diagram with no rendered image yet exports without an embedded media fil
     }
     $zip->close();
 
-    expect($hasMedia)->toBeFalse();
+    expect($hasMedia)->toBeTrue();
 });
