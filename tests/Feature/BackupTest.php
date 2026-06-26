@@ -82,6 +82,11 @@ test('a backup produces an archive with the canonical layer and a manifest', fun
 
     expect($backup->manifest['counts']['documents'])->toBe(1);
     expect($backup->manifest['files'])->toHaveKey('canonical/documents.json'); // sha256 present
+
+    // The readable layer is PDF-per-page (non-authoritative; not checksummed).
+    expect(collect($entries)->contains(
+        fn ($e) => str_starts_with($e, 'readable/') && str_ends_with($e, '.pdf')
+    ))->toBeTrue();
 });
 
 test('the manual backup endpoint queues a run and records it', function () {

@@ -10,7 +10,7 @@ use App\Models\Link;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Exporters\DocxExporter;
+use App\Services\Exporters\PdfExporter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -22,8 +22,10 @@ use ZipArchive;
  *  - canonical/  — the authoritative restore source: a JSON dump of the whole
  *    content model (content jsonb VERBATIM) + every referenced asset binary,
  *    described by manifest.json (format/schema version, counts, per-file sha256).
- *  - readable/   — DOCX-per-page foldered by workspace/tree, for humans/auditors.
- *    Explicitly NON-authoritative; RestoreService never reads it.
+ *  - readable/   — PDF-per-page foldered by workspace/tree, for humans/auditors.
+ *    Explicitly NON-authoritative; RestoreService never reads it. PDF (not DOCX)
+ *    because canonical JSON owns restore, so this layer only needs to be read:
+ *    PDF is portable, fixed-fidelity and the archival norm auditors expect.
  *
  * Heavy work, so it runs inside RunBackupJob on the queue. Writes to a PRIVATE
  * disk (`local` by default, `s3` for off-host), never `public`.
@@ -141,11 +143,10 @@ class BackupService
                 $relDir = "{$work}/readable/" . $this->treeFolder($doc);
                 File::ensureDirectoryExists($relDir);
 
-                // A fresh exporter per page — DocxExporter accumulates per-export
-                // state. It writes to the local disk and returns its path; pull the
-                // bytes into the archive, then drop the working copy.
-                $path = (new DocxExporter())->export($doc);
-                File::put("{$relDir}/{$doc->slug}.docx", Storage::disk('local')->get($path));
+                // The exporter writes to the local disk and returns its path; pull
+                // the bytes into the archive, then drop the working copy.
+                $path = (new PdfExporter())->export($doc);
+                File::put("{$relDir}/{$doc->slug}.pdf", Storage::disk('local')->get($path));
                 Storage::disk('local')->delete($path);
             } catch (\Throwable $e) {
                 // The readable layer is best-effort; one bad page must not abort
