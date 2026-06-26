@@ -18,7 +18,7 @@ class PdfExporter implements ExporterContract
         $options = new Options();
         $options->setIsRemoteEnabled(true);
         $options->setIsHtml5ParserEnabled(true);
-        $options->setDefaultFont('DejaVu Sans');
+        $options->setDefaultFont('Lexend');
         $options->setDpi(96);
 
         $pdf = new Dompdf($options);
@@ -29,7 +29,7 @@ class PdfExporter implements ExporterContract
         // Add right-aligned "Page X of Y" via canvas — counter(pages) is not
         // supported in Dompdf CSS so we use the page_script API instead.
         $canvas      = $pdf->getCanvas();
-        $font        = $pdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $font        = $pdf->getFontMetrics()->getFont('Lexend', 'normal');
         $fontSize    = 8;
         $rightMargin = 18 / 25.4 * 72; // 18 mm → pt
 
@@ -55,18 +55,40 @@ class PdfExporter implements ExporterContract
         $toc   = $this->buildToc($document->content);
         $date  = now()->format('d M Y');
 
+        $lexendRegular = base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf')));
+        $lexendBold = base64_encode(file_get_contents(base_path('fonts/Lexend-Bold.ttf')));
+
         return <<<HTML
         <!DOCTYPE html>
         <html lang="en">
         <head>
-            <meta charset="utf-8">
+            <meta charset="UTF-8">
             <title>{$title}</title>
             <style>
+                @font-face {
+                    font-family: 'Lexend';
+                    font-style: normal;
+                    font-weight: 400;
+                    src: url(data:font/truetype;charset=utf-8;base64,{$lexendRegular}) format('truetype');
+                }
+                @font-face {
+                    font-family: 'Lexend';
+                    font-style: normal;
+                    font-weight: 600;
+                    src: url(data:font/truetype;charset=utf-8;base64,{$lexendBold}) format('truetype');
+                }
+                @font-face {
+                    font-family: 'Lexend';
+                    font-style: normal;
+                    font-weight: bold;
+                    src: url(data:font/truetype;charset=utf-8;base64,{$lexendBold}) format('truetype');
+                }
+                
                 @page {
                     margin: 20mm 18mm 22mm 18mm;
                 }
                 body {
-                    font-family: "DejaVu Sans", sans-serif;
+                    font-family: "Lexend", sans-serif;
                     font-size: 10pt;
                     line-height: 1.6;
                     color: #1F2520;

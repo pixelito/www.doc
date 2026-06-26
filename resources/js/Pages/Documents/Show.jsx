@@ -85,6 +85,7 @@ function ExportModal({ documentId, open, onClose }) {
     const [format, setFormat]   = useState('pdf');
     const [state, setState]     = useState('idle'); // idle | pending | done | failed
     const [error, setError]     = useState(null);
+    const [downloaded, setDownloaded] = useState(false);
     const pollRef               = useRef(null);
     const jobIdRef              = useRef(null);
 
@@ -92,6 +93,7 @@ function ExportModal({ documentId, open, onClose }) {
         clearInterval(pollRef.current);
         setState('idle');
         setError(null);
+        setDownloaded(false);
         jobIdRef.current = null;
     }
 
@@ -141,6 +143,7 @@ function ExportModal({ documentId, open, onClose }) {
     }
 
     function triggerDownload() {
+        setDownloaded(true);
         window.location.href = `/documents/${documentId}/exports/${jobIdRef.current}?download=1`;
     }
 
@@ -207,11 +210,12 @@ function ExportModal({ documentId, open, onClose }) {
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleClose}>Close</Button>
                             <Button
-                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse disabled:opacity-50"
                                 onClick={triggerDownload}
+                                disabled={downloaded}
                             >
                                 <IconDownload stroke={1.5} />
-                                Download {format.toUpperCase()}
+                                {downloaded ? 'Downloaded' : `Download ${format.toUpperCase()}`}
                             </Button>
                         </div>
                     </div>

@@ -18,6 +18,9 @@ class DocxExporter implements ExporterContract
     /** @var array<string> */
     private array $tempFiles = [];
 
+    /** @var array<string, array> */
+    private array $svgs = [];
+
     /**
      * Context stack so nested lists know their depth + type.
      * Each entry: ['type' => 'bullet'|'ordered', 'depth' => int]
@@ -50,10 +53,15 @@ class DocxExporter implements ExporterContract
 
         $slug     = $document->slug;
         $filename = "exports/docx/{$slug}-" . now()->format('YmdHis') . '.docx';
+        $this->word->getCompatibility()->setOoxmlVersion(15);
+        $this->word->getSettings()->setDocumentProtection(null);
+
         $tempPath = sys_get_temp_dir() . "/{$slug}.docx";
 
         $writer = \PhpOffice\PhpWord\IOFactory::createWriter($this->word, 'Word2007');
         $writer->save($tempPath);
+
+        $this->injectSvgs($tempPath);
 
         Storage::disk('local')->put($filename, file_get_contents($tempPath));
         @unlink($tempPath);
@@ -70,7 +78,7 @@ class DocxExporter implements ExporterContract
     private function makeWord(): PhpWord
     {
         $w = new PhpWord();
-        $w->setDefaultFontName('Calibri');
+        $w->setDefaultFontName('Century Gothic');
         $w->setDefaultFontSize(11);
 
         // Heading styles
@@ -158,16 +166,22 @@ class DocxExporter implements ExporterContract
 
     private function addListItem(array $node, string $type, int $depth): void
     {
+        $listType = $type === 'orderedList' ? \PhpOffice\PhpWord\Style\ListItem::TYPE_NUMBER : \PhpOffice\PhpWord\Style\ListItem::TYPE_BULLET_FILLED;
+
         foreach ($node['content'] ?? [] as $child) {
             $childType = $child['type'] ?? '';
             if ($childType === 'bulletList') {
                 $this->addList($child, 'bullet');
             } elseif ($childType === 'orderedList') {
                 $this->addList($child, 'ordered');
+            } elseif ($childType === 'paragraph') {
+                $run = $this->section->addListItemRun($depth, $listType, ['spaceAfter' => 100]);
+                foreach ($child['content'] ?? [] as $inlineChild) {
+                    $this->addInline($run, $inlineChild);
+                }
             } else {
-                $text   = $this->extractText($child);
-                $style  = $type === 'ordered' ? 'List Number' : 'List Bullet';
-                $this->section->addListItem(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $depth, null, ['listType' => $type === 'ordered' ? 3 : 1]);
+                $run = $this->section->addListItemRun($depth, $listType, ['spaceAfter' => 100]);
+                $this->addInline($run, $child);
             }
         }
     }
@@ -236,10 +250,18 @@ class DocxExporter implements ExporterContract
 
     private function addNetworkDiagram(array $node): void
     {
-        // The diagram's derived PNG (`imageSrc`) is what every static consumer
-        // shows; the graph JSON is editor-only. Nothing renders until a capture
-        // exists (a just-inserted, never-edited diagram has no image).
-        $this->embedImage($node['attrs']['imageSrc'] ?? '', ['width' => 450, 'ratio' => true]);
+        $svg = \App\Support\DiagramSvg::render(
+            json_decode(json_encode($node['attrs']['graph'] ?? null), true)
+        );
+
+        if ($svg) {
+            $uuid = uniqid('svg_');
+            $this->svgs[$uuid] = $svg;
+            
+            $width = $svg['width'];
+            $height = $svg['height'];
+            $this->section->addText("SVG_DIAGRAM_{$width}_{$height}_{$uuid}", ['size' => 1, 'color' => 'FFFFFF'], ['alignment' => 'center']);
+        }
 
         $name  = trim((string) ($node['attrs']['name'] ?? ''));
         $label = $name !== '' ? $name : 'Untitled diagram';
@@ -277,6 +299,99 @@ class DocxExporter implements ExporterContract
                 $this->section->addImage($localPath, $style);
             }
         }
+    }
+
+    private function injectSvgs(string $docxPath): void
+    {
+        if (empty($this->svgs)) return;
+
+        $oldZip = new \ZipArchive();
+        if ($oldZip->open($docxPath) !== true) return;
+        
+        $newDocxPath = $docxPath . '.new';
+        $newZip = new \ZipArchive();
+        if ($newZip->open($newDocxPath, \ZipArchive::CREATE) !== true) {
+            $oldZip->close();
+            return;
+        }
+
+        $fallbackIds = [];
+        $scriptPath = base_path('process_svg.js');
+        $relsToInject = [];
+        $fallbackIds = [];
+        $mediaToAdd = [];
+
+        foreach ($this->svgs as $uuid => $svg) {
+            $svgFileIn = sys_get_temp_dir() . '/' . uniqid('svg_in_') . '.svg';
+            $svgFileOut = sys_get_temp_dir() . '/' . uniqid('svg_out_') . '.svg';
+            $pngFile = $svgFileOut . '_fallback.png';
+            
+            file_put_contents($svgFileIn, $svg['svg']);
+            
+            shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile));
+            
+            if (file_exists($svgFileOut) && file_exists($pngFile)) {
+                $fallbackId = 'rIdFallback' . uniqid();
+                $relId = 'rIdSvg' . uniqid();
+                
+                $mediaToAdd['word/media/' . basename($pngFile)] = $pngFile;
+                $mediaToAdd['word/media/' . basename($svgFileOut)] = $svgFileOut;
+                
+                $relsToInject[] = '
+                    <Relationship Id="'.$fallbackId.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'.basename($pngFile).'"/>
+                    <Relationship Id="'.$relId.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'.basename($svgFileOut).'"/>
+                ';
+                
+                $fallbackIds[$uuid] = [
+                    'png' => $fallbackId,
+                    'svg' => $relId
+                ];
+            }
+        }
+
+        // Copy everything to the new ZIP, making modifications along the way
+        for ($i = 0; $i < $oldZip->numFiles; $i++) {
+            $name = $oldZip->getNameIndex($i);
+            $content = $oldZip->getFromIndex($i);
+
+            if ($name === 'word/document.xml') {
+                $content = preg_replace_callback('/<w:t[^>]*>SVG_DIAGRAM_(\d+)_(\d+)_([a-zA-Z0-9_]+)<\/w:t>/', function($m) use ($fallbackIds) {
+                    $width = $m[1] * 9525;
+                    $height = $m[2] * 9525;
+                    $uuid = $m[3];
+                    if (!isset($fallbackIds[$uuid])) return $m[0];
+                    $fallbackId = $fallbackIds[$uuid]['png'];
+                    $relId = $fallbackIds[$uuid]['svg'];
+                    return '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'.$width.'" cy="'.$height.'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'.rand(1000,9999).'" name="Diagram"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'.rand(1000,9999).'" name="Diagram"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'.$fallbackId.'"><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="'.$relId.'"/></a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'.$width.'" cy="'.$height.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>';
+                }, $content);
+                $content = str_replace('<w:document xmlns:ve="', '<w:document xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" mc:Ignorable="asvg" xmlns:ve="', $content);
+            } 
+            elseif ($name === 'word/settings.xml') {
+                $content = str_replace('w:val="12"', 'w:val="15"', $content);
+            } 
+            elseif ($name === '[Content_Types].xml') {
+                if (strpos($content, 'Extension="svg"') === false) $content = str_replace('</Types>', '<Default Extension="svg" ContentType="image/svg+xml"/></Types>', $content);
+                if (strpos($content, 'Extension="png"') === false) $content = str_replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>', $content);
+            } 
+            elseif ($name === 'word/_rels/document.xml.rels') {
+                if (!empty($relsToInject)) {
+                    $content = str_replace('</Relationships>', implode('', $relsToInject) . '</Relationships>', $content);
+                }
+            }
+
+            $newZip->addFromString($name, $content);
+        }
+
+        // Add the new media files
+        foreach ($mediaToAdd as $zipPath => $localPath) {
+            $newZip->addFile($localPath, $zipPath);
+        }
+
+        $oldZip->close();
+        $newZip->close();
+
+        // Overwrite original zip
+        rename($newDocxPath, $docxPath);
     }
 
     // -------------------------------------------------------------------------
