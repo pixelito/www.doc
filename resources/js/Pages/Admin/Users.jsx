@@ -13,7 +13,7 @@ function RoleSelect({ value, onChange, roles, disabled }) {
             value={value}
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
-            className="h-8 rounded-sm border border-border bg-surface px-2 text-sm capitalize text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="ui-select h-8 rounded-sm border border-border bg-surface px-2 text-sm capitalize text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
             {roles.map((role) => (
                 <option key={role} value={role} className="capitalize">{role}</option>

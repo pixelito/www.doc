@@ -271,7 +271,7 @@ function MoveModal({ open, onClose, documentId, workspaces, currentWorkspaceId }
                         id="move-target"
                         value={target}
                         onChange={(e) => setTarget(e.target.value)}
-                        className="h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="ui-select h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                     >
                         <option value="" disabled>Select a workspace…</option>
                         {targets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}

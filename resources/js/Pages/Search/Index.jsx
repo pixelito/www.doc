@@ -200,7 +200,7 @@ export default function SearchIndex({ q, results }) {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => { setSortBy(e.target.value); setShowAll(false); }}
-                                    className="h-[33px] rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="ui-select h-[33px] rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                                 >
                                     <option value="relevance">Relevance</option>
                                     <option value="newest">Newest first</option>

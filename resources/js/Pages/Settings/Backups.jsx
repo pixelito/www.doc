@@ -96,7 +96,7 @@ export default function Backups() {
                                 id="interval"
                                 value={form.data.interval}
                                 onChange={(e) => form.setData('interval', e.target.value)}
-                                className="mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground"
+                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground"
                             >
                                 {intervals.map((i) => <option key={i} value={i}>{INTERVAL_LABELS[i] ?? i}</option>)}
                             </select>
@@ -107,7 +107,7 @@ export default function Backups() {
                                 id="disk"
                                 value={form.data.disk}
                                 onChange={(e) => form.setData('disk', e.target.value)}
-                                className="mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm uppercase text-foreground"
+                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm uppercase text-foreground"
                             >
                                 {disks.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>

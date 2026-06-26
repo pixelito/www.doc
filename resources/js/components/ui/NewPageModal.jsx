@@ -105,7 +105,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
                             <select
                                 value={parentId}
                                 onChange={(e) => setParentId(e.target.value)}
-                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="ui-select h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
                             >
                                 <option value="">None — top-level page</option>
                                 {parentOptions.map((o) => (
