@@ -54,7 +54,6 @@ class PdfExporter implements ExporterContract
         $body  = RenderDocument::toHtml($document->content);
         RenderDocument::$embedImages = false;
         $title = e($document->title);
-        $toc   = $this->buildToc($document->content);
         $date  = now()->format('d M Y');
 
         $lexendRegular = base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf')));
@@ -155,12 +154,6 @@ class PdfExporter implements ExporterContract
                 }
                 img { max-width: 100%; height: auto; }
                 a { color: #4A6741; text-decoration: none; }
-                .toc { margin-bottom: 1.5em; page-break-after: always; }
-                .toc h2 { font-size: 13pt; margin-top: 0; }
-                .toc ul { list-style: none; padding: 0; }
-                .toc li { line-height: 1.8; }
-                .toc li.indent-1 { padding-left: 1.2em; }
-                .toc li.indent-2 { padding-left: 2.4em; }
                 .wiki-link { color: #5C625C; }
             </style>
         </head>
@@ -173,7 +166,6 @@ class PdfExporter implements ExporterContract
                 <span>www.doc</span>
             </div>
             <h1>{$title}</h1>
-            {$toc}
             {$body}
         </body>
         </html>

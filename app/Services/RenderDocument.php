@@ -168,8 +168,32 @@ class NetworkDiagramNode extends Node
             json_decode(json_encode($attrs->graph ?? null), true)
         );
         if ($svg) {
+            $src = 'data:image/svg+xml;base64,' . base64_encode($svg['svg']);
+            
+            if (\App\Services\RenderDocument::$embedImages) {
+                // PDF export: convert SVG to PNG using process_svg.js to bypass Dompdf's buggy php-svg-lib 
+                // which corrupts icon transforms and ignores embedded CSS fonts.
+                $scriptPath = base_path('process_svg.js');
+                if (file_exists($scriptPath)) {
+                    $svgFileIn = sys_get_temp_dir() . '/' . uniqid('pdf_svg_in_') . '.svg';
+                    $svgFileOut = sys_get_temp_dir() . '/' . uniqid('pdf_svg_out_') . '.svg';
+                    $pngFile = $svgFileOut . '_fallback.png';
+                    
+                    file_put_contents($svgFileIn, $svg['svg']);
+                    shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile));
+                    
+                    if (file_exists($pngFile)) {
+                        $pngData = file_get_contents($pngFile);
+                        $src = 'data:image/png;base64,' . base64_encode($pngData);
+                        @unlink($pngFile);
+                        @unlink($svgFileOut);
+                    }
+                    @unlink($svgFileIn);
+                }
+            }
+
             $img = '<img'
-                . ' src="data:image/svg+xml;base64,' . base64_encode($svg['svg']) . '"'
+                . ' src="' . $src . '"'
                 . ' alt="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '" class="network-diagram"'
                 . ' style="' . $style . 'width:' . $svg['width'] . 'px;" />';
 
