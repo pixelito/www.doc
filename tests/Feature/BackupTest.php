@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\Storage;
 function settingsPayload(array $overrides = []): array
 {
     $base = [
-        'enabled'   => true,
-        'interval'  => 'daily',
-        'retention' => 7,
-        'driver'    => 'local',
+        'enabled'    => true,
+        'interval'   => 'daily',
+        'retention'  => 7,
+        'driver'     => 'local',
+        'encryption' => false,
         'smb'  => ['host' => '', 'share' => '', 'path' => '', 'username' => '', 'password' => '', 'domain' => ''],
         'mail' => ['enabled' => false, 'to' => '', 'host' => '', 'port' => 587, 'username' => '', 'password' => '', 'encryption' => 'tls', 'from_address' => '', 'from_name' => ''],
     ];
@@ -257,6 +258,98 @@ test('a backup restores losslessly, reverting later edits', function () {
 
     expect(Workspace::find($ws->id)->name)->toBe('Original Name');
     expect(Document::find($doc->id)->title)->toBe('Original Title');
+});
+
+test('the archive cipher round-trips and rejects wrong keys, tampering and truncation', function () {
+    $cipher = new \App\Services\Backup\ArchiveCipher(
+        sodium_crypto_secretstream_xchacha20poly1305_keygen(),
+    );
+
+    $plain = tempnam(sys_get_temp_dir(), 'plain');
+    file_put_contents($plain, random_bytes(200_000)); // spans multiple 64 KiB chunks
+    $enc = "{$plain}.enc";
+    $out = "{$plain}.out";
+
+    $cipher->encryptFile($plain, $enc);
+    expect(\App\Services\Backup\ArchiveCipher::isEncrypted($enc))->toBeTrue();
+    expect(\App\Services\Backup\ArchiveCipher::isEncrypted($plain))->toBeFalse();
+
+    $cipher->decryptFile($enc, $out);
+    expect(hash_file('sha256', $out))->toBe(hash_file('sha256', $plain));
+
+    // Wrong key.
+    $wrong = new \App\Services\Backup\ArchiveCipher(sodium_crypto_secretstream_xchacha20poly1305_keygen());
+    expect(fn () => $wrong->decryptFile($enc, $out))->toThrow(RuntimeException::class);
+
+    // Truncation (drop the last 40 bytes → no FINAL tag / broken chunk).
+    $cut = substr(file_get_contents($enc), 0, -40);
+    file_put_contents($enc, $cut);
+    expect(fn () => $cipher->decryptFile($enc, $out))->toThrow(RuntimeException::class);
+
+    @unlink($plain);
+    @unlink($enc);
+    @unlink($out);
+});
+
+test('backup:decrypt recovers an encrypted archive with only the key', function () {
+    $key    = \App\Services\Backup\ArchiveCipher::generateKey();
+    $cipher = new \App\Services\Backup\ArchiveCipher(base64_decode($key));
+
+    $src = tempnam(sys_get_temp_dir(), 'zip');
+    file_put_contents($src, 'PK pretend-zip payload');
+    $enc = "{$src}.enc";
+    $out = "{$src}.recovered";
+    $cipher->encryptFile($src, $enc);
+
+    // No DB, no app boot beyond the command — just the key.
+    $this->artisan('backup:decrypt', ['source' => $enc, '--key' => $key, '--out' => $out])
+        ->assertSuccessful();
+
+    expect(file_get_contents($out))->toBe('PK pretend-zip payload');
+
+    @unlink($src);
+    @unlink($enc);
+    @unlink($out);
+});
+
+test('encryption cannot be enabled without a configured key', function () {
+    config(['backup.encryption_key' => null]);
+    login();
+
+    $this->patch('/admin/backups/settings', settingsPayload(['encryption' => true]))
+        ->assertSessionHasErrors('encryption');
+});
+
+test('an encrypted backup is unreadable as a zip yet restores losslessly', function () {
+    Storage::fake('local');
+    config(['backup.encryption_key' => \App\Services\Backup\ArchiveCipher::generateKey()]);
+    login();
+
+    Setting::put('backup', array_replace(\App\Support\BackupSettings::get(), ['encryption' => true]));
+
+    $ws  = Workspace::factory()->create(['name' => 'Secret']);
+    $doc = Document::factory()->for($ws)->create([
+        'title'   => 'Classified',
+        'content' => DocumentFactory::tiptap('top secret body'),
+    ]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+    $backup->refresh();
+
+    expect($backup->status)->toBe('done');
+    expect($backup->path)->toEndWith('.zip.enc');
+    expect($backup->manifest['encryption']['enabled'])->toBeTrue();
+
+    // The stored archive is ciphertext: not openable as a zip, carries our magic.
+    $stored = Storage::disk('local')->path($backup->path);
+    expect(\App\Services\Backup\ArchiveCipher::isEncrypted($stored))->toBeTrue();
+    expect((new ZipArchive())->open($stored))->not->toBe(true);
+
+    // Restore decrypts transparently and reverts the drift.
+    $doc->update(['title' => 'Edited']);
+    app(RestoreService::class)->restore($backup->fresh());
+    expect(Document::find($doc->id)->title)->toBe('Classified');
 });
 
 test('the scheduled command does nothing while backups are disabled', function () {

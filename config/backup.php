@@ -52,10 +52,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Archive encryption (off-host hardening goal — not wired yet)
+    | Archive encryption at rest (NIS2)
     |--------------------------------------------------------------------------
-    | A base64-encoded 32-byte key. When present, a future BackupService should
-    | encrypt the archive at rest. Left unimplemented in this scaffold.
+    | A base64-encoded 32-byte key. When set AND the admin enables encryption in
+    | the Backups tab, BackupService encrypts the whole archive with libsodium's
+    | secretstream (XChaCha20-Poly1305 AEAD) before storing it; RestoreService
+    | decrypts transparently, and `php artisan backup:decrypt` recovers it with
+    | only the key — no app/DB. Generate one with ArchiveCipher::generateKey().
+    | KEEP THIS OFF THE HOST/SHARE (a secrets vault) — an archive plus a key that
+    | sat on the lost host is no protection at all.
     */
     'encryption_key' => env('BACKUP_ENCRYPTION_KEY'),
 

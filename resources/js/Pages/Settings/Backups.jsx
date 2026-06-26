@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
-    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast,
+    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock,
 } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
@@ -51,8 +51,9 @@ export default function Backups() {
     const form = useForm({
         enabled:   settings.enabled ?? false,
         interval:  settings.interval ?? 'daily',
-        retention: settings.retention ?? 7,
-        driver:    settings.driver ?? 'local',
+        retention:  settings.retention ?? 7,
+        driver:     settings.driver ?? 'local',
+        encryption: settings.encryption ?? false,
         smb: {
             host:     settings.smb?.host ?? '',
             share:    settings.smb?.share ?? '',
@@ -78,6 +79,7 @@ export default function Backups() {
     const mailPwSet = settings.mail?.password_set;
     const isSmb     = form.data.driver === 'smb';
     const mailOn    = form.data.mail.enabled;
+    const keyReady  = settings.encryption_available;
 
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
@@ -267,6 +269,43 @@ export default function Backups() {
                             </Button>
                         </div>
                     )}
+
+                    {/* ── Encryption at rest ────────────────────────────────── */}
+                    <div className="border-t border-border pt-4">
+                        <div className="flex items-center gap-2.5">
+                            <Switch
+                                checked={form.data.encryption}
+                                disabled={!keyReady}
+                                onCheckedChange={(v) => form.setData('encryption', v)}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => keyReady && form.setData('encryption', !form.data.encryption)}
+                                disabled={!keyReady}
+                                className="inline-flex items-center gap-1.5 text-sm text-foreground disabled:cursor-not-allowed"
+                            >
+                                <IconLock className="h-4 w-4 text-sage-600" stroke={1.5} />
+                                Encrypt archives at rest
+                            </button>
+                        </div>
+                        {form.errors.encryption && <p className="mt-1 text-xs text-danger">{form.errors.encryption}</p>}
+                        <p className="mt-2 text-xs text-text-tertiary">
+                            {keyReady ? (
+                                <>
+                                    Archives are encrypted with XChaCha20-Poly1305 before they leave the app. Keep{' '}
+                                    <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> somewhere safe and off this host —
+                                    without it an encrypted backup cannot be restored or read.
+                                </>
+                            ) : (
+                                <>
+                                    Set <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> in the environment to enable
+                                    encryption (a base64 32-byte key). Generate one with{' '}
+                                    <span className="font-mono">php artisan tinker</span> →{' '}
+                                    <span className="font-mono">ArchiveCipher::generateKey()</span>.
+                                </>
+                            )}
+                        </p>
+                    </div>
 
                     {/* ── Email notifications ───────────────────────────────── */}
                     <div className="border-t border-border pt-4">

@@ -18,10 +18,11 @@ class BackupSettings
         $d = config('backup.defaults');
 
         return [
-            'enabled'   => $d['enabled'],
-            'interval'  => $d['interval'],
-            'retention' => $d['retention'],
-            'driver'    => 'local', // local | smb
+            'enabled'    => $d['enabled'],
+            'interval'   => $d['interval'],
+            'retention'  => $d['retention'],
+            'driver'     => 'local', // local | smb
+            'encryption' => false,   // encrypt archives at rest (needs BACKUP_ENCRYPTION_KEY)
             'smb'  => ['host' => '', 'share' => '', 'path' => '', 'username' => '', 'password' => '', 'domain' => ''],
             'mail' => [
                 'enabled'      => false,
@@ -73,6 +74,10 @@ class BackupSettings
         unset($s['smb']['password'], $s['mail']['password']);
         $s['smb']['password_set']  = $smbSet;
         $s['mail']['password_set'] = $mailSet;
+
+        // Whether a BACKUP_ENCRYPTION_KEY exists at all — the UI disables the
+        // encryption toggle (and shows how to set the key) when it doesn't.
+        $s['encryption_available'] = \App\Services\Backup\ArchiveCipher::configured();
 
         return $s;
     }

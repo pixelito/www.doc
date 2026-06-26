@@ -70,6 +70,16 @@ class RestoreService
         // to a local temp file before unzipping.
         $local = DestinationFactory::make($backup->disk)->fetch($backup->path);
 
+        // Transparently decrypt if it's an encrypted archive. Detected by the
+        // magic bytes (not the DB flag), so a hand-recovered file still works;
+        // fromConfig() throws a clear error if BACKUP_ENCRYPTION_KEY is missing.
+        if (ArchiveCipher::isEncrypted($local)) {
+            $plain = $local . '.zip';
+            ArchiveCipher::fromConfig()->decryptFile($local, $plain);
+            @unlink($local);
+            $local = $plain;
+        }
+
         $zip = new ZipArchive();
         if ($zip->open($local) !== true) {
             throw new \RuntimeException('Could not open backup archive.');

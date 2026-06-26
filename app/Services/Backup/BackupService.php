@@ -50,10 +50,11 @@ class BackupService
             $this->writeAssets($work);
             $this->writeReadable($work);
 
-            $manifest = $this->writeManifest($work, $counts);
+            $encrypt  = $this->shouldEncrypt();
+            $manifest = $this->writeManifest($work, $counts, $encrypt);
 
             $zipPath = $this->zip($work);
-            $stored  = $this->storeArchive($backup, $zipPath);
+            $stored  = $this->storeArchive($backup, $zipPath, $encrypt);
 
             $backup->update([
                 'status'      => 'done',
@@ -225,8 +226,29 @@ class BackupService
 
     // ── Manifest ───────────────────────────────────────────────────────────────
 
+    /**
+     * Encrypt the archive at rest? Only when the admin enabled it AND a key is
+     * configured. If enabled but the key is missing we FAIL CLOSED — better a
+     * failed backup the admin notices than a plaintext archive they think is
+     * encrypted.
+     */
+    private function shouldEncrypt(): bool
+    {
+        if (! (BackupSettings::get()['encryption'] ?? false)) {
+            return false;
+        }
+
+        if (! ArchiveCipher::configured()) {
+            throw new \RuntimeException(
+                'Backup encryption is enabled but BACKUP_ENCRYPTION_KEY is not set.',
+            );
+        }
+
+        return true;
+    }
+
     /** @param array<string,int> $counts */
-    private function writeManifest(string $work, array $counts): array
+    private function writeManifest(string $work, array $counts, bool $encrypt): array
     {
         // Per-file sha256 over canonical/* and assets/* for integrity verification.
         $files = [];
@@ -243,6 +265,13 @@ class BackupService
             'schema_version' => $this->schemaVersion(),
             'app'            => config('app.name'),
             'created_at'     => now()->toIso8601String(),
+            // Recorded in the DB `backups` row too, so RestoreService knows an
+            // archive is encrypted WITHOUT first decrypting it (the manifest.json
+            // inside the zip is itself encrypted).
+            'encryption'     => [
+                'enabled' => $encrypt,
+                'cipher'  => $encrypt ? 'xchacha20poly1305-secretstream' : null,
+            ],
             'counts'         => $counts,
             'files'          => $files,
         ];
@@ -278,13 +307,27 @@ class BackupService
     }
 
     /** @return array{path:string,size:int} */
-    private function storeArchive(Backup $backup, string $zipPath): array
+    private function storeArchive(Backup $backup, string $zipPath, bool $encrypt): array
     {
-        $name = 'backup-' . now()->format('Ymd-His') . "-{$backup->id}.zip";
+        $name        = 'backup-' . now()->format('Ymd-His') . "-{$backup->id}.zip";
+        $destination = DestinationFactory::make($backup->disk);
 
         // The destination (local disk or SMB share) owns its own pathing; it
         // streams the archive in so an off-host target need not buffer it whole.
-        return DestinationFactory::make($backup->disk)->store($zipPath, $name);
+        if (! $encrypt) {
+            return $destination->store($zipPath, $name);
+        }
+
+        // Encrypt the whole zip to a sibling .enc (streamed, bounded memory),
+        // store that, then drop the intermediate. run() unlinks the plain zip.
+        $encPath = $zipPath . '.enc';
+        ArchiveCipher::fromConfig()->encryptFile($zipPath, $encPath);
+
+        try {
+            return $destination->store($encPath, "{$name}.enc");
+        } finally {
+            @unlink($encPath);
+        }
     }
 
     /** Keep only the most-recent N successful backups on this destination. */

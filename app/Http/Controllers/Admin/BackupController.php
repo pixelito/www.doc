@@ -68,6 +68,13 @@ class BackupController extends Controller
             'retention' => ['required', 'integer', 'min:1', 'max:365'],
             'driver'    => ['required', Rule::in(config('backup.drivers'))],
 
+            // Encrypt archives at rest — only allowed once a key exists in env.
+            'encryption' => ['required', 'boolean', function ($attr, $value, $fail) {
+                if ($value && ! \App\Services\Backup\ArchiveCipher::configured()) {
+                    $fail('Set BACKUP_ENCRYPTION_KEY before enabling archive encryption.');
+                }
+            }],
+
             // host + share are required only when SMB is the chosen driver.
             'smb.host'     => [Rule::requiredIf(fn () => $request->input('driver') === 'smb'), 'nullable', 'string', 'max:255'],
             'smb.share'    => [Rule::requiredIf(fn () => $request->input('driver') === 'smb'), 'nullable', 'string', 'max:255'],
@@ -223,12 +230,13 @@ class BackupController extends Controller
         $mail['password'] = $this->keepOrEncrypt($validated['mail']['password'] ?? '', $current['mail']['password'] ?? '');
 
         return [
-            'enabled'   => (bool) $validated['enabled'],
-            'interval'  => $validated['interval'],
-            'retention' => (int) $validated['retention'],
-            'driver'    => $validated['driver'],
-            'smb'       => $smb,
-            'mail'      => $mail,
+            'enabled'    => (bool) $validated['enabled'],
+            'interval'   => $validated['interval'],
+            'retention'  => (int) $validated['retention'],
+            'driver'     => $validated['driver'],
+            'encryption' => (bool) $validated['encryption'],
+            'smb'        => $smb,
+            'mail'       => $mail,
         ];
     }
 
