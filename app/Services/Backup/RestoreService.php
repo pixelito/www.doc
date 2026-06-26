@@ -36,23 +36,26 @@ class RestoreService
             $this->extract($backup, $work);
             $this->verify($work);
 
-            $canonical = fn (string $name) => json_decode(File::get("{$work}/canonical/{$name}"), true) ?? [];
-
-            DB::transaction(function () use ($canonical, $work) {
+            DB::transaction(function () use ($work) {
                 $this->wipe();
 
-                $this->insert('workspaces', $canonical('workspaces.json'));
-                $this->insertDocuments($canonical('documents.json'));
-                $this->insert('tags', $canonical('tags.json'));
-                $this->insertTaggables($canonical('documents.json'));
-                $this->insert('document_versions', $canonical('versions.json'));
-                $this->insert('links', $canonical('links.json'));
-                $this->insert('assets', $canonical('assets.json'));
+                // Small tables first; tags before documents so the taggable rows
+                // (written inside restoreDocuments) satisfy their FK.
+                $this->insert('workspaces', $this->jsonArray($work, 'workspaces'));
+                $this->insert('tags', $this->jsonArray($work, 'tags'));
+
+                // High-volume tables stream row-by-row from NDJSON (a format 1
+                // archive falls back to a single .json array — see canonicalRows).
+                $this->restoreDocuments($work);
+                $this->insertStreamed('document_versions', $work, 'versions');
+
+                $this->insert('links', $this->jsonArray($work, 'links'));
+                $this->insert('assets', $this->jsonArray($work, 'assets'));
 
                 $this->resyncSequences();
             });
 
-            $this->restoreAssetBinaries($canonical('assets.json'), $work);
+            $this->restoreAssetBinaries($this->jsonArray($work, 'assets'), $work);
             $this->reindexSearch();
         } finally {
             File::deleteDirectory($work);
@@ -110,46 +113,70 @@ class RestoreService
     }
 
     /**
-     * Documents carry a self-referential parent_id, so insert in two passes:
-     * every row parent-less first, then wire up parents once all ids exist.
+     * Documents carry a self-referential parent_id, so insert parent-less first,
+     * then wire up parents once all ids exist. The tag plumbing (taggables) is
+     * collected on the SAME streaming pass to avoid re-reading the file, and the
+     * heavy `content` jsonb is discarded each time a batch flushes — so memory
+     * stays bounded to one batch plus the (tiny, all-integer) parent/tag maps.
      */
-    private function insertDocuments(array $documents): void
+    private function restoreDocuments(string $work): void
     {
-        $parents = [];
-        $rows    = [];
-        foreach ($documents as $doc) {
+        $parents   = [];
+        $taggables = [];
+        $batch     = [];
+
+        $flush = function () use (&$batch) {
+            if ($batch) {
+                DB::table('documents')->insert($batch);
+                $batch = [];
+            }
+        };
+
+        foreach ($this->canonicalRows($work, 'documents') as $doc) {
+            foreach ($doc['tag_ids'] ?? [] as $tagId) {
+                $taggables[] = [
+                    'tag_id'        => $tagId,
+                    'taggable_type' => Document::class,
+                    'taggable_id'   => $doc['id'],
+                ];
+            }
             // Drop anything that isn't a documents column (the tag plumbing).
             unset($doc['tag_ids'], $doc['tags']);
+
             $parents[$doc['id']] = $doc['parent_id'] ?? null;
             $doc['parent_id']    = null;
-            $rows[]              = $this->encodeJsonColumns($doc);
-        }
 
-        foreach (array_chunk($rows, 200) as $chunk) {
-            DB::table('documents')->insert($chunk);
+            $batch[] = $this->encodeJsonColumns($doc);
+            if (count($batch) >= 200) {
+                $flush();
+            }
         }
+        $flush();
 
         foreach ($parents as $id => $parentId) {
             if ($parentId !== null) {
                 DB::table('documents')->where('id', $id)->update(['parent_id' => $parentId]);
             }
         }
+
+        foreach (array_chunk($taggables, 500) as $chunk) {
+            DB::table('taggables')->insert($chunk);
+        }
     }
 
-    private function insertTaggables(array $documents): void
+    /** Stream a high-volume table into Postgres in batches of 200. */
+    private function insertStreamed(string $table, string $work, string $base): void
     {
-        $rows = [];
-        foreach ($documents as $doc) {
-            foreach ($doc['tag_ids'] ?? [] as $tagId) {
-                $rows[] = [
-                    'tag_id'        => $tagId,
-                    'taggable_type' => Document::class,
-                    'taggable_id'   => $doc['id'],
-                ];
+        $batch = [];
+        foreach ($this->canonicalRows($work, $base) as $row) {
+            $batch[] = $this->encodeJsonColumns($row);
+            if (count($batch) >= 200) {
+                DB::table($table)->insert($batch);
+                $batch = [];
             }
         }
-        if ($rows) {
-            DB::table('taggables')->insert($rows);
+        if ($batch) {
+            DB::table($table)->insert($batch);
         }
     }
 
@@ -181,6 +208,44 @@ class RestoreService
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    /** A small canonical table dumped as a single JSON array; [] if absent. */
+    private function jsonArray(string $work, string $base): array
+    {
+        $path = "{$work}/canonical/{$base}.json";
+
+        return File::exists($path) ? (json_decode(File::get($path), true) ?? []) : [];
+    }
+
+    /**
+     * Yield rows for a high-volume table. Prefers the streamed NDJSON file
+     * (format 2+), reading it one line at a time; falls back to a single JSON
+     * array for format 1 archives.
+     *
+     * @return \Generator<int,array>
+     */
+    private function canonicalRows(string $work, string $base): \Generator
+    {
+        $ndjson = "{$work}/canonical/{$base}.ndjson";
+
+        if (File::exists($ndjson)) {
+            $handle = fopen($ndjson, 'r');
+            try {
+                while (($line = fgets($handle)) !== false) {
+                    $line = trim($line);
+                    if ($line !== '') {
+                        yield json_decode($line, true);
+                    }
+                }
+            } finally {
+                fclose($handle);
+            }
+
+            return;
+        }
+
+        yield from $this->jsonArray($work, $base); // format 1 fallback
+    }
 
     /** json_encode array-valued columns (content/metadata/tags jsonb) for raw insert. */
     private function encodeJsonColumns(array $row): array

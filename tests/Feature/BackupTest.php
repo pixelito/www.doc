@@ -39,6 +39,17 @@ function archiveEntries(Backup $backup): array
     return $names;
 }
 
+/** Read a single entry's contents out of a backup archive. */
+function archiveEntry(Backup $backup, string $name): string|false
+{
+    $zip = new ZipArchive();
+    $zip->open(Storage::disk($backup->disk)->path($backup->path));
+    $contents = $zip->getFromName($name);
+    $zip->close();
+
+    return $contents;
+}
+
 test('non-admins cannot reach the backups area', function () {
     login(role: 'editor');
 
@@ -168,17 +179,46 @@ test('a backup produces an archive with the canonical layer and a manifest', fun
     $entries = archiveEntries($backup);
     expect($entries)
         ->toContain('manifest.json')
-        ->toContain('canonical/documents.json')
+        ->toContain('canonical/documents.ndjson')
         ->toContain('canonical/workspaces.json')
         ->toContain('canonical/users.json');
 
     expect($backup->manifest['counts']['documents'])->toBe(1);
-    expect($backup->manifest['files'])->toHaveKey('canonical/documents.json'); // sha256 present
+    expect($backup->manifest['files'])->toHaveKey('canonical/documents.ndjson'); // sha256 present
 
     // The readable layer is PDF-per-page (non-authoritative; not checksummed).
     expect(collect($entries)->contains(
         fn ($e) => str_starts_with($e, 'readable/') && str_ends_with($e, '.pdf')
     ))->toBeTrue();
+});
+
+test('the canonical layer streams documents as NDJSON and restores at scale', function () {
+    Storage::fake('local');
+    login();
+
+    $ws = Workspace::factory()->create();
+    Document::factory()->for($ws)->count(300)->create([
+        'content' => DocumentFactory::tiptap('Scale me.'),
+    ]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+    $backup->refresh();
+
+    // NDJSON: one JSON object per line, not a single pretty-printed array.
+    $ndjson = archiveEntry($backup, 'canonical/documents.ndjson');
+    expect($ndjson)->not->toBeFalse();
+
+    $lines = array_values(array_filter(explode("\n", trim($ndjson))));
+    expect($lines)->toHaveCount(300);
+    expect(json_decode($lines[0], true))->toHaveKeys(['id', 'title', 'content', 'tag_ids']);
+
+    // The whole set streams back losslessly (crosses the 200-row insert batch).
+    Document::query()->delete(); // soft-delete drives the visible count to 0
+    expect(Document::count())->toBe(0);
+
+    app(RestoreService::class)->restore($backup->fresh());
+    expect(Document::count())->toBe(300);
 });
 
 test('the manual backup endpoint queues a run and records it', function () {

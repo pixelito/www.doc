@@ -7,9 +7,11 @@ return [
     | Archive format version
     |--------------------------------------------------------------------------
     | Written into each backup's manifest. Bump when the canonical layout
-    | changes so a future RestoreService can branch on it.
+    | changes so a future RestoreService can branch on it. v2 streams the
+    | documents/versions tables as NDJSON (v1 dumped them as single JSON arrays;
+    | RestoreService still reads v1 archives by falling back to the .json files).
     */
-    'format_version' => 1,
+    'format_version' => 2,
 
     /*
     |--------------------------------------------------------------------------

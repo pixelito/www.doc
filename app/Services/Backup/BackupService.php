@@ -21,16 +21,19 @@ use ZipArchive;
 /**
  * Builds a backup archive: ONE `.zip` with two layers.
  *
- *  - canonical/  — the authoritative restore source: a JSON dump of the whole
- *    content model (content jsonb VERBATIM) + every referenced asset binary,
- *    described by manifest.json (format/schema version, counts, per-file sha256).
+ *  - canonical/  — the authoritative restore source: a dump of the whole content
+ *    model (content jsonb VERBATIM) + every referenced asset binary, described by
+ *    manifest.json (format/schema version, counts, per-file sha256). The two
+ *    high-volume tables (documents, versions) are streamed as NDJSON — one JSON
+ *    object per line — so peak memory stays flat regardless of page count; the
+ *    small tables stay as single JSON files.
  *  - readable/   — PDF-per-page foldered by workspace/tree, for humans/auditors.
  *    Explicitly NON-authoritative; RestoreService never reads it. PDF (not DOCX)
  *    because canonical JSON owns restore, so this layer only needs to be read:
  *    PDF is portable, fixed-fidelity and the archival norm auditors expect.
  *
  * Heavy work, so it runs inside RunBackupJob on the queue. Writes to a PRIVATE
- * disk (`local` by default, `s3` for off-host), never `public`.
+ * destination (`local` disk by default, or an SMB share off-host), never `public`.
  */
 class BackupService
 {
@@ -72,25 +75,14 @@ class BackupService
     /** @return array<string,int> counts by entity */
     private function writeCanonical(string $work): array
     {
+        // Small, bounded tables: dump whole (users.json is a keyed map too).
         // withTrashed: a backup must capture the Trash too, so a restore is a
         // faithful point-in-time copy (soft-deleted rows included).
         $workspaces = Workspace::withTrashed()->orderBy('id')->get()
             ->map(fn (Workspace $w) => $w->makeVisible(['deleted_at'])->toArray());
 
-        $documents = Document::withTrashed()->with('tags:id')->orderBy('id')->get()
-            ->map(function (Document $d) {
-                $row = $d->makeVisible(['deleted_at'])->toArray();
-                // Store tag ids alongside the columns, but drop the eager-loaded
-                // relation blob — `tags` is not a documents column.
-                unset($row['tags']);
-                $row['tag_ids'] = $d->tags->pluck('id')->all();
-
-                return $row;
-            });
-
-        $versions = DocumentVersion::orderBy('id')->get()->map->toArray();
-        $tags     = Tag::orderBy('id')->get()->map->toArray();
-        $links    = Link::orderBy('id')->get()->map->toArray();
+        $tags  = Tag::orderBy('id')->get()->map->toArray();
+        $links = Link::orderBy('id')->get()->map->toArray();
 
         // id → name/email/role map: enough to re-attribute authorship on restore
         // without dumping password hashes.
@@ -105,22 +97,84 @@ class BackupService
         $assets = Asset::orderBy('id')->get()->map->toArray();
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
-        $this->putJson("{$work}/canonical/documents.json", $documents);
-        $this->putJson("{$work}/canonical/versions.json", $versions);
         $this->putJson("{$work}/canonical/tags.json", $tags);
         $this->putJson("{$work}/canonical/links.json", $links);
         $this->putJson("{$work}/canonical/users.json", $users);
         $this->putJson("{$work}/canonical/assets.json", $assets);
 
+        // High-volume tables stream to NDJSON (one JSON object per line) so peak
+        // memory stays flat no matter how many pages/versions exist — each row is
+        // encoded and flushed individually, never the whole collection at once.
+        $documents = $this->putDocumentsNdjson("{$work}/canonical/documents.ndjson");
+        $versions  = $this->putNdjson(
+            "{$work}/canonical/versions.ndjson",
+            DocumentVersion::lazyById(500)->map(fn (DocumentVersion $v) => $v->toArray()),
+        );
+
         return [
             'workspaces' => $workspaces->count(),
-            'documents'  => $documents->count(),
-            'versions'   => $versions->count(),
+            'documents'  => $documents,
+            'versions'   => $versions,
             'tags'       => $tags->count(),
             'links'      => $links->count(),
             'users'      => $users->count(),
             'assets'     => $assets->count(),
         ];
+    }
+
+    /**
+     * Stream the documents table to NDJSON, eager-loading tag ids per chunk
+     * (lazyById batches the relation load, so no N+1). Returns the row count.
+     */
+    private function putDocumentsNdjson(string $path): int
+    {
+        $handle = fopen($path, 'w');
+        $count  = 0;
+
+        try {
+            Document::withTrashed()->with('tags:id')->lazyById(500)
+                ->each(function (Document $d) use ($handle, &$count) {
+                    $row = $d->makeVisible(['deleted_at'])->toArray();
+                    // Store tag ids alongside the columns, but drop the eager-loaded
+                    // relation blob — `tags` is not a documents column.
+                    unset($row['tags']);
+                    $row['tag_ids'] = $d->tags->pluck('id')->all();
+
+                    fwrite($handle, $this->ndjsonLine($row));
+                    $count++;
+                });
+        } finally {
+            fclose($handle);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Write an iterable of array rows as NDJSON; returns the row count. The
+     * iterable is consumed lazily, so a LazyCollection keeps memory flat.
+     */
+    private function putNdjson(string $path, iterable $rows): int
+    {
+        $handle = fopen($path, 'w');
+        $count  = 0;
+
+        try {
+            foreach ($rows as $row) {
+                fwrite($handle, $this->ndjsonLine($row));
+                $count++;
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return $count;
+    }
+
+    private function ndjsonLine(array $row): string
+    {
+        // One record per line — never pretty-printed, or it wouldn't stream.
+        return json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
 
     /** Copy every referenced asset binary into the archive. */
