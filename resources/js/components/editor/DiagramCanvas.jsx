@@ -22,7 +22,6 @@ import {
     addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { buildDiagramSvg } from './diagramSvg';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
@@ -37,7 +36,6 @@ import {
     IconLayoutAlignTop, IconLayoutAlignMiddle, IconLayoutAlignBottom,
     IconLayoutDistributeHorizontal, IconLayoutDistributeVertical,
 } from '@tabler/icons-react';
-import { uploadFile, dataUriToFile } from '@/extensions/ImageUpload';
 
 /**
  * The editable React Flow canvas for a diagram node. Lazy-loaded by the diagram
@@ -58,6 +56,7 @@ const uid = () =>
 const NodeBehavior = createContext({
     editable: false, onLabelChange: () => {}, onKindChange: () => {},
     onNodeColorChange: () => {}, onNodeColorLive: () => {}, onPersist: () => {},
+    snapToGrid: false,
 });
 
 // Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
@@ -141,6 +140,12 @@ const miniMapNodeColor = (n) => {
 // picker's drag (the canvas debounces it into a single undo entry).
 function NodeColorRow({ value, onPick, onLive, includeDefault = true }) {
     const isCustom = isHexColor(value);
+    const [localValue, setLocalValue] = useState(isCustom ? value : '#7E9D72');
+    
+    useEffect(() => {
+        setLocalValue(isCustom ? value : '#7E9D72');
+    }, [value, isCustom]);
+
     const colors = includeDefault ? NODE_COLORS : NODE_COLORS.filter((c) => c.id !== 'default');
     return (
         <div className="flex items-center gap-1 px-0.5">
@@ -157,12 +162,15 @@ function NodeColorRow({ value, onPick, onLive, includeDefault = true }) {
             <label
                 title="Custom colour"
                 className={`relative h-4 w-4 cursor-pointer overflow-hidden rounded-full border ${isCustom ? 'border-foreground' : 'border-border'}`}
-                style={{ background: isCustom ? value : 'conic-gradient(from 90deg, #B5573E, #C99650, #4B6840, #6E8AA7, #6A5286, #B5573E)' }}
+                style={{ background: isCustom ? localValue : 'conic-gradient(from 90deg, #B5573E, #C99650, #4B6840, #6E8AA7, #6A5286, #B5573E)' }}
             >
                 <input
                     type="color"
-                    value={isCustom ? value : '#7E9D72'}
-                    onChange={(e) => onLive(e.target.value)}
+                    value={localValue}
+                    onChange={(e) => {
+                        setLocalValue(e.target.value);
+                        onLive(e.target.value);
+                    }}
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 />
             </label>
@@ -180,7 +188,7 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onPersist } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(data.label ?? '');
 
@@ -190,6 +198,13 @@ function LabeledNode({ id, data, selected }) {
     // Start the icon picker expanded if this node already uses a non-core icon,
     // so its current type is visible without hunting for the expand toggle.
     const [kindsExpanded, setKindsExpanded] = useState(() => EXTRA_KIND_IDS.has(kind));
+    
+    // Auto-collapse when deselected
+    useEffect(() => {
+        if (!selected) {
+            setKindsExpanded(EXTRA_KIND_IDS.has(data.kind ?? 'generic'));
+        }
+    }, [selected, data.kind]);
     const shownKinds = kindsExpanded ? NODE_KINDS : CORE_KINDS;
     const Icon = kindMeta(kind).Icon;
     const color = colorMeta(data.color ?? 'default');
@@ -205,7 +220,7 @@ function LabeledNode({ id, data, selected }) {
         // (minWidth keeps small labels legible).
         <div
             onDoubleClick={() => editable && setEditing(true)}
-            className={`group flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-foreground shadow-sm ${
+            className={`group flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-bold text-foreground shadow-md ${
                 selected ? 'ring-1 ring-sage-400' : ''
             }`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
@@ -216,7 +231,7 @@ function LabeledNode({ id, data, selected }) {
                     minHeight={40}
                     isVisible={selected}
                     lineClassName="!border-sage-400"
-                    handleClassName="!h-2 !w-2 !rounded-sm !border-sage-400 !bg-surface"
+                    handleClassName="!h-3 !w-3 !rounded-sm !border-sage-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
@@ -323,7 +338,7 @@ function GroupNode({ id, data, selected }) {
                     minHeight={90}
                     isVisible={selected}
                     lineClassName="!border-sage-400"
-                    handleClassName="!h-2 !w-2 !rounded-sm !border-sage-400 !bg-surface"
+                    handleClassName="!h-3 !w-3 !rounded-sm !border-sage-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
@@ -572,37 +587,11 @@ const hydrateEdges = (raw) =>
         targetHandle: e.targetHandle ?? 'top',
     }));
 
-// Compact icon button for the toolbar overlays (align/distribute row).
-function ToolbarIconButton({ title, onClick, disabled, children }) {
-    return (
-        <button
-            type="button"
-            title={title}
-            onClick={onClick}
-            disabled={disabled}
-            className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
-        >
-            {children}
-        </button>
-    );
-}
-
 const HISTORY_LIMIT = 60;
 
 // Hoisted so it isn't a fresh object on every render (which makes React Flow
 // re-run its option effects each drag frame).
 const PRO_OPTIONS = { hideAttribution: true };
-
-// requestIdleCallback (with a setTimeout fallback for Safari) so the background PNG
-// capture rasterises while the main thread is idle, instead of hitching right after
-// a drag.
-const requestIdle = typeof window !== 'undefined' && window.requestIdleCallback
-    ? window.requestIdleCallback.bind(window)
-    : (fn) => setTimeout(() => fn({ didTimeout: true }), 1);
-const cancelIdle = typeof window !== 'undefined' && window.cancelIdleCallback
-    ? window.cancelIdleCallback.bind(window)
-    : clearTimeout;
-
 
 // Snap step for the optional grid — matches the dotted Background gap so nodes
 // land on the dots.
@@ -612,7 +601,7 @@ const SNAP_GRID = [18, 18];
 // read-view pan boundary, so viewers can pan/zoom but not wander into the void.
 const READ_VIEW_MARGIN = 80;
 
-function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
+function Canvas({ graph, editable, name, onChange, onActivate }) {
     const seed = useRef(graph ?? { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
     const wrapperRef = useRef(null);
     const rf = useReactFlow();
@@ -620,7 +609,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     // Persisted per-diagram settings (snap-to-grid + the routing new connections
     // take). Seeded from the saved graph and written back via persist().
     const settingsSeed = seed.current.settings ?? {};
-    const [snap, setSnap] = useState(settingsSeed.snap ?? false);
+    const [snap, setSnap] = useState(settingsSeed.snap ?? true);
     const [defaultRouting, setDefaultRouting] = useState(
         ROUTING_MODES.includes(settingsSeed.routing) ? settingsSeed.routing : 'curved',
     );
@@ -708,8 +697,8 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         syncHist();
     };
 
-    // persist + record an undo step + refresh the derived PNG.
-    const commit = () => { persist(); pushHistory(); scheduleCapture(); };
+    // persist + record an undo step.
+    const commit = () => { persist(); pushHistory(); };
 
     const restore = (snap) => {
         setNodes(hydrateNodes(snap.nodes));
@@ -717,7 +706,6 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         viewportRef.current = snap.viewport ?? viewportRef.current;
         rf.setViewport(viewportRef.current);
         persist();          // reflect the restored state into the document
-        scheduleCapture();
     };
     const undo = () => {
         flushNudge();   // record a pending arrow-nudge run before stepping back
@@ -797,124 +785,9 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         };
     }, [editable]);
 
-    // Derive the PNG that read view / PDF / DOCX / search / version snapshots
-    // show. Debounced after edits settle; renders all nodes (fit to bounds,
-    // independent of current pan/zoom), uploads via the asset API, and reports
-    // the URL back. On an empty diagram the image is cleared; failures keep the
-    // last good image rather than blanking it.
-    const captureTimer = useRef(null);
-    const captureIdle = useRef(null);
-    const capturing = useRef(false);
 
-    // Resolve every node to an absolute box (children of a zone store their position
-    // relative to it) with its measured size — the inputs the SVG builder needs.
-    const placeNodes = () => {
-        const rfNodes = rf.getNodes();
-        const byId = new Map(rfNodes.map((n) => [n.id, n]));
-        return rfNodes.map((n) => {
-            const isGroup = n.type === 'group';
-            const w = n.measured?.width ?? n.width ?? (isGroup ? 240 : 150);
-            const h = n.measured?.height ?? n.height ?? (isGroup ? 150 : 40);
-            let x = n.position.x, y = n.position.y;
-            let currentParentId = n.parentId;
-            while (currentParentId) {
-                const parent = byId.get(currentParentId);
-                if (!parent) break;
-                x += parent.position.x;
-                y += parent.position.y;
-                currentParentId = parent.parentId;
-            }
-            return { id: n.id, type: isGroup ? 'group' : 'labeled', x, y, w, h,
-                label: n.data?.label, color: n.data?.color, iconKind: n.data?.kind };
-        });
-    };
-
-    // Rasterise a generated SVG to a PNG data URL via an offscreen canvas. The SVG is
-    // pure shapes + text from a blob URL, so the canvas isn't tainted and toDataURL
-    // works. Output is capped so large diagrams don't blow up the PNG.
-    const svgToPng = (svg, width, height) => new Promise((resolve, reject) => {
-        const scale = Math.min(2, 1400 / Math.max(width, height, 1));
-        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
-        const img = new Image();
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.max(1, Math.round(width * scale));
-                canvas.height = Math.max(1, Math.round(height * scale));
-                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/png'));
-            } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('diagram SVG raster failed')); };
-        img.src = url;
-    });
-
-    // Derive the export PNG from the canonical graph (not the live DOM): build an SVG
-    // and rasterise it. Far cheaper than html-to-image, so it never hitches editing.
-    // Shared by the auto-capture and the manual download; null when there's nothing.
-    const renderPng = async () => {
-        const placed = placeNodes();
-        if (!placed.length) return null;
-        const built = buildDiagramSvg(placed, edgesRef.current);
-        if (!built) return null;
-        return svgToPng(built.svg, built.width, built.height);
-    };
-
-    const runCapture = async () => {
-        if (capturing.current) { scheduleCapture(); return; }
-        if (!nodesRef.current.length) { onImage?.(null); return; }
-
-        capturing.current = true;
-        try {
-            const dataUrl = await renderPng();
-            if (dataUrl) {
-                const { url } = await uploadFile(dataUriToFile(dataUrl, 'network-diagram.png'));
-                onImage?.(url);
-            }
-        } catch (e) {
-            console.warn('Network diagram capture failed', e);
-        } finally {
-            capturing.current = false;
-        }
-    };
-
-    // Download the diagram on its own as a PNG file (works in read view too).
-    const [downloading, setDownloading] = useState(false);
-    const downloadPng = async () => {
-        if (downloading) return;
-        setDownloading(true);
-        try {
-            const dataUrl = await renderPng();
-            if (!dataUrl) return;
-            const slug = (name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = `${slug || 'network-diagram'}.png`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        } catch (e) {
-            console.warn('Network diagram download failed', e);
-        } finally {
-            setDownloading(false);
-        }
-    };
-
-    const scheduleCapture = () => {
-        if (!editable) return;
-        clearTimeout(captureTimer.current);
-        cancelIdle(captureIdle.current);
-        // Debounce generously so a run of edits (dragging several nodes around) never
-        // triggers a capture mid-work; then wait for the main thread to be idle before
-        // rasterising, so it can't hitch an active gesture.
-        captureTimer.current = setTimeout(() => {
-            captureIdle.current = requestIdle(runCapture, { timeout: 2000 });
-        }, 1500);
-    };
 
     useEffect(() => () => {
-        clearTimeout(captureTimer.current);
-        cancelIdle(captureIdle.current);
         clearTimeout(nudgeTimer.current);
         clearTimeout(colorTimer.current);
     }, []);
@@ -987,10 +860,8 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
     const colorTimer = useRef(null);
     const onNodeColorLive = (id, color) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n)));
-        persist();
-        scheduleCapture();
         clearTimeout(colorTimer.current);
-        colorTimer.current = setTimeout(() => { colorTimer.current = null; pushHistory(); }, 400);
+        colorTimer.current = setTimeout(() => { colorTimer.current = null; commit(); }, 400);
     };
 
     const addNode = () => {
@@ -1082,7 +953,7 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         setNodes(nodesRef.current.map((n) =>
             ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n));
         persist();
-        scheduleCapture();
+        persist();
         clearTimeout(nudgeTimer.current);
         nudgeTimer.current = setTimeout(() => { nudgeTimer.current = null; pushHistory(); }, 350);
         return true;
@@ -1237,13 +1108,59 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
         onEdgeChange: (...a) => behaviorRef.current.onEdgeChange(...a),
         onEdgeDelete: (...a) => behaviorRef.current.onEdgeDelete(...a),
         onPersist: (...a) => behaviorRef.current.onPersist(...a),
-    }), [editable]);
+        snapToGrid: snap,
+    }), [editable, snap]);
 
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
     // the Controls lock button can toggle it; the read-only mount pins it all off.
     const interactionProps = editable
         ? {}
         : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
+
+    const [downloading, setDownloading] = useState(false);
+
+    const downloadSvg = async () => {
+        if (downloading) return;
+        setDownloading(true);
+        try {
+            const graph = { 
+                nodes: cleanNodes(rf.getNodes()), 
+                edges: cleanEdges(rf.getEdges()) 
+            };
+            
+            if (!graph.nodes.length) return;
+            
+            const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+            const token = tokenMeta ? tokenMeta.getAttribute('content') : '';
+
+            const res = await fetch('/documents/diagram-export', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token 
+                },
+                body: JSON.stringify({ graph, name })
+            });
+
+            if (!res.ok) throw new Error('Export failed');
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const slug = (name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${slug || 'network-diagram'}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.warn('Network diagram download failed', e);
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     return (
         <NodeBehavior.Provider value={behavior}>
@@ -1392,9 +1309,9 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                             <span className="mx-px w-px self-stretch bg-border" />
                             <button
                                 type="button"
-                                onClick={downloadPng}
+                                onClick={downloadSvg}
                                 disabled={downloading || nodes.length === 0}
-                                title="Download diagram as PNG"
+                                title="Download diagram as SVG"
                                 className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
                             >
                                 <IconDownload className="h-3.5 w-3.5" stroke={1.5} />
@@ -1449,9 +1366,9 @@ function Canvas({ graph, editable, name, onChange, onImage, onActivate }) {
                     {!editable && nodes.length > 0 && (
                         <button
                             type="button"
-                            onClick={downloadPng}
+                            onClick={downloadSvg}
                             disabled={downloading}
-                            title="Download diagram as PNG"
+                            title="Download diagram as SVG"
                             className="absolute right-2 top-2 z-10 flex items-center justify-center rounded-sm border border-border bg-card/90 p-1.5 text-text-secondary shadow-sm backdrop-blur transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40"
                         >
                             <IconDownload className="h-3.5 w-3.5" stroke={1.5} />

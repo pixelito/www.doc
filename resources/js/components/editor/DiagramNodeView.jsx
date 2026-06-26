@@ -21,7 +21,6 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
     const name = (node.attrs.name ?? '').trim();
 
     const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
-    const onImage = useCallback((src) => updateAttributes({ imageSrc: src }), [updateAttributes]);
 
     // Select this node in ProseMirror when its canvas is interacted with — the
     // canvas swallows the click that would normally create the NodeSelection, so
@@ -89,7 +88,7 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
                 </div>
                 <div style={{ height: 440 }}>
                     <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
-                        <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onImage={onImage} onActivate={onActivate} />
+                        <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onActivate={onActivate} />
                     </Suspense>
                 </div>
             </div>

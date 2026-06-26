@@ -34,10 +34,6 @@ export const Diagram = Node.create({
                 default: EMPTY_GRAPH,
                 renderHTML: () => ({}),
             },
-            imageSrc: {
-                default: null,
-                renderHTML: () => ({}),
-            },
             // User-facing diagram name. Rendered by the node-level renderHTML and
             // the NodeView (as a caption), never as a bare DOM attribute.
             name: {
@@ -60,22 +56,10 @@ export const Diagram = Node.create({
     },
 
     renderHTML({ node }) {
-        const src = node.attrs.imageSrc;
         const align = node.attrs.align ?? 'left';
         const name = (node.attrs.name ?? '').trim();
         const label = name || 'Untitled diagram';
 
-        if (src) {
-            const style =
-                'max-width:100%;display:block;' +
-                (align === 'center' ? 'margin:0 auto;' : align === 'right' ? 'margin-left:auto;' : '');
-            return ['figure', { 'data-network-diagram': 'true', class: 'network-diagram-figure' },
-                ['img', { src, alt: label, class: 'network-diagram', style }],
-                ['figcaption', { class: 'network-diagram-caption' }, label],
-            ];
-        }
-
-        // No render yet (e.g. freshly inserted, pre-save) — a labelled placeholder.
         return ['div', { 'data-network-diagram': 'true', class: 'network-diagram-placeholder' }, label];
     },
 
