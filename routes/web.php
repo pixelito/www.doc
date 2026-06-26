@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
@@ -23,6 +24,7 @@ Route::pattern('workspace', '[0-9]+');
 Route::pattern('tag', '[0-9]+');
 Route::pattern('job', '[0-9]+');
 Route::pattern('user', '[0-9]+');
+Route::pattern('backup', '[0-9]+');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -43,6 +45,16 @@ Route::middleware('auth')->group(function () {
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        // Backups & restore (NIS2). 'settings'/'run' declared before {backup} so
+        // they aren't read as ids (the [0-9]+ pattern already prevents that).
+        Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
+        Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
+        Route::patch('backups/settings', [AdminBackupController::class, 'updateSettings'])->name('backups.settings');
+        Route::get('backups/{backup}', [AdminBackupController::class, 'show'])->name('backups.show');
+        Route::get('backups/{backup}/download', [AdminBackupController::class, 'download'])->name('backups.download');
+        Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
+        Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
     });
 
     // Document tree operations — declared before the resource so 'reorder'

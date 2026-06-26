@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { IconUser, IconUsers } from '@tabler/icons-react';
+import { IconUser, IconUsers, IconDatabaseExport } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 
 // Thin wrapper over the single base layout — adds the settings tabs. Flash
@@ -7,8 +7,9 @@ import DocsLayout from '@/Layouts/DocsLayout';
 
 // Settings tabs. Personal ones show for everyone; admin ones only for admins.
 const TABS = [
-    { label: 'Profile', href: '/settings/profile', icon: IconUser,  adminOnly: false },
-    { label: 'Users',   href: '/admin/users',      icon: IconUsers, adminOnly: true },
+    { label: 'Profile', href: '/settings/profile', icon: IconUser,           adminOnly: false },
+    { label: 'Users',   href: '/admin/users',      icon: IconUsers,          adminOnly: true },
+    { label: 'Backups', href: '/admin/backups',    icon: IconDatabaseExport, adminOnly: true },
 ];
 
 export default function SettingsLayout({ children }) {
