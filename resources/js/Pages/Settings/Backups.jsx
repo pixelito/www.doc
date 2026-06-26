@@ -8,7 +8,7 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
@@ -80,22 +80,31 @@ export default function Backups() {
                 </p>
 
                 <form onSubmit={saveSettings} className="mt-4 space-y-4">
-                    <label className="flex items-center gap-2.5">
-                        <Checkbox
+                    <div className="flex items-center gap-2.5">
+                        <Switch
                             checked={form.data.enabled}
-                            onChange={(e) => form.setData('enabled', e.target.checked)}
+                            onCheckedChange={(v) => form.setData('enabled', v)}
                         />
-                        <span className="text-sm text-foreground">Run backups automatically</span>
-                    </label>
+                        <button
+                            type="button"
+                            onClick={() => form.setData('enabled', !form.data.enabled)}
+                            className="text-sm text-foreground"
+                        >
+                            Run backups automatically
+                        </button>
+                    </div>
 
-                    <div className="space-y-4">
+                    {/* Schedule options are only meaningful when automatic backups
+                        are on — disable them while the switch is off. */}
+                    <div className={`space-y-4 ${form.data.enabled ? '' : 'opacity-60'}`}>
                         <div>
                             <Label htmlFor="interval">Frequency</Label>
                             <select
                                 id="interval"
                                 value={form.data.interval}
                                 onChange={(e) => form.setData('interval', e.target.value)}
-                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground"
+                                disabled={!form.data.enabled}
+                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground disabled:cursor-not-allowed"
                             >
                                 {intervals.map((i) => <option key={i} value={i}>{INTERVAL_LABELS[i] ?? i}</option>)}
                             </select>
@@ -106,7 +115,8 @@ export default function Backups() {
                                 id="disk"
                                 value={form.data.disk}
                                 onChange={(e) => form.setData('disk', e.target.value)}
-                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm uppercase text-foreground"
+                                disabled={!form.data.enabled}
+                                className="ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm uppercase text-foreground disabled:cursor-not-allowed"
                             >
                                 {disks.map((d) => <option key={d} value={d}>{d}</option>)}
                             </select>
@@ -120,7 +130,8 @@ export default function Backups() {
                                 max={365}
                                 value={form.data.retention}
                                 onChange={(e) => form.setData('retention', e.target.value)}
-                                className="mt-1"
+                                disabled={!form.data.enabled}
+                                className="mt-1 disabled:opacity-100"
                             />
                         </div>
                     </div>
