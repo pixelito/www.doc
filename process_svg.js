@@ -57,16 +57,21 @@ $('[filter]').removeAttr('filter');
 svgContent = $.xml();
 fs.writeFileSync(svgOutPath, svgContent);
 
-const opts = {
-    fitTo: { mode: 'original' },
-    font: {
-        fontFiles: [fontPath],
-        loadSystemFonts: false,
-        defaultFontFamily: 'Lexend'
-    }
-};
+// The processed SVG (text baked to Lexend paths, no <style>/<defs>/filters) is
+// the primary artifact — Dompdf renders it as crisp vector. The PNG is only a
+// raster fallback, so render it lazily when a path is actually requested.
+if (pngOutPath) {
+    const opts = {
+        fitTo: { mode: 'original' },
+        font: {
+            fontFiles: [fontPath],
+            loadSystemFonts: false,
+            defaultFontFamily: 'Lexend'
+        }
+    };
 
-const resvg = new Resvg(svgContent, opts);
-const pngData = resvg.render();
-const pngBuffer = pngData.asPng();
-fs.writeFileSync(pngOutPath, pngBuffer);
+    const resvg = new Resvg(svgContent, opts);
+    const pngData = resvg.render();
+    const pngBuffer = pngData.asPng();
+    fs.writeFileSync(pngOutPath, pngBuffer);
+}

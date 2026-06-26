@@ -171,21 +171,24 @@ class NetworkDiagramNode extends Node
             $src = 'data:image/svg+xml;base64,' . base64_encode($svg['svg']);
             
             if (\App\Services\RenderDocument::$embedImages) {
-                // PDF export: convert SVG to PNG using process_svg.js to bypass Dompdf's buggy php-svg-lib 
-                // which corrupts icon transforms and ignores embedded CSS fonts.
+                // PDF export: Dompdf's php-svg-lib draws our SVG's icons, transforms
+                // and geometry correctly but IGNORES the embedded @font-face, so
+                // diagram text would fall back to a serif default. process_svg.js
+                // bakes the text into Lexend vector PATHS (and strips the
+                // unsupported <style>/<defs>/filters), giving an SVG that stays
+                // crisp at any zoom — unlike a rasterised PNG. We keep embedding
+                // it as SVG (vector), not PNG, and only fall back to the raw inline
+                // SVG if the Node pass is unavailable.
                 $scriptPath = base_path('process_svg.js');
                 if (file_exists($scriptPath)) {
-                    $svgFileIn = sys_get_temp_dir() . '/' . uniqid('pdf_svg_in_') . '.svg';
+                    $svgFileIn  = sys_get_temp_dir() . '/' . uniqid('pdf_svg_in_') . '.svg';
                     $svgFileOut = sys_get_temp_dir() . '/' . uniqid('pdf_svg_out_') . '.svg';
-                    $pngFile = $svgFileOut . '_fallback.png';
-                    
+
                     file_put_contents($svgFileIn, $svg['svg']);
-                    shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile));
-                    
-                    if (file_exists($pngFile)) {
-                        $pngData = file_get_contents($pngFile);
-                        $src = 'data:image/png;base64,' . base64_encode($pngData);
-                        @unlink($pngFile);
+                    shell_exec('node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($svgFileIn) . ' ' . escapeshellarg($svgFileOut));
+
+                    if (is_file($svgFileOut) && filesize($svgFileOut) > 0) {
+                        $src = 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($svgFileOut));
                         @unlink($svgFileOut);
                     }
                     @unlink($svgFileIn);

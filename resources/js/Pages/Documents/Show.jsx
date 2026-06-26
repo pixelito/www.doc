@@ -150,7 +150,7 @@ function ExportModal({ documentId, open, onClose }) {
     useEffect(() => () => clearInterval(pollRef.current), []);
 
     const formats = [
-        { value: 'pdf',  label: 'PDF',  description: 'Print-ready with headers, page numbers & TOC' },
+        { value: 'pdf',  label: 'PDF',  description: 'Print-ready with headers & page numbers' },
         { value: 'docx', label: 'DOCX', description: 'Microsoft Word — preserves all formatting' },
     ];
 

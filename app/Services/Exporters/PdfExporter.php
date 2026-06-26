@@ -154,7 +154,12 @@ class PdfExporter implements ExporterContract
                 }
                 img { max-width: 100%; height: auto; }
                 a { color: #4A6741; text-decoration: none; }
-                .wiki-link { color: #5C625C; }
+                /* Match the live read view: sage-600 text, sage-300 underline. */
+                .wiki-link {
+                    color: #4B6840; font-weight: 500;
+                    text-decoration: underline;
+                    text-decoration-color: #9FB994;
+                }
             </style>
         </head>
         <body>
