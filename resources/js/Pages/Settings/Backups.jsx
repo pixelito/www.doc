@@ -8,6 +8,7 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
@@ -80,11 +81,9 @@ export default function Backups() {
 
                 <form onSubmit={saveSettings} className="mt-4 space-y-4">
                     <label className="flex items-center gap-2.5">
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={form.data.enabled}
                             onChange={(e) => form.setData('enabled', e.target.checked)}
-                            className="h-4 w-4 rounded border-border text-sage-400 focus:ring-sage-200"
                         />
                         <span className="text-sm text-foreground">Run backups automatically</span>
                     </label>
