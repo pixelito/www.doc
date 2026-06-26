@@ -433,10 +433,45 @@ class DocxExporter implements ExporterContract
                 'underline' => $style['underline'] = 'single',
                 'strike'    => $style['strikethrough'] = true,
                 'code'      => $style['name'] = 'Courier New',
+                'textStyle' => $this->applyColor($style, $mark['attrs']['color'] ?? null),
+                'highlight' => $this->applyHighlight($style, $mark['attrs']['color'] ?? null),
                 default     => null,
             };
         }
         return $style;
+    }
+
+    /** Apply the text-colour mark (textStyle) as a Word font colour. */
+    private function applyColor(array &$style, ?string $color): void
+    {
+        if ($hex = $this->normalizeHex($color)) {
+            $style['color'] = $hex;
+        }
+    }
+
+    /**
+     * Apply the highlight mark. Word's `<w:highlight>` only accepts 16 named
+     * colours, so we use character shading (`<w:shd w:fill>`) to keep the exact
+     * highlight hex the editor stored.
+     */
+    private function applyHighlight(array &$style, ?string $color): void
+    {
+        if ($hex = $this->normalizeHex($color)) {
+            $style['shading'] = ['pattern' => 'clear', 'fill' => $hex];
+        }
+    }
+
+    /** Normalise a CSS hex colour (#rgb / #rrggbb) to a 6-digit RRGGBB, or null. */
+    private function normalizeHex(?string $color): ?string
+    {
+        if (! is_string($color)) {
+            return null;
+        }
+        $hex = ltrim(trim($color), '#');
+        if (preg_match('/^[0-9a-fA-F]{3}$/', $hex)) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        return preg_match('/^[0-9a-fA-F]{6}$/', $hex) ? strtoupper($hex) : null;
     }
 
     private function extractText(?array $node): string

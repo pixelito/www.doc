@@ -39,6 +39,7 @@ class WorkspaceSeeder extends Seeder
             'marketing'  => Tag::firstOrCreate(['name' => 'Marketing']),
             'finance'    => Tag::firstOrCreate(['name' => 'Finance']),
             'legal'      => Tag::firstOrCreate(['name' => 'Legal']),
+            'demo'       => Tag::firstOrCreate(['name' => 'Demo']),
         ];
 
         // ── Workspaces ────────────────────────────────────────────────────────
@@ -1135,6 +1136,109 @@ class WorkspaceSeeder extends Seeder
                     ],
                 ],
             ],
+
+            // ── 9. Sandbox ────────────────────────────────────────────────────
+            [
+                'name'        => 'Sandbox',
+                'description' => 'Throwaway space for testing. Holds a single kitchen-sink page that exercises every editor feature — handy for checking PDF/DOCX exports without juggling several pages.',
+                'position'    => 9,
+                'pages'       => [
+                    [
+                        'title'    => 'Feature Showcase',
+                        'position' => 1,
+                        'tags'     => ['demo', 'guide'],
+                        'content'  => [
+                            ['type' => 'paragraph', 'spans' => [
+                                'This page exercises every formatting feature the editor supports, so a single export shows how each one survives the trip to PDF and DOCX. Text can be ',
+                                ['text' => 'bold', 'bold' => true], ', ',
+                                ['text' => 'italic', 'italic' => true], ', ',
+                                ['text' => 'underlined', 'underline' => true], ', ',
+                                ['text' => 'struck through', 'strike' => true], ', or ',
+                                ['text' => 'inline code', 'code' => true], '. You can ',
+                                ['text' => 'colour text', 'color' => '#B5573E'], ', ',
+                                ['text' => 'highlight it', 'highlight' => '#FDE68A'], ', link to ',
+                                ['text' => 'an external site', 'link' => 'https://example.com'], ', or cross-reference pages such as ',
+                                ['wikiLink' => 'Architecture Overview'], ' and ',
+                                ['wikiLink' => 'Design System'], '.',
+                            ]],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Headings & text alignment'],
+                            ['type' => 'paragraph', 'align' => 'left',    'spans' => ['This paragraph is left-aligned — the default flow for body copy.']],
+                            ['type' => 'paragraph', 'align' => 'center',  'spans' => ['This paragraph is centre-aligned.']],
+                            ['type' => 'paragraph', 'align' => 'right',   'spans' => ['This paragraph is right-aligned.']],
+                            ['type' => 'paragraph', 'align' => 'justify', 'spans' => ['This paragraph is justified, so the renderer stretches the spacing between words until both the left and right edges line up cleanly against the page margins on every full line of text.']],
+                            ['type' => 'heading', 'level' => 3, 'text' => 'A centred sub-heading', 'align' => 'center'],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Lists'],
+                            ['type' => 'bulletList', 'items' => [
+                                'A plain bullet item',
+                                ['text' => 'A bullet with nested children', 'sublist' => ['type' => 'bulletList', 'items' => [
+                                    'First nested bullet',
+                                    'Second nested bullet',
+                                ]]],
+                                'Back at the top level',
+                            ]],
+                            ['type' => 'orderedList', 'items' => [
+                                'Ordered lists keep their numbering',
+                                ['text' => 'And can nest too', 'sublist' => ['type' => 'orderedList', 'items' => [
+                                    'Sub-step one',
+                                    'Sub-step two',
+                                ]]],
+                                'Final step',
+                            ]],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Blockquote & code'],
+                            ['type' => 'blockquote', 'text' => 'Blockquotes are good for callouts, tips, and the occasional memorable line.'],
+                            ['type' => 'codeBlock', 'language' => 'php', 'code' =>
+                                "// A fenced code block, with a syntax-language hint\npublic function export(Document \$document): string\n{\n    return (new PdfExporter())->export(\$document);\n}",
+                            ],
+
+                            ['type' => 'horizontalRule'],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Table'],
+                            ['type' => 'table', 'rows' => [
+                                ['Feature', 'PDF export', 'DOCX export'],
+                                ['Bold / italic / underline / strike', 'Yes', 'Yes'],
+                                ['Inline code & code blocks', 'Yes', 'Yes'],
+                                ['Text colour', 'Yes', 'Yes'],
+                                ['Highlight', 'Yes', 'Yes'],
+                                ['Tables', 'Yes', 'Yes'],
+                                ['Diagrams', 'Vector SVG', 'Vector SVG'],
+                            ]],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Image'],
+                            ['type' => 'image', 'src' => 'https://picsum.photos/seed/showcase/720/360', 'alt' => 'A sample centred image', 'width' => 480, 'align' => 'center'],
+
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Network diagram'],
+                            'The diagram below covers every node colour, a grouped zone, all three edge routings, a dashed edge, a double-headed arrow, edge labels, and a custom edge colour.',
+                            ['type' => 'diagram', 'name' => 'Feature Showcase Diagram',
+                                'settings' => ['routing' => 'curved', 'snap' => false],
+                                'nodes' => [
+                                    ['id' => 'zone',   'group' => true, 'label' => 'Service Zone', 'color' => 'sage',       'x' => 380, 'y' => 0,   'w' => 320, 'h' => 210],
+                                    ['id' => 'client', 'label' => 'Client',  'kind' => 'workstation', 'color' => 'default',    'x' => 0,   'y' => 40],
+                                    ['id' => 'cdn',    'label' => 'CDN',     'kind' => 'cloud',       'color' => 'blue',       'x' => 0,   'y' => 150],
+                                    ['id' => 'gw',     'label' => 'Gateway', 'kind' => 'firewall',    'color' => 'terracotta', 'x' => 190, 'y' => 95],
+                                    ['id' => 'api',    'label' => 'API',     'kind' => 'server',      'color' => 'sage',       'parent' => 'zone', 'x' => 30,  'y' => 45],
+                                    ['id' => 'cache',  'label' => 'Cache',   'kind' => 'database',    'color' => 'amber',      'parent' => 'zone', 'x' => 30,  'y' => 130],
+                                    ['id' => 'worker', 'label' => 'Worker',  'kind' => 'server',      'color' => 'purple',     'parent' => 'zone', 'x' => 185, 'y' => 90],
+                                ],
+                                'edges' => [
+                                    ['from' => 'client', 'to' => 'gw',     'fromSide' => 'right',  'toSide' => 'left', 'routing' => 'straight', 'label' => 'HTTPS'],
+                                    ['from' => 'cdn',    'to' => 'gw',     'fromSide' => 'right',  'toSide' => 'left', 'routing' => 'curved'],
+                                    ['from' => 'gw',     'to' => 'api',    'fromSide' => 'right',  'toSide' => 'left', 'routing' => 'curved',   'arrows' => 'both'],
+                                    ['from' => 'api',    'to' => 'cache',  'fromSide' => 'bottom', 'toSide' => 'top',  'routing' => 'step', 'lineStyle' => 'dashed', 'label' => 'read/write'],
+                                    ['from' => 'api',    'to' => 'worker', 'fromSide' => 'right',  'toSide' => 'left', 'routing' => 'curved',   'color' => '#B5573E', 'label' => 'jobs'],
+                                ],
+                            ],
+
+                            ['type' => 'paragraph', 'spans' => [
+                                'Hard line breaks work too:', ['break' => true],
+                                'this sentence begins on a new line within the same paragraph.',
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
         ];
 
         // ── Seeding logic ─────────────────────────────────────────────────────
@@ -1208,12 +1312,14 @@ class WorkspaceSeeder extends Seeder
     protected function block(array $item): array
     {
         return match ($item['type']) {
-            'heading'       => $this->heading($item['level'], $item['text']),
-            'image'         => $this->image($item['src'], $item['alt'] ?? null),
+            'heading'       => $this->heading($item['level'], $item['text'], $item['align'] ?? null),
+            'paragraph'     => $this->richParagraph($item),
+            'image'         => $this->image($item['src'], $item['alt'] ?? null, $item['width'] ?? null, $item['align'] ?? 'left'),
             'bulletList'    => $this->list('bulletList', $item['items']),
             'orderedList'   => $this->list('orderedList', $item['items']),
             'codeBlock'     => $this->codeBlock($item['language'] ?? null, $item['code']),
             'blockquote'    => $this->blockquote($item['text']),
+            'table'         => $this->table($item['rows']),
             'diagram'       => $this->diagram($item['name'], $item['nodes'], $item['edges'] ?? [], $item['settings'] ?? []),
             'horizontalRule' => ['type' => 'horizontalRule'],
             default         => $this->paragraph((string) ($item['text'] ?? '')),
@@ -1225,20 +1331,24 @@ class WorkspaceSeeder extends Seeder
         return ['type' => 'paragraph', 'content' => $this->inline($text)];
     }
 
-    protected function heading(int $level, string $text): array
+    protected function heading(int $level, string $text, ?string $align = null): array
     {
+        $attrs = ['level' => $level];
+        if ($align) {
+            $attrs['textAlign'] = $align;
+        }
         return [
             'type'    => 'heading',
-            'attrs'   => ['level' => $level],
+            'attrs'   => $attrs,
             'content' => [['type' => 'text', 'text' => $text]],
         ];
     }
 
-    protected function image(string $src, ?string $alt): array
+    protected function image(string $src, ?string $alt, ?int $width = null, string $align = 'left'): array
     {
         return [
             'type'  => 'image',
-            'attrs' => ['src' => $src, 'alt' => $alt, 'title' => null, 'width' => null, 'align' => 'left'],
+            'attrs' => ['src' => $src, 'alt' => $alt, 'title' => null, 'width' => $width, 'align' => $align],
         ];
     }
 
@@ -1330,11 +1440,24 @@ class WorkspaceSeeder extends Seeder
         return array_merge(
             ['type' => $type],
             $attrs,
-            ['content' => array_map(fn ($text) => [
-                'type'    => 'listItem',
-                'content' => [['type' => 'paragraph', 'content' => $this->inline($text)]],
-            ], $items)],
+            ['content' => array_map(fn ($item) => $this->listItem($item), $items)],
         );
+    }
+
+    /**
+     * A list item from a plain string or a spec carrying a nested list:
+     * ['text' => '…', 'sublist' => ['type' => 'bulletList'|'orderedList', 'items' => [...]]]
+     */
+    protected function listItem(string|array $item): array
+    {
+        $text    = is_string($item) ? $item : ($item['text'] ?? '');
+        $content = [['type' => 'paragraph', 'content' => $this->inline($text)]];
+
+        if (is_array($item) && isset($item['sublist'])) {
+            $content[] = $this->list($item['sublist']['type'], $item['sublist']['items']);
+        }
+
+        return ['type' => 'listItem', 'content' => $content];
     }
 
     protected function codeBlock(?string $language, string $code): array
@@ -1352,6 +1475,84 @@ class WorkspaceSeeder extends Seeder
             'type'    => 'blockquote',
             'content' => [['type' => 'paragraph', 'content' => $this->inline($text)]],
         ];
+    }
+
+    /**
+     * A paragraph built from styled spans, with optional text alignment:
+     * ['type' => 'paragraph', 'align' => 'center'|'right'|'justify', 'spans' => [...]]
+     *
+     * Each span is a plain string (parsed for [[links]] / `code`) or a spec:
+     *   ['text' => '…', 'bold'?, 'italic'?, 'underline'?, 'strike'?, 'code'? => true,
+     *    'link'? => url, 'color'? => '#hex', 'highlight'? => '#hex']
+     *   ['wikiLink' => 'Page Title']      — an inline wiki-link
+     *   ['break' => true]                 — a hard line break
+     */
+    protected function richParagraph(array $item): array
+    {
+        $content = [];
+        foreach ($item['spans'] ?? [] as $span) {
+            if (is_string($span)) {
+                $content = array_merge($content, $this->inline($span));
+            } elseif ($span['break'] ?? false) {
+                $content[] = ['type' => 'hardBreak'];
+            } elseif (isset($span['wikiLink'])) {
+                $content[] = ['type' => 'wikiLink', 'attrs' => ['title' => $span['wikiLink']]];
+            } else {
+                $content[] = $this->span($span);
+            }
+        }
+
+        $paragraph = ['type' => 'paragraph', 'content' => $content];
+        if (! empty($item['align'])) {
+            $paragraph['attrs'] = ['textAlign' => $item['align']];
+        }
+        return $paragraph;
+    }
+
+    /** A single text node carrying any combination of marks. */
+    protected function span(array $span): array
+    {
+        $marks = [];
+        if ($span['bold'] ?? false)      $marks[] = ['type' => 'bold'];
+        if ($span['italic'] ?? false)    $marks[] = ['type' => 'italic'];
+        if ($span['underline'] ?? false) $marks[] = ['type' => 'underline'];
+        if ($span['strike'] ?? false)    $marks[] = ['type' => 'strike'];
+        if ($span['code'] ?? false)      $marks[] = ['type' => 'code'];
+        if (! empty($span['link'])) {
+            $marks[] = ['type' => 'link', 'attrs' => [
+                'href'   => $span['link'],
+                'target' => '_blank',
+                'rel'    => 'noopener noreferrer nofollow',
+                'class'  => null,
+            ]];
+        }
+        if (! empty($span['color']))     $marks[] = ['type' => 'textStyle', 'attrs' => ['color' => $span['color']]];
+        if (! empty($span['highlight'])) $marks[] = ['type' => 'highlight', 'attrs' => ['color' => $span['highlight']]];
+
+        $node = ['type' => 'text', 'text' => $span['text'] ?? ''];
+        if ($marks) {
+            $node['marks'] = $marks;
+        }
+        return $node;
+    }
+
+    /**
+     * A table from a row-major array; the FIRST row becomes header cells:
+     * ['type' => 'table', 'rows' => [ ['H1','H2'], ['a','b'], … ]]
+     */
+    protected function table(array $rows): array
+    {
+        $content = [];
+        foreach ($rows as $i => $row) {
+            $cellType = $i === 0 ? 'tableHeader' : 'tableCell';
+            $cells = array_map(fn ($cell) => [
+                'type'    => $cellType,
+                'attrs'   => ['colspan' => 1, 'rowspan' => 1, 'colwidth' => null],
+                'content' => [['type' => 'paragraph', 'content' => $this->inline((string) $cell)]],
+            ], $row);
+            $content[] = ['type' => 'tableRow', 'content' => $cells];
+        }
+        return ['type' => 'table', 'content' => $content];
     }
 
     protected function inline(string $text): array
