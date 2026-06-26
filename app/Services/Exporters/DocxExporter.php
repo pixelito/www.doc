@@ -277,6 +277,8 @@ class DocxExporter implements ExporterContract
     {
         if (!$src) return;
 
+        $src = \App\Services\RenderDocument::resolveImageToDataUri($src);
+
         if (str_starts_with($src, 'data:image/')) {
             if (preg_match('/^data:image\/(\w+);base64,/', $src, $type)) {
                 $data = substr($src, strpos($src, ',') + 1);
@@ -290,14 +292,6 @@ class DocxExporter implements ExporterContract
                 }
             }
             return;
-        }
-
-        if (str_starts_with($src, '/storage/')) {
-            $relativePath = substr($src, strlen('/storage/'));
-            $localPath    = storage_path("app/public/{$relativePath}");
-            if (file_exists($localPath)) {
-                $this->section->addImage($localPath, $style);
-            }
         }
     }
 

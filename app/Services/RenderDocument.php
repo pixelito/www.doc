@@ -18,6 +18,8 @@ use Tiptap\Extensions\TextAlign;
 
 class RenderDocument
 {
+    public static bool $embedImages = false;
+
     /** Convert TipTap JSON to HTML — single canonical path for all consumers. */
     public static function toHtml(?array $doc): string
     {
@@ -43,6 +45,43 @@ class RenderDocument
             ],
         ]))->setContent($doc)->getHTML();
     }
+
+    public static function resolveImageToDataUri(string $src): string
+    {
+        if (str_starts_with($src, 'data:')) {
+            return $src;
+        }
+
+        try {
+            $content = null;
+            $mime = 'image/jpeg';
+
+            if (str_starts_with($src, '/storage/')) {
+                $relativePath = substr($src, strlen('/storage/'));
+                $path = storage_path("app/public/{$relativePath}");
+                if (file_exists($path)) {
+                    $content = file_get_contents($path);
+                    $mime = mime_content_type($path) ?: 'image/jpeg';
+                }
+            } elseif (filter_var($src, FILTER_VALIDATE_URL)) {
+                $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+                $content = @file_get_contents($src, false, $ctx);
+                
+                if ($content) {
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mime = $finfo->buffer($content) ?: 'image/jpeg';
+                }
+            }
+
+            if ($content) {
+                return 'data:' . $mime . ';base64,' . base64_encode($content);
+            }
+        } catch (\Exception $e) {
+            // Silently fallback to original src
+        }
+
+        return $src;
+    }
 }
 
 /**
@@ -57,6 +96,11 @@ class ResizableImageNode extends Node
     {
         $attrs = $node->attrs ?? (object) [];
         $src   = $attrs->src   ?? '';
+        
+        if (\App\Services\RenderDocument::$embedImages) {
+            $src = \App\Services\RenderDocument::resolveImageToDataUri($src);
+        }
+
         $alt   = $attrs->alt   ?? '';
         $width = $attrs->width ?? null;
         $align = $attrs->align ?? 'left';

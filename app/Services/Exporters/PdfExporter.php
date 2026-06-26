@@ -50,7 +50,9 @@ class PdfExporter implements ExporterContract
 
     private function buildHtml(Document $document): string
     {
+        RenderDocument::$embedImages = true;
         $body  = RenderDocument::toHtml($document->content);
+        RenderDocument::$embedImages = false;
         $title = e($document->title);
         $toc   = $this->buildToc($document->content);
         $date  = now()->format('d M Y');
