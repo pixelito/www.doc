@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 
@@ -58,9 +59,22 @@ export default function Backups() {
         return () => clearInterval(timer.current);
     }, [inFlight]);
 
+    // Warn before leaving (in-app nav or browser close) with unsaved settings.
+    const dirtyRef = useRef(false);
+    dirtyRef.current = form.isDirty;
+    const { promptOpen, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: true,
+        dirtyRef,
+        revert: () => form.reset(),
+    });
+
     function saveSettings(e) {
         e.preventDefault();
-        form.transform((d) => ({ ...d, enabled: !!d.enabled })).patch('/admin/backups/settings', { preserveScroll: true });
+        form.transform((d) => ({ ...d, enabled: !!d.enabled })).patch('/admin/backups/settings', {
+            preserveScroll: true,
+            // Saved values become the new baseline, so the form is no longer dirty.
+            onSuccess: () => form.setDefaults(),
+        });
     }
 
     function backupNow() {
@@ -245,6 +259,16 @@ export default function Backups() {
                     router.delete(`/admin/backups/${confirm.backup.id}`, { preserveScroll: true });
                     setConfirm(null);
                 }}
+            />
+            <ConfirmDialog
+                open={promptOpen}
+                title="Discard changes?"
+                message="You have unsaved backup settings. Leaving this page will discard them."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                variant="danger"
+                onConfirm={confirmDiscard}
+                onCancel={dismissPrompt}
             />
         </SettingsLayout>
     );
