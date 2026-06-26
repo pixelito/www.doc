@@ -369,12 +369,12 @@ class DiagramSvg
                 $parts[] = self::arrowhead($s['x'], $s['y'], $p['sdx'], $p['sdy'], $color);
             }
             if (! empty($data['label'])) {
-                $lw = self::textWidth($data['label'], 6.0) + 12;
+                $lw = self::textWidth($data['label'], 6.5) + 14;
                 $lh = 18;
                 $parts[] = '<rect x="' . self::n($p['lx'] - $lw / 2) . '" y="' . self::n($p['ly'] - $lh / 2)
                     . '" width="' . self::n($lw) . '" height="' . $lh . '" rx="3" fill="#FBFAF5" fill-opacity="0.95" stroke="#E9E7DC" stroke-width="1"/>';
                 $parts[] = '<text x="' . self::n($p['lx']) . '" y="' . self::n($p['ly'] + 3.5)
-                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="10" font-weight="normal" fill="#5C625C">'
+                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="10" font-weight="bold" fill="#5C625C">'
                     . self::esc($data['label']) . '</text>';
             }
         }
