@@ -7,18 +7,25 @@ use App\Jobs\RestoreBackupJob;
 use App\Jobs\RunBackupJob;
 use App\Models\Backup;
 use App\Models\Setting;
+use App\Services\Backup\BackupNotifier;
+use App\Services\Backup\Destinations\DestinationFactory;
+use App\Support\BackupSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Admin-only Backups tab: configure the cadence, run a backup now, and
- * download / restore / delete archives. Heavy work is queued (RunBackupJob /
- * RestoreBackupJob); the page polls `show` for in-flight status.
+ * Admin-only Backups tab: configure the cadence + destination (private disk or
+ * SMB share) + email notifications, run a backup now, and download / restore /
+ * delete archives. Heavy work is queued (RunBackupJob / RestoreBackupJob); the
+ * page polls for in-flight status.
+ *
+ * Secrets (SMB + SMTP passwords) live ENCRYPTED in the `backup` setting blob and
+ * are never sent to the frontend — see BackupSettings::forDisplay().
  */
 class BackupController extends Controller
 {
@@ -44,13 +51,13 @@ class BackupController extends Controller
 
         return Inertia::render('Settings/Backups', [
             'backups'   => $backups,
-            'settings'  => Setting::get('backup', config('backup.defaults')),
+            'settings'  => BackupSettings::forDisplay(),
             'intervals' => array_keys(config('backup.intervals')),
-            'disks'     => config('backup.disks'),
+            'drivers'   => config('backup.drivers'),
         ]);
     }
 
-    /** Save the backup cadence / destination / retention. */
+    /** Save the backup cadence / destination / mail settings (passwords preserved). */
     public function updateSettings(Request $request): RedirectResponse
     {
         $this->authorize('create', Backup::class);
@@ -58,11 +65,29 @@ class BackupController extends Controller
         $validated = $request->validate([
             'enabled'   => ['required', 'boolean'],
             'interval'  => ['required', Rule::in(array_keys(config('backup.intervals')))],
-            'disk'      => ['required', Rule::in(config('backup.disks'))],
             'retention' => ['required', 'integer', 'min:1', 'max:365'],
+            'driver'    => ['required', Rule::in(config('backup.drivers'))],
+
+            // host + share are required only when SMB is the chosen driver.
+            'smb.host'     => [Rule::requiredIf(fn () => $request->input('driver') === 'smb'), 'nullable', 'string', 'max:255'],
+            'smb.share'    => [Rule::requiredIf(fn () => $request->input('driver') === 'smb'), 'nullable', 'string', 'max:255'],
+            'smb.path'     => ['nullable', 'string', 'max:1024'],
+            'smb.username' => ['nullable', 'string', 'max:255'],
+            'smb.password' => ['nullable', 'string', 'max:1024'],
+            'smb.domain'   => ['nullable', 'string', 'max:255'],
+
+            'mail.enabled'      => ['required', 'boolean'],
+            'mail.to'           => ['nullable', 'email', 'max:255'],
+            'mail.host'         => ['nullable', 'string', 'max:255'],
+            'mail.port'         => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'mail.username'     => ['nullable', 'string', 'max:255'],
+            'mail.password'     => ['nullable', 'string', 'max:1024'],
+            'mail.encryption'   => ['required', Rule::in(['tls', 'ssl', 'none'])],
+            'mail.from_address' => ['nullable', 'email', 'max:255'],
+            'mail.from_name'    => ['nullable', 'string', 'max:255'],
         ]);
 
-        Setting::put('backup', $validated);
+        Setting::put('backup', $this->mergeSettings($validated));
 
         return back()->with('success', 'Backup settings saved.');
     }
@@ -72,11 +97,9 @@ class BackupController extends Controller
     {
         $this->authorize('create', Backup::class);
 
-        $settings = Setting::get('backup', config('backup.defaults'));
-
         $backup = Backup::create([
             'trigger'       => 'manual',
-            'disk'          => $settings['disk'] ?? 'local',
+            'disk'          => BackupSettings::get()['driver'] ?? 'local',
             'status'        => 'pending',
             'created_by_id' => $request->user()->id,
         ]);
@@ -98,14 +121,17 @@ class BackupController extends Controller
         ]);
     }
 
-    public function download(Backup $backup): StreamedResponse
+    public function download(Backup $backup): BinaryFileResponse
     {
         $this->authorize('view', $backup);
 
         abort_unless($backup->status === 'done' && $backup->path, 404);
 
-        return \Illuminate\Support\Facades\Storage::disk($backup->disk)
-            ->download($backup->path, basename($backup->path));
+        // Pull from wherever it lives (local disk or SMB share) to a temp file
+        // and stream that, cleaning it up after send.
+        $temp = DestinationFactory::make($backup->disk)->fetch($backup->path);
+
+        return response()->download($temp, basename($backup->path))->deleteFileAfterSend();
     }
 
     public function restore(Backup $backup): RedirectResponse
@@ -122,10 +148,117 @@ class BackupController extends Controller
         $this->authorize('delete', $backup);
 
         if ($backup->path) {
-            \Illuminate\Support\Facades\Storage::disk($backup->disk)->delete($backup->path);
+            DestinationFactory::make($backup->disk)->delete($backup->path);
         }
         $backup->delete();
 
         return back()->with('success', 'Backup deleted.');
+    }
+
+    /** Verify the configured destination is reachable and writable (probe file). */
+    public function testDestination(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Backup::class);
+
+        $driver = $request->input('driver', 'local');
+
+        try {
+            if ($driver === 'smb') {
+                $smb = $this->resolveSmbForTest($request);
+                DestinationFactory::smb($smb)->test();
+            } else {
+                DestinationFactory::make('local')->test();
+            }
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Destination is reachable and writable.');
+    }
+
+    /** Send a test email using the (possibly unsaved) mail settings in the request. */
+    public function testEmail(Request $request, BackupNotifier $notifier): RedirectResponse
+    {
+        $this->authorize('create', Backup::class);
+
+        $request->validate([
+            'mail.to'         => ['required', 'email'],
+            'mail.host'       => ['required', 'string'],
+            'mail.port'       => ['required', 'integer', 'min:1', 'max:65535'],
+            'mail.encryption' => ['required', Rule::in(['tls', 'ssl', 'none'])],
+        ]);
+
+        try {
+            $notifier->sendTest($this->resolveMailForTest($request));
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not send: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Test email sent to ' . $request->input('mail.to') . '.');
+    }
+
+    // ── helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Merge the submitted settings over the stored ones, re-encrypting changed
+     * passwords and KEEPING the existing encrypted password when the field comes
+     * back blank (the UI never echoes a saved password).
+     */
+    private function mergeSettings(array $validated): array
+    {
+        $current = BackupSettings::get();
+
+        $smb = array_merge($current['smb'], array_filter(
+            $validated['smb'] ?? [],
+            fn ($k) => $k !== 'password',
+            ARRAY_FILTER_USE_KEY,
+        ));
+        $smb['password'] = $this->keepOrEncrypt($validated['smb']['password'] ?? '', $current['smb']['password'] ?? '');
+
+        $mail = array_merge($current['mail'], array_filter(
+            $validated['mail'] ?? [],
+            fn ($k) => $k !== 'password',
+            ARRAY_FILTER_USE_KEY,
+        ));
+        $mail['password'] = $this->keepOrEncrypt($validated['mail']['password'] ?? '', $current['mail']['password'] ?? '');
+
+        return [
+            'enabled'   => (bool) $validated['enabled'],
+            'interval'  => $validated['interval'],
+            'retention' => (int) $validated['retention'],
+            'driver'    => $validated['driver'],
+            'smb'       => $smb,
+            'mail'      => $mail,
+        ];
+    }
+
+    /** Blank submitted password → keep stored cipher; otherwise encrypt the new one. */
+    private function keepOrEncrypt(string $submitted, string $storedCipher): string
+    {
+        return $submitted === '' ? $storedCipher : BackupSettings::encrypt($submitted);
+    }
+
+    /** SMB config for a test: use the typed password, or fall back to the saved one. */
+    private function resolveSmbForTest(Request $request): array
+    {
+        $current = BackupSettings::get();
+        $smb     = array_merge($current['smb'], $request->input('smb', []));
+        $smb['password'] = ($request->input('smb.password') ?: '') !== ''
+            ? $request->input('smb.password')
+            : BackupSettings::smbPassword();
+
+        return $smb;
+    }
+
+    /** Mail config for a test: use the typed password, or fall back to the saved one. */
+    private function resolveMailForTest(Request $request): array
+    {
+        $current = BackupSettings::get();
+        $mail    = array_merge($current['mail'], $request->input('mail', []));
+        $mail['password'] = ($request->input('mail.password') ?: '') !== ''
+            ? $request->input('mail.password')
+            : BackupSettings::mailPassword();
+
+        return $mail;
     }
 }

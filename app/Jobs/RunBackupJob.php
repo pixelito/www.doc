@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Backup;
+use App\Services\Backup\BackupNotifier;
 use App\Services\Backup\BackupService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -22,15 +23,17 @@ class RunBackupJob implements ShouldQueue
 
     public function __construct(public readonly int $backupId) {}
 
-    public function handle(BackupService $service): void
+    public function handle(BackupService $service, BackupNotifier $notifier): void
     {
         $backup = Backup::findOrFail($this->backupId);
         $backup->update(['status' => 'processing', 'started_at' => now()]);
 
         try {
             $service->run($backup);
+            $notifier->notify($backup->refresh());
         } catch (Throwable $e) {
             $backup->update(['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => now()]);
+            $notifier->notify($backup->refresh());
             throw $e;
         }
     }

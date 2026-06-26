@@ -4,8 +4,8 @@ namespace App\Services\Backup;
 
 use App\Models\Backup;
 use App\Models\Document;
-use App\Models\Setting;
 use App\Models\User;
+use App\Services\Backup\Destinations\DestinationFactory;
 use App\Support\SearchVector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -63,8 +63,9 @@ class RestoreService
 
     private function extract(Backup $backup, string $work): void
     {
-        $local = sys_get_temp_dir() . '/' . uniqid('wwwdoc_archive_') . '.zip';
-        File::put($local, Storage::disk($backup->disk)->get($backup->path));
+        // Pull the archive down from wherever it lives (local disk or SMB share)
+        // to a local temp file before unzipping.
+        $local = DestinationFactory::make($backup->disk)->fetch($backup->path);
 
         $zip = new ZipArchive();
         if ($zip->open($local) !== true) {

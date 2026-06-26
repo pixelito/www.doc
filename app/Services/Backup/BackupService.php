@@ -10,7 +10,9 @@ use App\Models\Link;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Backup\Destinations\DestinationFactory;
 use App\Services\Exporters\PdfExporter;
+use App\Support\BackupSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -225,23 +227,21 @@ class BackupService
     private function storeArchive(Backup $backup, string $zipPath): array
     {
         $name = 'backup-' . now()->format('Ymd-His') . "-{$backup->id}.zip";
-        $path = "backups/{$name}";
 
-        // Stream into the destination disk so an s3 target doesn't load the whole
-        // archive into memory.
-        Storage::disk($backup->disk)->writeStream($path, fopen($zipPath, 'r'));
-
-        return ['path' => $path, 'size' => (int) filesize($zipPath)];
+        // The destination (local disk or SMB share) owns its own pathing; it
+        // streams the archive in so an off-host target need not buffer it whole.
+        return DestinationFactory::make($backup->disk)->store($zipPath, $name);
     }
 
-    /** Keep only the most-recent N successful backups on this disk. */
+    /** Keep only the most-recent N successful backups on this destination. */
     private function pruneOldBackups(Backup $backup): void
     {
-        $settings  = config('backup.defaults');
-        $retention = (int) (\App\Models\Setting::get('backup', $settings)['retention'] ?? $settings['retention']);
+        $retention = (int) (BackupSettings::get()['retention'] ?? 7);
         if ($retention < 1) {
             return;
         }
+
+        $destination = DestinationFactory::make($backup->disk);
 
         Backup::where('status', 'done')
             ->where('disk', $backup->disk)
@@ -249,9 +249,9 @@ class BackupService
             ->skip($retention)
             ->take(PHP_INT_MAX)
             ->get()
-            ->each(function (Backup $old) {
+            ->each(function (Backup $old) use ($destination) {
                 if ($old->path) {
-                    Storage::disk($old->disk)->delete($old->path);
+                    $destination->delete($old->path);
                 }
                 $old->delete();
             });

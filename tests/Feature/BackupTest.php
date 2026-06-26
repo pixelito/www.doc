@@ -7,7 +7,23 @@ use App\Models\Workspace;
 use App\Services\Backup\BackupService;
 use App\Services\Backup\RestoreService;
 use Database\Factories\DocumentFactory;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+
+/** A full, valid settings payload with optional overrides (recursive merge). */
+function settingsPayload(array $overrides = []): array
+{
+    $base = [
+        'enabled'   => true,
+        'interval'  => 'daily',
+        'retention' => 7,
+        'driver'    => 'local',
+        'smb'  => ['host' => '', 'share' => '', 'path' => '', 'username' => '', 'password' => '', 'domain' => ''],
+        'mail' => ['enabled' => false, 'to' => '', 'host' => '', 'port' => 587, 'username' => '', 'password' => '', 'encryption' => 'tls', 'from_address' => '', 'from_name' => ''],
+    ];
+
+    return array_replace_recursive($base, $overrides);
+}
 
 /** Open a backup archive and list its entry names. */
 function archiveEntries(Backup $backup): array
@@ -28,25 +44,21 @@ test('non-admins cannot reach the backups area', function () {
 
     $this->get('/admin/backups')->assertForbidden();
     $this->post('/admin/backups')->assertForbidden();
-    $this->patch('/admin/backups/settings', [
-        'enabled' => true, 'interval' => 'daily', 'disk' => 'local', 'retention' => 7,
-    ])->assertForbidden();
+    $this->patch('/admin/backups/settings', settingsPayload())->assertForbidden();
 });
 
 test('an admin can save the backup schedule settings', function () {
     login();
 
-    $this->patch('/admin/backups/settings', [
-        'enabled'   => true,
+    $this->patch('/admin/backups/settings', settingsPayload([
         'interval'  => 'weekly',
-        'disk'      => 'local',
         'retention' => 5,
-    ])->assertRedirect();
+    ]))->assertRedirect();
 
     expect(Setting::get('backup'))->toMatchArray([
         'enabled'   => true,
         'interval'  => 'weekly',
-        'disk'      => 'local',
+        'driver'    => 'local',
         'retention' => 5,
     ]);
 });
@@ -54,9 +66,89 @@ test('an admin can save the backup schedule settings', function () {
 test('saving settings rejects an unknown interval', function () {
     login();
 
-    $this->patch('/admin/backups/settings', [
-        'enabled' => true, 'interval' => 'hourly', 'disk' => 'local', 'retention' => 7,
-    ])->assertSessionHasErrors('interval');
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'interval' => 'hourly',
+    ]))->assertSessionHasErrors('interval');
+});
+
+test('choosing the SMB driver requires a host and share', function () {
+    login();
+
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'driver' => 'smb',
+    ]))->assertSessionHasErrors(['smb.host', 'smb.share']);
+});
+
+test('SMB and SMTP passwords are stored encrypted and preserved when left blank', function () {
+    login();
+
+    // First save: provide both passwords.
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'driver' => 'smb',
+        'smb'    => ['host' => 'host', 'share' => 'share', 'path' => 'docs', 'username' => 'u', 'password' => 's3cret', 'domain' => ''],
+        'mail'   => ['enabled' => true, 'to' => 'a@b.com', 'host' => 'smtp', 'port' => 587, 'username' => 'mu', 'password' => 'mailpw', 'encryption' => 'tls', 'from_address' => 'f@b.com', 'from_name' => 'x'],
+    ]))->assertRedirect();
+
+    $stored = Setting::get('backup');
+    expect($stored['smb']['password'])->not->toBe('s3cret')->not->toBe('');
+    expect(\App\Support\BackupSettings::smbPassword())->toBe('s3cret');
+    expect(\App\Support\BackupSettings::mailPassword())->toBe('mailpw');
+
+    // Second save with blank passwords keeps the stored ones.
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'driver' => 'smb',
+        'smb'    => ['host' => 'host2', 'share' => 'share', 'path' => 'docs', 'username' => 'u', 'password' => '', 'domain' => ''],
+        'mail'   => ['enabled' => true, 'to' => 'a@b.com', 'host' => 'smtp', 'port' => 587, 'username' => 'mu', 'password' => '', 'encryption' => 'tls', 'from_address' => 'f@b.com', 'from_name' => 'x'],
+    ]))->assertRedirect();
+
+    expect(\App\Support\BackupSettings::smbPassword())->toBe('s3cret');
+    expect(\App\Support\BackupSettings::mailPassword())->toBe('mailpw');
+    expect(Setting::get('backup')['smb']['host'])->toBe('host2');
+});
+
+test('the local destination can be tested', function () {
+    Storage::fake('local');
+    login();
+
+    $this->post('/admin/backups/test-destination', ['driver' => 'local'])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+});
+
+test('a test email is sent through the configured mailer', function () {
+    Mail::fake();
+    login();
+
+    $this->post('/admin/backups/test-email', [
+        'mail' => [
+            'to' => 'admin@company.com', 'host' => 'smtp.test', 'port' => 587,
+            'encryption' => 'tls', 'username' => 'u', 'password' => 'p',
+            'from_address' => 'backups@company.com', 'from_name' => 'Backups',
+        ],
+    ])->assertRedirect()->assertSessionHas('success');
+
+    Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) => $m->hasTo('admin@company.com') && $m->isTest);
+});
+
+test('a successful backup emails a report when notifications are on', function () {
+    Storage::fake('local');
+    Mail::fake();
+    login();
+
+    Setting::put('backup', array_replace(\App\Support\BackupSettings::get(), [
+        'mail' => [
+            'enabled' => true, 'to' => 'admin@company.com', 'host' => 'smtp.test', 'port' => 587,
+            'encryption' => 'tls', 'username' => 'u', 'password' => \App\Support\BackupSettings::encrypt('p'),
+            'from_address' => 'backups@company.com', 'from_name' => 'Backups',
+        ],
+    ]));
+
+    Document::factory()->create(['content' => DocumentFactory::tiptap('hi')]);
+
+    $this->post('/admin/backups')->assertRedirect();
+
+    Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) =>
+        $m->hasTo('admin@company.com') && $m->backup?->status === 'done');
 });
 
 test('a backup produces an archive with the canonical layer and a manifest', function () {

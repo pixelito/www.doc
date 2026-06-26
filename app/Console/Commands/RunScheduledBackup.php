@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\RunBackupJob;
 use App\Models\Backup;
-use App\Models\Setting;
+use App\Support\BackupSettings;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -20,7 +20,7 @@ class RunScheduledBackup extends Command
 {
     public function handle(): int
     {
-        $settings = Setting::get('backup', config('backup.defaults'));
+        $settings = BackupSettings::get();
 
         if (! ($settings['enabled'] ?? false)) {
             $this->info('Scheduled backups are disabled.');
@@ -43,7 +43,7 @@ class RunScheduledBackup extends Command
 
         $backup = Backup::create([
             'trigger' => 'scheduled',
-            'disk'    => $settings['disk'] ?? 'local',
+            'disk'    => $settings['driver'] ?? 'local',
             'status'  => 'pending',
         ]);
 

@@ -39,13 +39,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Destinations
+    | Destination drivers
     |--------------------------------------------------------------------------
-    | Private disks a backup may be written to. `local` survives container
-    | restarts (when app-storage is mounted) but NOT host loss — `s3` is the
-    | off-host resilience milestone. Never `public`.
+    | Where a backup may be written. `local` is the private disk — survives
+    | container restarts (when app-storage is mounted) but NOT host loss. `smb`
+    | writes to a Windows/SMB network share (e.g. \\192.168.100.100\backup\docs),
+    | the off-host resilience milestone. Never `public`.
     */
-    'disks' => ['local', 's3'],
+    'drivers' => ['local', 'smb'],
 
     /*
     |--------------------------------------------------------------------------

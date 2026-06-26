@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function () {
         Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
         Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
         Route::patch('backups/settings', [AdminBackupController::class, 'updateSettings'])->name('backups.settings');
+        Route::post('backups/test-destination', [AdminBackupController::class, 'testDestination'])->name('backups.test-destination');
+        Route::post('backups/test-email', [AdminBackupController::class, 'testEmail'])->name('backups.test-email');
         Route::get('backups/{backup}', [AdminBackupController::class, 'show'])->name('backups.show');
         Route::get('backups/{backup}/download', [AdminBackupController::class, 'download'])->name('backups.download');
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
