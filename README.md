@@ -33,6 +33,7 @@ plugin marketplace — just a fast, clean place for a team to write things down.
 - **Tags** — cut across workspaces, attached polymorphically.
 - **Roles &amp; admin** — admin / editor / viewer roles, a user-management admin area, and
   a Trash with restore/purge.
+- **Automated backups** — scheduled and manual full-system snapshots to local disk or SMB shares with optional XChaCha20-Poly1305 encryption.
 
 ## Stack
 
@@ -62,6 +63,8 @@ docker compose exec app php artisan migrate --seed   # schema + demo data
 The app is then at **http://localhost:8000** (Vite HMR on `5173`). The seeder creates a
 set of demo users across all roles, all with the password `password` — log in as
 `admin@example.com` for full access. See `database/seeders/UserSeeder.php` for the rest.
+
+Mailpit is included in the development stack to intercept outbound emails. You can access its local web UI at **http://localhost:8025** to view any test emails sent from the app.
 
 Common commands:
 
@@ -119,6 +122,27 @@ Unreferenced image uploads (e.g. an image pasted then deleted before saving) can
 with `php artisan assets:prune` (`--dry-run` to preview, `--hours=N` to tune the grace
 window). It's registered on a daily schedule that both stacks run automatically via their
 `scheduler` service, and it's safe to run by hand any time.
+
+## Backups & Encryption
+
+The app features a built-in backup engine that snapshots your Postgres database and all local uploads into a single `.zip` file. You can configure scheduled or manual backups directly from the **Settings > Backups** UI, and route them to the local disk or an external SMB network share.
+
+### Encrypted Backups
+If you configure an encryption key, backups are encrypted at-rest using military-grade **XChaCha20-Poly1305** stream encryption (via `libsodium`) before they are written to disk.
+
+1. **Generate a key:** Go to **Settings > Backups** to generate a secure, 32-byte base64 key directly in your browser.
+2. **Add to environment:** Place this key in your `.env` file as `BACKUP_ENCRYPTION_KEY=your_base64_string`.
+3. **Enable:** Toggle the "Encrypt backups" setting in the UI.
+
+The app will transparently encrypt and decrypt these archives during automated operations (like hitting "Restore" in the UI).
+
+### Manual Decryption
+If your server crashes and you need to extract your `.zip.enc` backup file manually without the app running, you cannot use standard base64 decoding tools. You must use the provided emergency CLI tool which properly streams the `libsodium` decryption:
+
+```bash
+docker compose exec app php artisan backup:decrypt /path/to/your/backup.zip.enc --key="YOUR_BASE64_KEY"
+```
+*(If `--key` is omitted, the command automatically uses the key configured in your `.env` file).*
 
 ## Project layout
 
