@@ -5,17 +5,12 @@ import DocsLayout from '@/Layouts/DocsLayout';
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { formatDateTime } from '@/lib/date';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
 function timeAgo(ts) {
-    if (!ts) return '—';
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleString('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    });
+    return ts ? (formatDateTime(ts) || '—') : '—';
 }
 
 export default function VersionShow({ document: doc, workspace, version }) {

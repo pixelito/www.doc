@@ -4,6 +4,7 @@ import { IconTrash, IconRestore, IconFileText, IconFolder, IconTrashX } from '@t
 import DocsLayout from '@/Layouts/DocsLayout';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/button';
+import { formatDate } from '@/lib/date';
 
 function timeAgo(iso) {
     if (!iso) return '—';
@@ -14,7 +15,7 @@ function timeAgo(iso) {
     if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatDate(d);
 }
 
 function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, onPurge }) {

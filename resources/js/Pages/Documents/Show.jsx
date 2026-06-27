@@ -18,6 +18,7 @@ import TipTapEditor from '@/components/editor/TipTapEditor';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
+import { formatDate } from '@/lib/date';
 
 const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -33,7 +34,7 @@ function isDocEmpty(content) {
 
 function fmtDate(iso) {
     if (!iso) return null;
-    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return formatDate(iso);
 }
 
 function timeAgo(iso) {

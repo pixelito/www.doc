@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconSearch, IconFileText, IconFolder, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
+import { formatDate } from '@/lib/date';
 
 const INITIAL_LIMIT = 6;
 
@@ -12,7 +13,7 @@ function timeAgo(dateStr) {
     if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatDate(dateStr);
 }
 
 function Chip({ active, onClick, children }) {

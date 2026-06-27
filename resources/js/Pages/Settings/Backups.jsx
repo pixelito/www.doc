@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useScrollLock } from '@/hooks/useScrollLock';
+import { formatDateTime } from '@/lib/date';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
@@ -495,7 +496,7 @@ export default function Backups() {
                                     <div className="flex items-center gap-2">
                                         <StatusBadge status={b.status} />
                                         <span className="text-sm font-medium text-foreground">
-                                            {new Date(b.created_at).toLocaleString()}
+                                            {formatDateTime(b.created_at)}
                                         </span>
                                         <span className="text-xs capitalize text-text-tertiary">· {b.trigger} · {b.disk?.toUpperCase()}</span>
                                     </div>

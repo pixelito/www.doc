@@ -17,6 +17,7 @@ import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
+import { formatDate } from '@/lib/date';
 
 function timeAgo(dateStr) {
     if (!dateStr) return '—';
@@ -25,7 +26,7 @@ function timeAgo(dateStr) {
     if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatDate(dateStr);
 }
 
 function SortableRow({ workspace, draggable }) {

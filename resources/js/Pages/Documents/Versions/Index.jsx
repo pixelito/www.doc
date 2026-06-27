@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { IconChevronRight, IconHistory, IconClock, IconUser } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
+import { formatDate } from '@/lib/date';
 
 function timeAgo(ts) {
     if (!ts) return '—';
@@ -10,7 +11,7 @@ function timeAgo(ts) {
     if (diff < 60)   return 'just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return formatDate(d);
 }
 
 export default function VersionsIndex({ document, workspace, versions }) {
