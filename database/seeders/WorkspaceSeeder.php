@@ -2,11 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Attachment;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\Document;
 use App\Models\Tag;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class WorkspaceSeeder extends Seeder
 {
@@ -412,6 +415,19 @@ class WorkspaceSeeder extends Seeder
                         'title'    => 'Onboarding',
                         'position' => 1,
                         'tags'     => ['guide'],
+                        'attachments' => [
+                            ['name' => 'New Hire Checklist.pdf', 'lines' => [
+                                'New Hire Checklist',
+                                '',
+                                '[ ] Sign employment paperwork',
+                                '[ ] Collect laptop and access badge',
+                                '[ ] Set up email and single sign-on',
+                                '[ ] Meet your onboarding buddy',
+                                '[ ] Read the Code of Conduct',
+                            ]],
+                            ['name' => 'Equipment Request Form.csv',
+                                'body' => "item,model,notes\nLaptop,MacBook Pro 14,default issue\nMonitor,Dell U2723QE,optional\nKeyboard,,state preference\n"],
+                        ],
                         'content'  => [
                             'Welcome to the team! This page is your starting point. Work through the checklist below during your first week.',
                             ['type' => 'image', 'src' => 'https://picsum.photos/seed/office/900/420', 'alt' => 'Office overview'],
@@ -461,6 +477,16 @@ class WorkspaceSeeder extends Seeder
                     [
                         'title'    => 'Company Benefits',
                         'position' => 2,
+                        'attachments' => [
+                            ['name' => 'Benefits Summary 2026.pdf', 'lines' => [
+                                'Benefits Summary 2026',
+                                '',
+                                'Health: full medical, dental and vision from day one.',
+                                'Time off: 25 days annual leave plus public holidays.',
+                                'Pension: 5% employer match.',
+                                'Learning: 1000 EUR annual development budget.',
+                            ]],
+                        ],
                         'content'  => [
                             'We offer a comprehensive benefits package. Full details and how to claim are summarised below.',
                             ['type' => 'heading', 'level' => 2, 'text' => 'Health & wellbeing'],
@@ -781,6 +807,17 @@ class WorkspaceSeeder extends Seeder
                                 'title'    => 'Incident Runbook',
                                 'position' => 1,
                                 'tags'     => ['incident', 'ops'],
+                                'attachments' => [
+                                    ['name' => 'Severity Matrix.pdf', 'lines' => [
+                                        'Incident Severity Matrix',
+                                        '',
+                                        'SEV1 - full outage or data-loss risk. Page on-call immediately.',
+                                        'SEV2 - major feature down. Respond within 15 minutes.',
+                                        'SEV3 - degraded, workaround exists. Next business day.',
+                                    ]],
+                                    ['name' => 'Escalation Contacts.csv',
+                                        'body' => "role,contact,channel\nIncident Lead,on-call rotation,#incidents\nEng Manager,rotation,phone\nComms,PR team,email\n"],
+                                ],
                                 'content'  => [
                                     'Follow these steps for any SEV1 or SEV2. Assign one Incident Lead — they coordinate, others execute.',
                                     ['type' => 'orderedList', 'items' => [
@@ -1063,6 +1100,17 @@ class WorkspaceSeeder extends Seeder
                         'title'    => 'Expense & Procurement',
                         'position' => 1,
                         'tags'     => ['finance', 'policy'],
+                        'attachments' => [
+                            ['name' => 'Procurement Policy.pdf', 'lines' => [
+                                'Procurement Policy',
+                                '',
+                                'Under 200 EUR: self-approve and keep the receipt.',
+                                '200-2000 EUR: manager approval required.',
+                                'Over 2000 EUR: finance sign-off and a purchase order.',
+                            ]],
+                            ['name' => 'Expense Report Template.csv',
+                                'body' => "date,category,amount,description\n,,,\n,,,\n"],
+                        ],
                         'content'  => [
                             'How to spend company money responsibly. When unsure whether something is reimbursable, ask before you buy.',
                             ['type' => 'heading', 'level' => 2, 'text' => 'Approval thresholds'],
@@ -1293,9 +1341,91 @@ class WorkspaceSeeder extends Seeder
             }
         }
 
+        $this->attachFiles($document, $pageData['attachments'] ?? [], $createdBy);
+
         foreach ($pageData['children'] ?? [] as $childData) {
             $this->createPage($workspaceId, $childData, $document->id, $authorIds, $tags);
         }
+    }
+
+    /**
+     * Attach demo files to a page. Each spec is ['name' => 'Report.pdf', ...] with
+     * either 'lines' (rendered into a real one-page PDF) or 'body' (raw text for
+     * csv/txt/md). Binaries land on the private 'local' disk, exactly like a real
+     * upload, so the download endpoint serves genuinely openable files.
+     *
+     * @param array<int, array<string, mixed>> $files
+     */
+    protected function attachFiles(Document $document, array $files, int $uploaderId): void
+    {
+        foreach (array_values($files) as $position => $spec) {
+            $ext   = strtolower(pathinfo($spec['name'], PATHINFO_EXTENSION)) ?: 'txt';
+            $bytes = $ext === 'pdf'
+                ? $this->pdfBytes((array) ($spec['lines'] ?? [$spec['name']]))
+                : (string) ($spec['body'] ?? '');
+
+            $path = 'attachments/' . Str::ulid() . '.' . $ext;
+            Storage::disk('local')->put($path, $bytes);
+
+            $document->attachments()->create([
+                'disk'           => 'local',
+                'path'           => $path,
+                'original_name'  => $spec['name'],
+                'mime'           => match ($ext) {
+                    'pdf'   => 'application/pdf',
+                    'csv'   => 'text/csv',
+                    'md'    => 'text/markdown',
+                    default => 'text/plain',
+                },
+                'size'           => strlen($bytes),
+                'checksum'       => hash('sha256', $bytes),
+                'uploaded_by_id' => $uploaderId,
+                'position'       => $position + 1,
+            ]);
+        }
+    }
+
+    /**
+     * Build a minimal but VALID single-page PDF (Helvetica, one line per entry)
+     * with a correct xref table, so seeded attachments actually open in a viewer.
+     *
+     * @param array<int, string> $lines
+     */
+    protected function pdfBytes(array $lines): string
+    {
+        $escape = fn (string $s) => str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $s);
+
+        $content = "BT\n/F1 14 Tf\n72 760 Td\n18 TL\n";
+        $lines   = $lines ?: [''];
+        foreach (array_values($lines) as $i => $line) {
+            $content .= '(' . $escape($line) . ') Tj' . ($i < count($lines) - 1 ? " T*\n" : "\n");
+        }
+        $content .= 'ET';
+
+        $objects = [
+            '<< /Type /Catalog /Pages 2 0 R >>',
+            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+            '<< /Length ' . strlen($content) . " >>\nstream\n" . $content . "\nendstream",
+        ];
+
+        $pdf     = "%PDF-1.4\n";
+        $offsets = [];
+        foreach ($objects as $i => $obj) {
+            $offsets[] = strlen($pdf);
+            $pdf .= ($i + 1) . " 0 obj\n" . $obj . "\nendobj\n";
+        }
+
+        $xref  = strlen($pdf);
+        $count = count($objects) + 1;
+        $pdf  .= "xref\n0 {$count}\n0000000000 65535 f \n";
+        foreach ($offsets as $offset) {
+            $pdf .= sprintf("%010d 00000 n \n", $offset);
+        }
+        $pdf .= "trailer\n<< /Size {$count} /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+
+        return $pdf;
     }
 
     protected function buildContent(array $items): array
