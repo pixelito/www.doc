@@ -228,7 +228,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
 
                 {(status === 'uploading' || status === 'processing') && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
-                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-500" stroke={1.5} />
+                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-600" stroke={1.5} />
                         <div>
                             <p className="font-medium text-foreground">
                                 {status === 'uploading' ? 'Uploading…' : 'Converting…'}
@@ -244,7 +244,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
 
                 {status === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
-                        <IconCircleCheck className="h-10 w-10 text-sage-500" stroke={1.5} />
+                        <IconCircleCheck className="h-10 w-10 text-sage-600" stroke={1.5} />
                         <div>
                             <p className="font-semibold text-foreground">Import complete!</p>
                             <p className="mt-0.5 text-sm text-text-secondary">Your document is ready to edit.</p>

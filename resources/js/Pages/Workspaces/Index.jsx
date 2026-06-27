@@ -207,7 +207,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                 {workspaces.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
-                            <IconFolderPlus className="h-6 w-6 text-sage-500" stroke={1.5} />
+                            <IconFolderPlus className="h-6 w-6 text-sage-600" stroke={1.5} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-foreground">No workspaces yet</p>

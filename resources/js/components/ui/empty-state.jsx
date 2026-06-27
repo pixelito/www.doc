@@ -5,7 +5,7 @@ export function EmptyState({ icon: Icon, title, description, children, className
         <div className={cn('flex flex-col items-center gap-3 px-6 py-12 text-center', className)}>
             {Icon && (
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
-                    <Icon className="h-6 w-6 text-sage-500" stroke={1.5} />
+                    <Icon className="h-6 w-6 text-sage-600" stroke={1.5} />
                 </div>
             )}
             <div>

@@ -30,7 +30,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
             </nav>
 
             <div className="mb-4 flex items-center gap-2">
-                <IconHistory className="h-5 w-5 text-sage-500" stroke={1.5} />
+                <IconHistory className="h-5 w-5 text-sage-600" stroke={1.5} />
                 <h1 className="text-[19px] font-semibold text-foreground">Version history</h1>
                 <span className="ml-1 text-sm text-text-tertiary">({versions.length})</span>
             </div>

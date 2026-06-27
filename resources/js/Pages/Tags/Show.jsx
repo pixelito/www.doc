@@ -36,14 +36,14 @@ export default function TagShow({ tag, groups }) {
                         <div key={group.workspace.id}>
                             {/* Workspace group header */}
                             <div className="mb-2 flex items-center gap-2 rounded-md border border-sage-200 bg-sage-50 px-3 py-2">
-                                <IconFolderOpen className="h-3.5 w-3.5 shrink-0 text-sage-500" stroke={1.5} />
+                                <IconFolderOpen className="h-3.5 w-3.5 shrink-0 text-sage-600" stroke={1.5} />
                                 <Link
                                     href={`/workspaces/${group.workspace.id}`}
                                     className="text-sm font-semibold text-sage-600 transition-colors hover:text-sage-800"
                                 >
                                     {group.workspace.name}
                                 </Link>
-                                <span className="ml-auto text-[11px] text-sage-500">
+                                <span className="ml-auto text-[11px] text-sage-600">
                                     {group.documents.length} {group.documents.length === 1 ? 'page' : 'pages'}
                                 </span>
                             </div>
