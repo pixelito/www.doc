@@ -519,6 +519,23 @@ test('restore refuses a tampered archive and leaves the live data intact', funct
     expect(Backup::where('trigger', 'pre-restore')->count())->toBe(0);
 });
 
+test('restoring a backup tracks its status through to restored', function () {
+    Storage::fake('local');
+    login();
+
+    Document::factory()->create(['content' => DocumentFactory::tiptap('hi')]);
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // QUEUE_CONNECTION=sync, so the restore job runs during the request.
+    $this->post("/admin/backups/{$backup->id}/restore")->assertRedirect();
+
+    $backup->refresh();
+    expect($backup->restore_status)->toBe('restored');
+    expect($backup->restored_at)->not->toBeNull();
+    expect($backup->restore_error)->toBeNull();
+});
+
 // ── In-app backup notices ───────────────────────────────────────────────────
 
 /** Mail config block with notifications enabled (password stored encrypted). */

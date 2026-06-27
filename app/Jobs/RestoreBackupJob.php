@@ -29,7 +29,9 @@ class RestoreBackupJob implements ShouldQueue
 
         try {
             $service->restore($backup);
+            $backup->update(['restore_status' => 'restored', 'restored_at' => now(), 'restore_error' => null]);
         } catch (Throwable $e) {
+            $backup->update(['restore_status' => 'failed', 'restore_error' => $e->getMessage()]);
             report($e);
             throw $e;
         }

@@ -64,6 +64,8 @@ export default function Backups() {
     const [confirm, setConfirm] = useState(null); // { type: 'restore'|'delete', backup }
     const [testing, setTesting] = useState(null);  // 'destination' | 'email' | null
     const [starting, setStarting] = useState(false); // manual "Back up now" in flight
+    const [restoring, setRestoring] = useState(false); // restore POST in flight
+    const restoringId = useRef(null);                  // which backup we kicked off a restore for
 
     const form = useForm({
         enabled:   settings.enabled ?? false,
@@ -118,15 +120,17 @@ export default function Backups() {
     // Poll while any backup is in flight so status updates without a manual refresh.
     const inFlight = backups.some((b) => b.status === 'pending' || b.status === 'processing');
     const backupRunning = starting || inFlight;
-    useScrollLock(backupRunning); // lock body scroll behind the progress modal
+    const restoreInFlight = backups.some((b) => b.restore_status === 'restoring');
+    const restoreRunning = restoring || restoreInFlight;
+    useScrollLock(backupRunning || restoreRunning); // lock body scroll behind a progress modal
     // Heading reflects the real phase: queued (waiting for the worker) vs running.
     const phaseTitle = backups.some((b) => b.status === 'processing') ? 'Backing up…' : 'Backup queued';
     const timer = useRef(null);
     useEffect(() => {
-        if (!inFlight) return;
+        if (!inFlight && !restoreInFlight) return;
         timer.current = setInterval(() => router.reload({ only: ['backups'] }), 2500);
         return () => clearInterval(timer.current);
-    }, [inFlight]);
+    }, [inFlight, restoreInFlight]);
 
     // Toast when a real run finishes (the progress modal closes on the same
     // edge). Keyed on inFlight — a server-confirmed run — so a POST that never
@@ -141,6 +145,21 @@ export default function Backups() {
         wasInFlight.current = inFlight;
     }, [inFlight]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Toast the restore outcome when the run we kicked off resolves (the restore
+    // modal closes on the same edge). Keyed on the specific backup id.
+    useEffect(() => {
+        const id = restoringId.current;
+        if (!id) return;
+        const b = backups.find((x) => x.id === id);
+        if (b?.restore_status === 'restored') {
+            toast.success('Backup restored — your knowledge base has been rebuilt.');
+            restoringId.current = null;
+        } else if (b?.restore_status === 'failed') {
+            toast.error(`Restore failed${b.restore_error ? ': ' + b.restore_error : '.'}`);
+            restoringId.current = null;
+        }
+    }, [backups]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Warn before leaving (in-app nav or browser close) with unsaved settings.
     const dirtyRef = useRef(false);
     dirtyRef.current = form.isDirty;
@@ -150,16 +169,17 @@ export default function Backups() {
         revert: () => form.reset(),
     });
 
-    // While a backup runs, keep the admin on the page (the job streams to the
-    // destination; a reload mid-run is confusing). Same guard as edit mode — a
+    // While a backup OR restore runs, keep the admin on the page (a reload mid-run
+    // is confusing, and a restore is destructive). Same guard as edit mode — a
     // browser close warns natively, in-app nav asks to confirm.
+    const opRunning = backupRunning || restoreRunning;
     const runningRef = useRef(false);
-    runningRef.current = backupRunning;
+    runningRef.current = opRunning;
     const {
         promptOpen:     leaveOpen,
         confirmDiscard: confirmLeave,
         dismissPrompt:  dismissLeave,
-    } = useUnsavedChangesGuard({ active: backupRunning, dirtyRef: runningRef, revert: () => {} });
+    } = useUnsavedChangesGuard({ active: opRunning, dirtyRef: runningRef, revert: () => {} });
 
     function saveSettings(e) {
         e.preventDefault();
@@ -193,6 +213,15 @@ export default function Backups() {
         router.post('/admin/backups', {}, {
             preserveScroll: true,
             onFinish: () => setStarting(false),
+        });
+    }
+
+    function restoreBackup(id) {
+        restoringId.current = id;
+        setRestoring(true);
+        router.post(`/admin/backups/${id}/restore`, {}, {
+            preserveScroll: true,
+            onFinish: () => setRestoring(false),
         });
     }
 
@@ -561,7 +590,7 @@ export default function Backups() {
                 confirmLabel="Restore"
                 variant="danger"
                 onConfirm={() => {
-                    router.post(`/admin/backups/${confirm.backup.id}/restore`, {}, { preserveScroll: true });
+                    restoreBackup(confirm.backup.id);
                     setConfirm(null);
                 }}
             />
@@ -611,10 +640,38 @@ export default function Backups() {
                 document.body,
             )}
 
+            {/* Blocking progress modal while a restore runs (auto-closes when done). */}
+            {restoreRunning && createPortal(
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-6"
+                    style={{ background: 'rgba(31, 37, 32, 0.42)' }}
+                >
+                    <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
+                         style={{ boxShadow: '0 16px 40px rgba(31, 37, 32, 0.18)' }}>
+                        <div className="flex flex-col items-center px-6 py-7 text-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
+                                <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
+                            </span>
+                            <h2 className="mt-4 text-[15px] font-medium text-foreground">Restoring backup…</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                                Your knowledge base is being rebuilt from this backup (a safety snapshot of
+                                the current state is taken first). Please keep this page open — don’t refresh
+                                or navigate away until it finishes.
+                            </p>
+                        </div>
+                    </div>
+                </div>,
+                document.body,
+            )}
+
             <ConfirmDialog
                 open={leaveOpen}
-                title="Leave during a backup?"
-                message="A backup is still running. It continues in the background, but you’ll stop seeing its progress here. Leave anyway?"
+                title={restoreRunning ? 'Leave during a restore?' : 'Leave during a backup?'}
+                message={
+                    restoreRunning
+                        ? 'A restore is still running. It continues in the background, but you’ll stop seeing its progress here. Leave anyway?'
+                        : 'A backup is still running. It continues in the background, but you’ll stop seeing its progress here. Leave anyway?'
+                }
                 confirmLabel="Leave page"
                 cancelLabel="Stay"
                 variant="danger"

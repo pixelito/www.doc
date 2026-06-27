@@ -46,9 +46,11 @@ class BackupController extends Controller
                 'error'       => $b->error,
                 'created_at'  => $b->created_at,
                 'finished_at' => $b->finished_at,
-                'created_by'  => $b->creator?->name,
-                'counts'      => $b->manifest['counts'] ?? null,
-                'encrypted'   => $b->manifest['encryption']['enabled'] ?? false,
+                'created_by'     => $b->creator?->name,
+                'counts'         => $b->manifest['counts'] ?? null,
+                'encrypted'      => $b->manifest['encryption']['enabled'] ?? false,
+                'restore_status' => $b->restore_status,
+                'restore_error'  => $b->restore_error,
             ]);
 
         return Inertia::render('Settings/Backups', [
@@ -161,9 +163,12 @@ class BackupController extends Controller
     {
         $this->authorize('restore', $backup);
 
+        // Mark restoring synchronously so the UI's progress modal shows at once;
+        // the job flips it to restored/failed and the page toasts the outcome.
+        $backup->update(['restore_status' => 'restoring', 'restore_error' => null, 'restored_at' => null]);
         RestoreBackupJob::dispatch($backup->id);
 
-        return back()->with('success', 'Restore started — the content model is being rebuilt from this backup.');
+        return back();
     }
 
     public function destroy(Backup $backup): RedirectResponse
