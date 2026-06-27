@@ -321,7 +321,7 @@ export default function Backups() {
                                 <option value="custom">Custom…</option>
                             </select>
                             {isCustomInterval && (
-                                <div className="mt-2 flex items-center gap-2">
+                                <div className="mt-2 flex items-center gap-2.5">
                                     <span className="text-sm text-text-secondary">Every</span>
                                     <Input
                                         type="number"
@@ -348,7 +348,7 @@ export default function Backups() {
                         </div>
                         <div>
                             <Label htmlFor="retention">Keep last</Label>
-                            <div className="mt-1 flex items-center gap-2">
+                            <div className="mt-1 flex items-center gap-2.5">
                                 <Input
                                     id="retention"
                                     type="number"
@@ -361,7 +361,7 @@ export default function Backups() {
                                 />
                                 <span className="text-sm text-text-secondary">backups</span>
                             </div>
-                            <label className="mt-2.5 flex items-center gap-2.5">
+                            <label className="mt-3 flex items-center gap-2.5">
                                 <Switch
                                     checked={neverDelete}
                                     onCheckedChange={toggleNeverDelete}
