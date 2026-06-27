@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
     IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock,
@@ -101,12 +103,25 @@ export default function Backups() {
 
     // Poll while any backup is in flight so status updates without a manual refresh.
     const inFlight = backups.some((b) => b.status === 'pending' || b.status === 'processing');
+    const backupRunning = starting || inFlight;
+    const runningLabel = backups.some((b) => b.status === 'processing') ? 'Running' : 'Queued';
     const timer = useRef(null);
     useEffect(() => {
         if (!inFlight) return;
         timer.current = setInterval(() => router.reload({ only: ['backups'] }), 2500);
         return () => clearInterval(timer.current);
     }, [inFlight]);
+
+    // Toast when a run finishes (the progress modal closes on the same edge).
+    const wasRunning = useRef(backupRunning);
+    useEffect(() => {
+        if (wasRunning.current && !backupRunning) {
+            backups[0]?.status === 'failed'
+                ? toast.error('Backup failed. See the archives list for details.')
+                : toast.success('Backup ready.');
+        }
+        wasRunning.current = backupRunning;
+    }, [backupRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Warn before leaving (in-app nav or browser close) with unsaved settings.
     const dirtyRef = useRef(false);
@@ -116,6 +131,17 @@ export default function Backups() {
         dirtyRef,
         revert: () => form.reset(),
     });
+
+    // While a backup runs, keep the admin on the page (the job streams to the
+    // destination; a reload mid-run is confusing). Same guard as edit mode — a
+    // browser close warns natively, in-app nav asks to confirm.
+    const runningRef = useRef(false);
+    runningRef.current = backupRunning;
+    const {
+        promptOpen:     leaveOpen,
+        confirmDiscard: confirmLeave,
+        dismissPrompt:  dismissLeave,
+    } = useUnsavedChangesGuard({ active: backupRunning, dirtyRef: runningRef, revert: () => {} });
 
     function saveSettings(e) {
         e.preventDefault();
@@ -543,6 +569,45 @@ export default function Backups() {
                 variant="danger"
                 onConfirm={confirmDiscard}
                 onCancel={dismissPrompt}
+            />
+
+            {/* Blocking progress modal while a backup runs (auto-closes when done). */}
+            {backupRunning && createPortal(
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-6"
+                    style={{ background: 'rgba(31, 37, 32, 0.42)' }}
+                >
+                    <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
+                         style={{ boxShadow: '0 16px 40px rgba(31, 37, 32, 0.18)' }}>
+                        <div className="flex flex-col items-center px-6 py-7 text-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
+                                <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
+                            </span>
+                            <h2 className="mt-4 text-[15px] font-medium text-foreground">Backup in progress</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                                Your knowledge base is being archived
+                                {inFlight ? ' to the configured destination' : ''}. Please keep this
+                                page open — don’t refresh or navigate away until it finishes.
+                            </p>
+                            <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-surface-hover px-2.5 py-1 text-xs font-medium text-text-secondary">
+                                <IconClock className="h-3 w-3" stroke={1.5} />
+                                {starting && !inFlight ? 'Starting…' : runningLabel}
+                            </span>
+                        </div>
+                    </div>
+                </div>,
+                document.body,
+            )}
+
+            <ConfirmDialog
+                open={leaveOpen}
+                title="Leave during a backup?"
+                message="A backup is still running. It continues in the background, but you’ll stop seeing its progress here. Leave anyway?"
+                confirmLabel="Leave page"
+                cancelLabel="Stay"
+                variant="danger"
+                onConfirm={confirmLeave}
+                onCancel={dismissLeave}
             />
         </SettingsLayout>
     );

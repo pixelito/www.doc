@@ -40,7 +40,11 @@ export function useUnsavedChangesGuard({ active, dirtyRef, revert }) {
             const visit = event.detail.visit;
             // A clean state navigates normally; non-GET visits (the owner's own
             // save, or an in-page POST like creating a tag) are never "leaving".
-            if (!dirtyRef.current || String(visit.method).toLowerCase() !== 'get') return;
+            // Partial reloads (`only:` — e.g. a status poll) stay on the same
+            // page fetching props, so they're not "leaving" either.
+            if (!dirtyRef.current
+                || String(visit.method).toLowerCase() !== 'get'
+                || visit.only?.length) return;
             // Pause this navigation and ask; resume it only if they discard.
             pendingVisit.current = visit;
             setPromptOpen(true);
