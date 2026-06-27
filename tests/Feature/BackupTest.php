@@ -2,7 +2,9 @@
 
 use App\Models\Backup;
 use App\Models\Document;
+use App\Models\DocumentVersion;
 use App\Models\Setting;
+use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Backup\BackupService;
@@ -261,6 +263,66 @@ test('a backup restores losslessly, reverting later edits', function () {
 
     expect(Workspace::find($ws->id)->name)->toBe('Original Name');
     expect(Document::find($doc->id)->title)->toBe('Original Title');
+});
+
+test('restore round-trips the page tree, tags, versions and verbatim content', function () {
+    Storage::fake('local');
+    login();
+
+    $ws     = Workspace::factory()->create(['name' => 'KB']);
+    $parent = Document::factory()->for($ws)->create(['title' => 'Parent']);
+    $child  = Document::factory()->for($ws)->create(['title' => 'Child', 'parent_id' => $parent->id]);
+
+    // A diagram graph + a coloured mark live in `content`. Written straight to the
+    // column (no observer/render) so it's stored exactly as given — restore must
+    // bring it back byte-for-byte.
+    $richContent = [
+        'type' => 'doc',
+        'content' => [
+            ['type' => 'paragraph', 'content' => [
+                ['type' => 'text', 'text' => 'danger', 'marks' => [['type' => 'textStyle', 'attrs' => ['color' => '#B5573E']]]],
+            ]],
+            ['type' => 'networkDiagram', 'attrs' => [
+                'name'  => 'Office LAN',
+                'graph' => [
+                    'nodes' => [['id' => 'a', 'data' => ['label' => 'Router']]],
+                    'edges' => [],
+                    'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1],
+                ],
+            ]],
+        ],
+    ];
+    DB::table('documents')->where('id', $child->id)->update(['content' => json_encode($richContent)]);
+
+    $tag = Tag::factory()->create(['name' => 'networking']);
+    $child->tags()->attach($tag);
+
+    $version = $child->versions()->create([
+        'title'        => 'Child v1',
+        'content'      => DocumentFactory::tiptap('older body'),
+        'content_html' => '<p>older body</p>',
+        'tags'         => ['networking'],
+    ]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift away from the backed-up state (via raw writes, so no observer churn).
+    DB::table('documents')->where('id', $child->id)
+        ->update(['parent_id' => null, 'content' => json_encode(['type' => 'doc', 'content' => []])]);
+    $child->tags()->detach();
+    DocumentVersion::whereKey($version->id)->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    $restored = Document::find($child->id);
+    expect($restored->parent_id)->toBe($parent->id);                  // self-ref tree (two-pass wiring)
+    expect($restored->content)->toEqual($richContent);                // diagram + colour mark, verbatim
+    expect($restored->tags->pluck('name')->all())->toBe(['networking']); // tags via taggables
+
+    $restoredVersion = DocumentVersion::find($version->id);           // versions round-trip
+    expect($restoredVersion?->document_id)->toBe($child->id);
+    expect($restoredVersion->content)->toEqual(DocumentFactory::tiptap('older body'));
 });
 
 test('the archive cipher round-trips and rejects wrong keys, tampering and truncation', function () {
