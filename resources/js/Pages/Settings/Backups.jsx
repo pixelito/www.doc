@@ -519,7 +519,7 @@ export default function Backups() {
                                                 binary += String.fromCharCode(bytes[i]);
                                             }
                                             const base64 = btoa(binary);
-                                            navigator.clipboard.writeText(`BACKUP_ENCRYPTION_KEY=${base64}`);
+                                            navigator.clipboard.writeText(base64);
                                             toast.success('Encryption key copied to clipboard');
                                         }}
                                     >
