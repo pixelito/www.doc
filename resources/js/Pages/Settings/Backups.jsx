@@ -4,7 +4,7 @@ import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
-    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle
+    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle, IconKey
 } from '@tabler/icons-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -492,19 +492,25 @@ export default function Backups() {
                             </button>
                         </div>
                         {form.errors.encryption && <p className="mt-1 text-xs text-danger">{form.errors.encryption}</p>}
-                        <p className="mt-2 text-xs text-text-tertiary">
-                            {keyReady ? (
-                                <>
-                                    Archives are encrypted with XChaCha20-Poly1305 before they leave the app. Keep{' '}
-                                    <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> somewhere safe and off this host —
-                                    without it an encrypted backup cannot be restored or read.
-                                </>
-                            ) : (
-                                <>
-                                    Set <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> in the environment to enable
-                                    encryption (a base64 32-byte key).{' '}
-                                    <button 
+                        {keyReady ? (
+                            <p className="mt-2 text-xs text-text-tertiary">
+                                Archives are encrypted with XChaCha20-Poly1305 before they leave the app. Keep{' '}
+                                <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> somewhere safe and off this host —
+                                without it an encrypted backup cannot be restored or read.
+                            </p>
+                        ) : (
+                            <div className="mt-4 p-3.5 rounded-xl border border-border bg-surface-hover/50 space-y-3.5">
+                                <div className="flex items-start gap-2.5">
+                                    <IconAlertTriangle className="h-4 w-4 text-sage-600 mt-0.5 shrink-0" stroke={1.5} />
+                                    <div className="text-[12.5px] text-text-secondary leading-relaxed">
+                                        Encryption is currently disabled. Set <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file to enable it.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2.5 pl-6">
+                                    <Button 
                                         type="button" 
+                                        variant="secondary" 
+                                        size="sm"
                                         onClick={() => {
                                             const bytes = new Uint8Array(32);
                                             crypto.getRandomValues(bytes);
@@ -516,13 +522,27 @@ export default function Backups() {
                                             navigator.clipboard.writeText(`BACKUP_ENCRYPTION_KEY=${base64}`);
                                             toast.success('Encryption key copied to clipboard');
                                         }}
-                                        className="text-sage-600 font-medium hover:underline cursor-pointer"
                                     >
+                                        <IconKey className="h-3.5 w-3.5 text-sage-600" />
                                         Generate and copy key
-                                    </button>.
-                                </>
-                            )}
-                        </p>
+                                    </Button>
+                                    <TooltipProvider>
+                                        <Tooltip delayDuration={200}>
+                                            <TooltipTrigger type="button" className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary focus:outline-none cursor-help">
+                                                <IconInfoCircle className="h-4 w-4" stroke={1.5} />
+                                            </TooltipTrigger>
+                                            <TooltipContent 
+                                                side="right" 
+                                                sideOffset={6} 
+                                                className="bg-[#1F2520] text-[#F1F4EE] px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
+                                            >
+                                                Encryption prevents unauthorized access to your backups if the files are ever exposed. Without the key, the archive is completely unreadable.
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
