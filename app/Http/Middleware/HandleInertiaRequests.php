@@ -53,9 +53,11 @@ class HandleInertiaRequests extends Middleware
                 'profile_success'  => $request->session()->get('profile_success'),
                 'password_success' => $request->session()->get('password_success'),
             ],
-            // Persistent backup notices (admin-only): runs whose result wasn't
-            // emailed — mail off, or the report email failed — so a dismissable
-            // banner informs the admin instead. Cleared by acknowledging.
+            // Persistent backup notices (admin-only): UNATTENDED runs whose result
+            // wasn't emailed — mail off, or the report email failed — so a
+            // dismissable banner informs the admin instead. Cleared by
+            // acknowledging. Manual runs are excluded: the admin is watching and
+            // gets a toast, so a persistent banner would just be noise.
             'backupNotices' => $this->backupNotices($request),
         ];
     }
@@ -72,7 +74,8 @@ class HandleInertiaRequests extends Middleware
             ->whereNull('acknowledged_at')
             ->where('report_emailed', false)
             ->whereIn('status', ['done', 'failed'])
-            ->where('trigger', '!=', 'pre-restore')
+            // 'pre-restore' is internal bookkeeping; 'manual' is attended (toast).
+            ->whereNotIn('trigger', ['pre-restore', 'manual'])
             ->latest('id')
             ->limit(10)
             ->get(['id', 'status', 'error', 'report_error', 'created_at'])

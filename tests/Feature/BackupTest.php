@@ -684,7 +684,22 @@ function mailOnSettings(): array
     ]);
 }
 
-test('a backup with email off leaves an unacknowledged notice for the admin', function () {
+test('a scheduled backup with email off leaves an unacknowledged notice for the admin', function () {
+    login();
+
+    // Unattended run, mail off → no email could inform the admin, so a banner does.
+    $backup = Backup::create([
+        'trigger' => 'scheduled', 'disk' => 'local', 'status' => 'done',
+        'finished_at' => now(), 'report_emailed' => false,
+    ]);
+
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page
+        ->has('backupNotices', 1)
+        ->where('backupNotices.0.id', $backup->id)
+        ->where('backupNotices.0.status', 'done'));
+});
+
+test('a manual backup leaves no banner notice (the admin is watching)', function () {
     Storage::fake('local');
     login();
 
@@ -692,15 +707,13 @@ test('a backup with email off leaves an unacknowledged notice for the admin', fu
     $this->post('/admin/backups')->assertRedirect();
 
     $backup = Backup::latest('id')->first();
+    expect($backup->trigger)->toBe('manual');
     expect($backup->status)->toBe('done');
     expect($backup->report_emailed)->toBeFalse();
-    expect($backup->acknowledged_at)->toBeNull();
 
-    // Surfaced to the admin as a shared prop.
-    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page
-        ->has('backupNotices', 1)
-        ->where('backupNotices.0.id', $backup->id)
-        ->where('backupNotices.0.status', 'done'));
+    // Even though the result wasn't emailed, a manual run gets a toast, not a
+    // persistent banner — so it's absent from the admin's notices.
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
 });
 
 test('a backup whose report email is sent leaves no notice', function () {
@@ -738,7 +751,7 @@ test('acknowledging a backup clears its notice', function () {
     login();
 
     $backup = Backup::create([
-        'trigger' => 'manual', 'disk' => 'local', 'status' => 'done',
+        'trigger' => 'scheduled', 'disk' => 'local', 'status' => 'done',
         'finished_at' => now(), 'report_emailed' => false,
     ]);
 
@@ -776,9 +789,9 @@ test('backup notices are shared only with admins', function () {
 });
 
 test('a successful or emailed backup is excluded from notices', function () {
-    Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'report_emailed' => true]);  // emailed
-    Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending', 'report_emailed' => false]); // not finished
-    $acked = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'report_emailed' => false, 'acknowledged_at' => now()]);
+    Backup::create(['trigger' => 'scheduled', 'disk' => 'local', 'status' => 'done', 'report_emailed' => true]);  // emailed
+    Backup::create(['trigger' => 'scheduled', 'disk' => 'local', 'status' => 'pending', 'report_emailed' => false]); // not finished
+    $acked = Backup::create(['trigger' => 'scheduled', 'disk' => 'local', 'status' => 'done', 'report_emailed' => false, 'acknowledged_at' => now()]);
 
     login();
     $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
