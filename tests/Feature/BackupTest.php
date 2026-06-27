@@ -132,6 +132,60 @@ test('retention 0 (never delete) is accepted and skips pruning', function () {
     expect(Backup::where('status', 'done')->count())->toBe(4);
 });
 
+test('retention prunes the oldest backups past the keep count, archives and all', function () {
+    Storage::fake('local');
+    login();
+
+    Setting::put('backup', settingsPayload(['retention' => 2]));
+
+    // A failed run is never a restore source: pruning filters to status=done, so
+    // it must be left untouched and must not count toward the keep window.
+    $failed = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'failed']);
+
+    // Three successful backups, oldest → newest, each writing a real archive.
+    // Pruning runs at the tail of every run, so the third run is what trims the
+    // first once three done backups exist with retention 2.
+    $runs = [];
+    foreach (range(1, 3) as $i) {
+        $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+        app(BackupService::class)->run($backup->fresh(), true); // canonical-only: no Node/PDF
+        $runs[] = $backup->fresh();
+    }
+    [$oldest, $middle, $newest] = $runs;
+
+    // The two newest survive (row + archive on disk); the oldest is gone, and so
+    // is its archive file (deleted through the destination, not just the row).
+    expect(Backup::find($newest->id))->not->toBeNull()
+        ->and(Storage::disk('local')->exists($newest->path))->toBeTrue();
+    expect(Backup::find($middle->id))->not->toBeNull();
+
+    expect(Backup::find($oldest->id))->toBeNull()
+        ->and(Storage::disk('local')->exists($oldest->path))->toBeFalse();
+
+    // Exactly the keep count remains, and the unrelated failed run is intact.
+    expect(Backup::where('status', 'done')->count())->toBe(2);
+    expect(Backup::find($failed->id))->not->toBeNull();
+});
+
+test('pruning is scoped to the destination it ran on', function () {
+    Storage::fake('local');
+    login();
+
+    Setting::put('backup', settingsPayload(['retention' => 1]));
+
+    // A done backup recorded against a different driver must not be pruned (or
+    // counted) when a local run trims its own history.
+    $other = Backup::create(['trigger' => 'manual', 'disk' => 'smb', 'status' => 'done', 'path' => 'other.zip']);
+
+    foreach (range(1, 2) as $i) {
+        $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+        app(BackupService::class)->run($backup->fresh(), true);
+    }
+
+    expect(Backup::where('disk', 'local')->where('status', 'done')->count())->toBe(1);
+    expect(Backup::find($other->id))->not->toBeNull();
+});
+
 test('the scheduled command resolves a custom interval in hours', function () {
     Setting::put('backup', settingsPayload(['enabled' => true, 'interval' => 6]));
 
@@ -384,6 +438,81 @@ test('restore round-trips the page tree, tags, versions and verbatim content', f
     $restoredVersion = DocumentVersion::find($version->id);           // versions round-trip
     expect($restoredVersion?->document_id)->toBe($child->id);
     expect($restoredVersion->content)->toEqual(DocumentFactory::tiptap('older body'));
+});
+
+test('restore round-trips a deep tree, ordered version history, multiple tags and a diagram with edges', function () {
+    Storage::fake('local');
+    login();
+
+    $ws = Workspace::factory()->create(['name' => 'KB']);
+
+    // Three levels deep: grandparent → parent → leaf. The two-pass parent_id
+    // wiring must reconstruct the whole chain, not just one hop.
+    $grand = Document::factory()->for($ws)->create(['title' => 'Grand']);
+    $parent = Document::factory()->for($ws)->create(['title' => 'Parent', 'parent_id' => $grand->id]);
+    $leaf = Document::factory()->for($ws)->create(['title' => 'Leaf', 'parent_id' => $parent->id]);
+
+    // A diagram with two nodes AND an edge between them — edges are part of the
+    // graph JSON and must survive verbatim.
+    $richContent = [
+        'type' => 'doc',
+        'content' => [
+            ['type' => 'networkDiagram', 'attrs' => [
+                'name'  => 'Office LAN',
+                'graph' => [
+                    'nodes' => [
+                        ['id' => 'a', 'data' => ['label' => 'Router']],
+                        ['id' => 'b', 'data' => ['label' => 'Switch']],
+                    ],
+                    'edges' => [['id' => 'a-b', 'source' => 'a', 'target' => 'b']],
+                    'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1],
+                ],
+            ]],
+        ],
+    ];
+    DB::table('documents')->where('id', $leaf->id)->update(['content' => json_encode($richContent)]);
+
+    // Two tags spanning the leaf.
+    $leaf->tags()->attach([
+        Tag::factory()->create(['name' => 'networking'])->id,
+        Tag::factory()->create(['name' => 'infra'])->id,
+    ]);
+
+    // An ordered version history: three snapshots, oldest → newest.
+    foreach (['v1', 'v2', 'v3'] as $i => $label) {
+        $leaf->versions()->create([
+            'title'        => "Leaf {$label}",
+            'content'      => DocumentFactory::tiptap("body {$label}"),
+            'content_html' => "<p>body {$label}</p>",
+            'tags'         => ['networking'],
+        ]);
+    }
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift hard: flatten the tree, blank the content, drop tags and versions.
+    DB::table('documents')->whereIn('id', [$parent->id, $leaf->id])
+        ->update(['parent_id' => null, 'content' => json_encode(['type' => 'doc', 'content' => []])]);
+    $leaf->tags()->detach();
+    DocumentVersion::where('document_id', $leaf->id)->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    // The full chain comes back.
+    expect(Document::find($parent->id)->parent_id)->toBe($grand->id);
+    expect(Document::find($leaf->id)->parent_id)->toBe($parent->id);
+
+    $restored = Document::find($leaf->id);
+    expect($restored->content)->toEqual($richContent);                 // nodes + edge verbatim
+    expect($restored->tags->pluck('name')->sort()->values()->all())->toBe(['infra', 'networking']);
+
+    // The three explicit snapshots come back in creation order (the page's
+    // auto-created initial version is incidental, so scope to ours).
+    $titles = DocumentVersion::where('document_id', $leaf->id)
+        ->where('title', 'like', 'Leaf v%')
+        ->orderBy('id')->pluck('title')->all();
+    expect($titles)->toBe(['Leaf v1', 'Leaf v2', 'Leaf v3']);
 });
 
 test('restore round-trips page attachments and their binaries', function () {
