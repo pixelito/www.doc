@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
         Route::get('backups/{backup}', [AdminBackupController::class, 'show'])->name('backups.show');
         Route::get('backups/{backup}/download', [AdminBackupController::class, 'download'])->name('backups.download');
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
+        Route::post('backups/{backup}/acknowledge', [AdminBackupController::class, 'acknowledge'])->name('backups.acknowledge');
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
     });
 

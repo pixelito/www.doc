@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { IconSearch, IconSettings, IconLogout, IconMenu2, IconX } from '@tabler/icons-react';
+import { IconSearch, IconSettings, IconLogout, IconMenu2, IconX, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-react';
 import { Toaster } from '@/components/ui/sonner';
 import { avatarStyle, initials } from '@/lib/avatar';
 
@@ -29,10 +29,34 @@ const NAV_LINKS = [
     { label: 'Tags',       href: '/tags' },
 ];
 
+// A backup notice is an error if the run failed OR its report email failed.
+function noticeIsError(n) {
+    return n.status === 'failed' || !!n.report_error;
+}
+
+function noticeText(n) {
+    if (n.status === 'failed') {
+        const why = n.error ? `: ${n.error}` : '.';
+        return n.report_error
+            ? `Backup failed${why} The report email also failed: ${n.report_error}`
+            : `Backup failed${why}`;
+    }
+    return n.report_error
+        ? `Backup completed, but the report email could not be sent: ${n.report_error}`
+        : 'Backup completed successfully.';
+}
+
 export default function DocsLayout({ children }) {
-    const { auth, flash } = usePage().props;
+    const { auth, flash, backupNotices = [] } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
     const [mobileNav, setMobileNav] = useState(false);
+
+    function dismissNotice(id) {
+        router.post(`/admin/backups/${id}/acknowledge`, {}, {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }
 
     // Surface server flash as toasts (fixed-position, scroll-independent).
     // Driven by Inertia's per-visit `success` event rather than the `flash`
@@ -157,6 +181,36 @@ export default function DocsLayout({ children }) {
                     </nav>
                 )}
             </header>
+
+            {/* Persistent, dismissable backup notices (admin-only; shared prop).
+                Survive refreshes until acknowledged — the durable counterpart to
+                the transient toasts. */}
+            {backupNotices.map((n) => {
+                const isErr = noticeIsError(n);
+                const Icon = isErr ? IconAlertTriangle : IconCircleCheck;
+                return (
+                    <div
+                        key={n.id}
+                        className={`flex items-start gap-2 border-b px-5 py-2.5 text-sm ${
+                            isErr
+                                ? 'border-danger/30 bg-danger/5 text-danger'
+                                : 'border-sage-200 bg-sage-50 text-sage-700'
+                        }`}
+                    >
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0" stroke={1.5} />
+                        <span className="flex-1">{noticeText(n)}</span>
+                        <button
+                            type="button"
+                            onClick={() => dismissNotice(n.id)}
+                            className="shrink-0 rounded-sm p-0.5 opacity-70 transition-opacity hover:opacity-100"
+                            title="Dismiss"
+                        >
+                            <IconX className="h-4 w-4" stroke={1.5} />
+                        </button>
+                    </div>
+                );
+            })}
+
             <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
             <Toaster />
         </div>

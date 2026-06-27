@@ -20,14 +20,19 @@ class BackupNotifier
     {
         $mail = BackupSettings::mailConfig();
 
+        // Mail off (or no recipient): nothing to send. The row stays
+        // report_emailed=false, so the in-app banner informs the admin instead.
         if (! ($mail['enabled'] ?? false) || trim((string) ($mail['to'] ?? '')) === '') {
-            return; // notifications off, or no recipient — nothing to do
+            return;
         }
 
         try {
             $this->send($mail, new BackupReport(backup: $backup));
+            $backup->update(['report_emailed' => true]);
         } catch (\Throwable $e) {
-            // A failed notification must never fail the backup itself.
+            // A failed notification must never fail the backup itself — but record
+            // why so the in-app banner can surface the email problem too.
+            $backup->update(['report_error' => $this->friendly($e)]);
             report($e);
         }
     }

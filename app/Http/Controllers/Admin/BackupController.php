@@ -103,6 +103,16 @@ class BackupController extends Controller
         return back()->with('success', 'Backup settings saved.');
     }
 
+    /** Dismiss a backup's in-app notice banner. */
+    public function acknowledge(Backup $backup): RedirectResponse
+    {
+        $this->authorize('view', $backup);
+
+        $backup->update(['acknowledged_at' => now()]);
+
+        return back();
+    }
+
     /** Kick off a manual backup now. */
     public function store(Request $request): RedirectResponse
     {

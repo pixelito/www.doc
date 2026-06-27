@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Backup;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -52,6 +53,35 @@ class HandleInertiaRequests extends Middleware
                 'profile_success'  => $request->session()->get('profile_success'),
                 'password_success' => $request->session()->get('password_success'),
             ],
+            // Persistent backup notices (admin-only): runs whose result wasn't
+            // emailed — mail off, or the report email failed — so a dismissable
+            // banner informs the admin instead. Cleared by acknowledging.
+            'backupNotices' => $this->backupNotices($request),
         ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function backupNotices(Request $request): array
+    {
+        $user = $request->user();
+        if (! $user || ! $user->hasRole('admin')) {
+            return [];
+        }
+
+        return Backup::query()
+            ->whereNull('acknowledged_at')
+            ->where('report_emailed', false)
+            ->whereIn('status', ['done', 'failed'])
+            ->latest('id')
+            ->limit(10)
+            ->get(['id', 'status', 'error', 'report_error', 'created_at'])
+            ->map(fn (Backup $b) => [
+                'id'           => $b->id,
+                'status'       => $b->status,
+                'error'        => $b->error,
+                'report_error' => $b->report_error,
+                'created_at'   => $b->created_at,
+            ])
+            ->all();
     }
 }
