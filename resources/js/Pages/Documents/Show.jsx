@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
@@ -412,7 +413,10 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         setSaveStatus('saved');
                         setIsEditing(false);
                     },
-                    onError: () => setSaveStatus(null),
+                    onError: () => {
+                        setSaveStatus(null);
+                        toast.error("Couldn't save your changes — they're still here, try again.");
+                    },
                 }
             );
         },

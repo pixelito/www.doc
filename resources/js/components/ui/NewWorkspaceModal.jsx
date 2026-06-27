@@ -112,7 +112,7 @@ export default function NewWorkspaceModal({ open, onClose }) {
                         <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={busy}>
+                        <Button type="submit" disabled={busy || !name.trim()}>
                             {busy ? 'Creating…' : 'Create workspace'}
                         </Button>
                     </div>

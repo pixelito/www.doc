@@ -22,6 +22,7 @@ import {
     addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toast } from 'sonner';
 import {
     IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
@@ -1157,6 +1158,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
             URL.revokeObjectURL(url);
         } catch (e) {
             console.warn('Network diagram download failed', e);
+            toast.error("Couldn't download the diagram. Please try again.");
         } finally {
             setDownloading(false);
         }

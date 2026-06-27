@@ -120,7 +120,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
                         <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={busy}>
+                        <Button type="submit" disabled={busy || !title.trim()}>
                             {busy ? 'Creating…' : 'Create page'}
                         </Button>
                     </div>

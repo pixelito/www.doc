@@ -33,9 +33,9 @@ function PasswordInput({ value, onChange, placeholder, id }) {
     );
 }
 
-function SaveButton({ saving, success, label = 'Save changes' }) {
+function SaveButton({ saving, success, disabled = false, label = 'Save changes' }) {
     return (
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || disabled}>
             {saving
                 ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
                 : success
@@ -135,6 +135,11 @@ export default function ProfilePage({ user }) {
         });
     }
 
+    // Gate the submit buttons: profile only when name/email actually changed;
+    // password only once all three fields are filled (all are required).
+    const profileDirty = name !== user.name || email !== user.email;
+    const pwFilled = currentPw !== '' && newPw !== '' && confirmPw !== '';
+
     return (
         <SettingsLayout>
             <Head title="Profile — Settings" />
@@ -214,7 +219,7 @@ export default function ProfilePage({ user }) {
                         </div>
                     </div>
                     <div className="flex items-center justify-end rounded-b-md border-t border-border-subtle bg-canvas px-5 py-3.5">
-                        <SaveButton saving={profSaving} success={profSuccess} />
+                        <SaveButton saving={profSaving} success={profSuccess} disabled={!profileDirty} />
                     </div>
                 </form>
             </section>
@@ -265,7 +270,7 @@ export default function ProfilePage({ user }) {
                         </div>
                     </div>
                     <div className="flex items-center justify-end rounded-b-md border-t border-border-subtle bg-canvas px-5 py-3.5">
-                        <SaveButton saving={pwSaving} success={pwSuccess} label="Update password" />
+                        <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwFilled} label="Update password" />
                     </div>
                 </form>
             </section>

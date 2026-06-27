@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { IconSearch, IconSettings, IconLogout, IconMenu2, IconX } from '@tabler/icons-react';
+import { Toaster } from '@/components/ui/sonner';
 import { avatarStyle, initials } from '@/lib/avatar';
 
 function NavLink({ href, children }) {
@@ -31,6 +33,28 @@ export default function DocsLayout({ children }) {
     const { auth, flash } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
     const [mobileNav, setMobileNav] = useState(false);
+
+    // Surface server flash as toasts (fixed-position, scroll-independent).
+    // Driven by Inertia's per-visit `success` event rather than the `flash`
+    // prop's identity: a repeated action (e.g. saving the same settings twice)
+    // returns an identical flash payload, and Inertia may reuse the prop
+    // reference — so an effect keyed on `[flash]` would fire only the first
+    // time. The event fires once per completed request, so every save toasts.
+    useEffect(() => {
+        return router.on('success', (event) => {
+            const f = event.detail.page.props.flash;
+            if (f?.success) toast.success(f.success);
+            if (f?.error) toast.error(f.error);
+        });
+    }, []);
+
+    // Cover flash present on the very first (non-Inertia) page load, which the
+    // `success` event above doesn't see.
+    useEffect(() => {
+        if (flash?.success) toast.success(flash.success);
+        if (flash?.error) toast.error(flash.error);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     function logout(e) {
         e.preventDefault();
@@ -133,17 +157,8 @@ export default function DocsLayout({ children }) {
                     </nav>
                 )}
             </header>
-            {flash?.success && (
-                <div className="border-b border-sage-200 bg-sage-50 px-5 py-2.5 text-sm text-sage-700">
-                    {flash.success}
-                </div>
-            )}
-            {flash?.error && (
-                <div className="border-b border-danger/30 bg-danger/5 px-5 py-2.5 text-sm text-danger">
-                    {flash.error}
-                </div>
-            )}
             <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
+            <Toaster />
         </div>
     );
 }

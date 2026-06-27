@@ -387,7 +387,7 @@ export default function Backups() {
                         )}
                     </div>
 
-                    <Button type="submit" disabled={form.processing}>
+                    <Button type="submit" disabled={form.processing || !form.isDirty}>
                         {form.processing
                             ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
                             : form.recentlySuccessful
