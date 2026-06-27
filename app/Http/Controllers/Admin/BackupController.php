@@ -48,6 +48,7 @@ class BackupController extends Controller
                 'finished_at' => $b->finished_at,
                 'created_by'  => $b->creator?->name,
                 'counts'      => $b->manifest['counts'] ?? null,
+                'encrypted'   => $b->manifest['encryption']['enabled'] ?? false,
             ]);
 
         return Inertia::render('Settings/Backups', [

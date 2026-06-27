@@ -27,13 +27,25 @@ function formatBytes(bytes) {
     return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, encrypted }) {
     const map = {
-        done:       { cls: 'bg-sage-100 text-sage-600',                        icon: IconCheck,         label: 'Ready' },
         processing: { cls: 'bg-sage-50 text-sage-600',                         icon: IconLoader2,       label: 'Running', spin: true },
         pending:    { cls: 'bg-surface-hover text-text-secondary',             icon: IconClock,         label: 'Queued' },
         failed:     { cls: 'bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] text-danger', icon: IconAlertTriangle, label: 'Failed' },
     };
+    // A done archive carries no badge of its own — the Download/Restore controls
+    // already say it's ready — except the one fact those don't show: whether it's
+    // encrypted (and so needs the key to restore).
+    if (status === 'done') {
+        if (!encrypted) return null;
+        return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-600">
+                <IconLock className="h-3 w-3" stroke={1.5} />
+                Encrypted
+            </span>
+        );
+    }
+
     const s = map[status] ?? map.pending;
     const Icon = s.icon;
     return (
@@ -494,7 +506,7 @@ export default function Backups() {
                             <div key={b.id} className="flex items-center gap-3 py-3">
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <StatusBadge status={b.status} />
+                                        <StatusBadge status={b.status} encrypted={b.encrypted} />
                                         <span className="text-sm font-medium text-foreground">
                                             {formatDateTime(b.created_at)}
                                         </span>
