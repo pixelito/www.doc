@@ -88,6 +88,66 @@ test('saving settings rejects an unknown interval', function () {
     ]))->assertSessionHasErrors('interval');
 });
 
+test('a custom interval is accepted and stored as an integer number of hours', function () {
+    login();
+
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'interval' => '72',
+    ]))->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(Setting::get('backup')['interval'])->toBe(72);
+});
+
+test('a custom interval outside 1..8760 hours is rejected', function () {
+    login();
+
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'interval' => '0',
+    ]))->assertSessionHasErrors('interval');
+
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'interval' => '9000',
+    ]))->assertSessionHasErrors('interval');
+});
+
+test('retention 0 (never delete) is accepted and skips pruning', function () {
+    Storage::fake('local');
+    login();
+
+    $this->patch('/admin/backups/settings', settingsPayload([
+        'retention' => 0,
+    ]))->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(Setting::get('backup')['retention'])->toBe(0);
+
+    // Older backups present, then a fresh run — with retention 0 none are pruned.
+    foreach (range(1, 3) as $i) {
+        Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done']);
+    }
+    $newest = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+
+    app(BackupService::class)->run($newest->fresh(), true);
+
+    expect(Backup::where('status', 'done')->count())->toBe(4);
+});
+
+test('the scheduled command resolves a custom interval in hours', function () {
+    Setting::put('backup', settingsPayload(['enabled' => true, 'interval' => 6]));
+
+    // A successful scheduled run 3 hours ago is still inside a 6-hour cadence,
+    // so the command must NOT dispatch another.
+    Backup::create([
+        'trigger'     => 'scheduled',
+        'disk'        => 'local',
+        'status'      => 'done',
+        'finished_at' => now()->subHours(3),
+    ]);
+
+    $this->artisan('backup:run')->assertSuccessful();
+
+    expect(Backup::where('trigger', 'scheduled')->where('status', 'pending')->count())->toBe(0);
+});
+
 test('choosing the SMB driver requires a host and share', function () {
     login();
 
