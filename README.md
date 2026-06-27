@@ -66,6 +66,7 @@ set of demo users across all roles, all with the password `password` — log in 
 
 Mailpit is included in the development stack to intercept outbound emails. You can access its local web UI at **http://localhost:8025** to view any test emails sent from the app.
 
+A dummy Samba server (`docsapp-samba-1`) is also included to allow testing SMB network share backups locally. You can configure backups to use the host `docsapp-samba-1`, share `backups`, username `smbuser`, and password `smbpassword`.
 Common commands:
 
 ```bash

@@ -436,6 +436,7 @@ export default function Backups() {
                                     <Label htmlFor="smb-username">Username</Label>
                                     <Input id="smb-username" value={form.data.smb.username}
                                         onChange={(e) => setNested('smb', 'username', e.target.value)}
+                                        placeholder="admin"
                                         autoComplete="off" className="mt-1" />
                                 </div>
                                 <div>
