@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { IconX } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 /**
  * Custom confirmation dialog matching the project design system.
@@ -27,6 +28,9 @@ export default function ConfirmDialog({
     onConfirm,
     onCancel,
 }) {
+    // Lock body scroll while open.
+    useScrollLock(open);
+
     // Close on Escape
     useEffect(() => {
         if (!open) return;

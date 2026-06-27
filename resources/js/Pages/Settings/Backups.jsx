@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
@@ -104,6 +105,7 @@ export default function Backups() {
     // Poll while any backup is in flight so status updates without a manual refresh.
     const inFlight = backups.some((b) => b.status === 'pending' || b.status === 'processing');
     const backupRunning = starting || inFlight;
+    useScrollLock(backupRunning); // lock body scroll behind the progress modal
     // Heading reflects the real phase: queued (waiting for the worker) vs running.
     const phaseTitle = backups.some((b) => b.status === 'processing') ? 'Backing up…' : 'Backup queued';
     const timer = useRef(null);

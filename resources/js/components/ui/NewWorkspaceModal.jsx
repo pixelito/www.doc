@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { router } from '@inertiajs/react';
 import { IconX } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 /**
  * Modal for creating a new workspace, mirroring the NewPageModal dialog pattern.
@@ -25,6 +26,9 @@ export default function NewWorkspaceModal({ open, onClose }) {
             setError('');
         }
     }, [open]);
+
+    // Lock body scroll while open.
+    useScrollLock(open);
 
     // Close on Escape
     useEffect(() => {
