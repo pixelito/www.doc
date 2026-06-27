@@ -3,10 +3,12 @@
 use App\Models\Backup;
 use App\Models\Document;
 use App\Models\Setting;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Backup\BackupService;
 use App\Services\Backup\RestoreService;
 use Database\Factories\DocumentFactory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -370,6 +372,36 @@ test('the scheduled command dispatches a backup when enabled and due', function 
     $backup = Backup::latest('id')->first();
     expect($backup?->trigger)->toBe('scheduled');
     expect($backup?->status)->toBe('done'); // ran synchronously
+});
+
+test('restore nulls authorship for a user deleted since the backup', function () {
+    Storage::fake('local');
+    login();
+
+    // A page authored by someone who'll be gone by restore time. Set the FK
+    // directly so the observer doesn't reattribute it to the logged-in admin.
+    $author = User::factory()->create();
+    $ws  = Workspace::factory()->create();
+    $doc = Document::factory()->for($ws)->create([
+        'content' => DocumentFactory::tiptap('written by a doomed author'),
+    ]);
+    DB::table('documents')->where('id', $doc->id)
+        ->update(['created_by_id' => $author->id, 'updated_by_id' => $author->id]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // The author is hard-deleted — the archive still carries their id.
+    $author->forceDelete();
+
+    // Without the FK scrub this insert would violate created_by_id → users.
+    app(RestoreService::class)->restore($backup->fresh());
+
+    $restored = Document::find($doc->id);
+    expect($restored)->not->toBeNull();
+    expect($restored->created_by_id)->toBeNull();
+    expect($restored->updated_by_id)->toBeNull();
+    expect($restored->title)->toBe($doc->title); // the rest still round-trips
 });
 
 // ── In-app backup notices ───────────────────────────────────────────────────

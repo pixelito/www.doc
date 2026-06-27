@@ -28,6 +28,9 @@ use ZipArchive;
  */
 class RestoreService
 {
+    /** Live user ids (users aren't part of the content model, so never restored). */
+    private array $validUsers = [];
+
     public function restore(Backup $backup): void
     {
         $work = sys_get_temp_dir() . '/' . uniqid('wwwdoc_restore_');
@@ -39,6 +42,11 @@ class RestoreService
             DB::transaction(function () use ($work) {
                 $this->wipe();
 
+                // Authors (created_by/updated_by/uploaded_by) reference users,
+                // which aren't restored. Capture who still exists so a backup
+                // taken before a user was deleted doesn't fail on a dangling FK.
+                $this->validUsers = array_flip(DB::table('users')->pluck('id')->all());
+
                 // Small tables first; tags before documents so the taggable rows
                 // (written inside restoreDocuments) satisfy their FK.
                 $this->insert('workspaces', $this->jsonArray($work, 'workspaces'));
@@ -47,10 +55,10 @@ class RestoreService
                 // High-volume tables stream row-by-row from NDJSON (a format 1
                 // archive falls back to a single .json array — see canonicalRows).
                 $this->restoreDocuments($work);
-                $this->insertStreamed('document_versions', $work, 'versions');
+                $this->insertStreamed('document_versions', $work, 'versions', ['created_by_id']);
 
                 $this->insert('links', $this->jsonArray($work, 'links'));
-                $this->insert('assets', $this->jsonArray($work, 'assets'));
+                $this->insert('assets', $this->scrubUsers($this->jsonArray($work, 'assets'), ['uploaded_by_id']));
 
                 $this->resyncSequences();
             });
@@ -153,6 +161,8 @@ class RestoreService
             // Drop anything that isn't a documents column (the tag plumbing).
             unset($doc['tag_ids'], $doc['tags']);
 
+            $doc = $this->nullMissingUsers($doc, ['created_by_id', 'updated_by_id']);
+
             $parents[$doc['id']] = $doc['parent_id'] ?? null;
             $doc['parent_id']    = null;
 
@@ -174,12 +184,15 @@ class RestoreService
         }
     }
 
-    /** Stream a high-volume table into Postgres in batches of 200. */
-    private function insertStreamed(string $table, string $work, string $base): void
+    /**
+     * Stream a high-volume table into Postgres in batches of 200. `$userCols`
+     * lists author FKs to null when their user no longer exists.
+     */
+    private function insertStreamed(string $table, string $work, string $base, array $userCols = []): void
     {
         $batch = [];
         foreach ($this->canonicalRows($work, $base) as $row) {
-            $batch[] = $this->encodeJsonColumns($row);
+            $batch[] = $this->encodeJsonColumns($this->nullMissingUsers($row, $userCols));
             if (count($batch) >= 200) {
                 DB::table($table)->insert($batch);
                 $batch = [];
@@ -255,6 +268,24 @@ class RestoreService
         }
 
         yield from $this->jsonArray($work, $base); // format 1 fallback
+    }
+
+    /** Null author FKs pointing at users that no longer exist, across a list of rows. */
+    private function scrubUsers(array $rows, array $cols): array
+    {
+        return array_map(fn (array $row) => $this->nullMissingUsers($row, $cols), $rows);
+    }
+
+    /** Same, for a single row — keeps the FK valid so restore doesn't fail on a deleted author. */
+    private function nullMissingUsers(array $row, array $cols): array
+    {
+        foreach ($cols as $col) {
+            if (isset($row[$col]) && ! isset($this->validUsers[$row[$col]])) {
+                $row[$col] = null;
+            }
+        }
+
+        return $row;
     }
 
     /** json_encode array-valued columns (content/metadata/tags jsonb) for raw insert. */
