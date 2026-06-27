@@ -9,6 +9,7 @@ use App\Services\Backup\RestoreService;
 use Database\Factories\DocumentFactory;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /** A full, valid settings payload with optional overrides (recursive merge). */
 function settingsPayload(array $overrides = []): array
@@ -369,4 +370,118 @@ test('the scheduled command dispatches a backup when enabled and due', function 
     $backup = Backup::latest('id')->first();
     expect($backup?->trigger)->toBe('scheduled');
     expect($backup?->status)->toBe('done'); // ran synchronously
+});
+
+// ── In-app backup notices ───────────────────────────────────────────────────
+
+/** Mail config block with notifications enabled (password stored encrypted). */
+function mailOnSettings(): array
+{
+    return array_replace(\App\Support\BackupSettings::get(), [
+        'mail' => [
+            'enabled' => true, 'to' => 'admin@company.com', 'host' => 'smtp.test', 'port' => 587,
+            'encryption' => 'tls', 'username' => 'u', 'password' => \App\Support\BackupSettings::encrypt('p'),
+            'from_address' => 'backups@company.com', 'from_name' => 'Backups',
+        ],
+    ]);
+}
+
+test('a backup with email off leaves an unacknowledged notice for the admin', function () {
+    Storage::fake('local');
+    login();
+
+    Document::factory()->create(['content' => DocumentFactory::tiptap('hi')]);
+    $this->post('/admin/backups')->assertRedirect();
+
+    $backup = Backup::latest('id')->first();
+    expect($backup->status)->toBe('done');
+    expect($backup->report_emailed)->toBeFalse();
+    expect($backup->acknowledged_at)->toBeNull();
+
+    // Surfaced to the admin as a shared prop.
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page
+        ->has('backupNotices', 1)
+        ->where('backupNotices.0.id', $backup->id)
+        ->where('backupNotices.0.status', 'done'));
+});
+
+test('a backup whose report email is sent leaves no notice', function () {
+    Storage::fake('local');
+    Mail::fake();
+    login();
+
+    Setting::put('backup', mailOnSettings());
+    Document::factory()->create(['content' => DocumentFactory::tiptap('hi')]);
+    $this->post('/admin/backups')->assertRedirect();
+
+    expect(Backup::latest('id')->first()->report_emailed)->toBeTrue();
+
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
+});
+
+test('a failed report email is recorded as a notice with a friendly reason', function () {
+    login();
+    Setting::put('backup', mailOnSettings());
+
+    // The runtime mailer can't be reached — notify must record why, not throw.
+    Mail::shouldReceive('mailer')->andThrow(
+        new RuntimeException('Connection could not be established: getaddrinfo failed: Name or service not known'),
+    );
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'finished_at' => now()]);
+    app(\App\Services\Backup\BackupNotifier::class)->notify($backup);
+    $backup->refresh();
+
+    expect($backup->report_emailed)->toBeFalse();
+    expect($backup->report_error)->toContain('Could not find the SMTP host');
+});
+
+test('acknowledging a backup clears its notice', function () {
+    login();
+
+    $backup = Backup::create([
+        'trigger' => 'manual', 'disk' => 'local', 'status' => 'done',
+        'finished_at' => now(), 'report_emailed' => false,
+    ]);
+
+    $this->post("/admin/backups/{$backup->id}/acknowledge")->assertRedirect();
+
+    expect($backup->refresh()->acknowledged_at)->not->toBeNull();
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
+});
+
+test('non-admins cannot acknowledge a backup notice', function () {
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'report_emailed' => false]);
+
+    login(role: 'editor');
+    $this->post("/admin/backups/{$backup->id}/acknowledge")->assertForbidden();
+
+    expect($backup->refresh()->acknowledged_at)->toBeNull();
+});
+
+test('backup notices are shared only with admins', function () {
+    Backup::create([
+        'trigger' => 'scheduled', 'disk' => 'local', 'status' => 'failed',
+        'error' => 'boom', 'report_emailed' => false,
+    ]);
+
+    // An editor browsing a normal page sees no notices.
+    login(role: 'editor');
+    $this->get('/workspaces')->assertInertia(fn (Assert $page) => $page->where('backupNotices', []));
+
+    // The admin does — with the failure reason.
+    login();
+    $this->get('/workspaces')->assertInertia(fn (Assert $page) => $page
+        ->has('backupNotices', 1)
+        ->where('backupNotices.0.status', 'failed')
+        ->where('backupNotices.0.error', 'boom'));
+});
+
+test('a successful or emailed backup is excluded from notices', function () {
+    Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'report_emailed' => true]);  // emailed
+    Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending', 'report_emailed' => false]); // not finished
+    $acked = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'report_emailed' => false, 'acknowledged_at' => now()]);
+
+    login();
+    $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
 });
