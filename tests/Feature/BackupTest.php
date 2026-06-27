@@ -428,6 +428,35 @@ test('restore nulls authorship for a user deleted since the backup', function ()
     expect($restored->title)->toBe($doc->title); // the rest still round-trips
 });
 
+test('restore refuses a tampered archive and leaves the live data intact', function () {
+    Storage::fake('local');
+    login();
+
+    $ws  = Workspace::factory()->create(['name' => 'Live Name']);
+    $doc = Document::factory()->for($ws)->create(['content' => DocumentFactory::tiptap('live')]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+    $backup->refresh();
+
+    // Corrupt a canonical file so its bytes no longer match the manifest sha256.
+    $path = Storage::disk($backup->disk)->path($backup->path);
+    $zip = new ZipArchive();
+    $zip->open($path);
+    $orig = $zip->getFromName('canonical/workspaces.json');
+    $zip->deleteName('canonical/workspaces.json');
+    $zip->addFromString('canonical/workspaces.json', $orig . ' '); // one extra byte
+    $zip->close();
+
+    expect(fn () => app(RestoreService::class)->restore($backup->fresh()))
+        ->toThrow(RuntimeException::class, 'Integrity check failed');
+
+    // verify() runs before the wipe AND the safety snapshot, so nothing changed.
+    expect(Workspace::find($ws->id)?->name)->toBe('Live Name');
+    expect(Document::find($doc->id))->not->toBeNull();
+    expect(Backup::where('trigger', 'pre-restore')->count())->toBe(0);
+});
+
 // ── In-app backup notices ───────────────────────────────────────────────────
 
 /** Mail config block with notifications enabled (password stored encrypted). */
