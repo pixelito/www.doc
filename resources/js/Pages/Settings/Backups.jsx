@@ -648,14 +648,14 @@ export default function Backups() {
                                     Show safety snapshots
                                 </Label>
                                 <TooltipProvider>
-                                    <Tooltip delayDuration={300}>
-                                        <TooltipTrigger type="button" className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary focus:outline-none">
+                                    <Tooltip delayDuration={200}>
+                                        <TooltipTrigger type="button" className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary focus:outline-none cursor-help">
                                             <IconInfoCircle className="h-4 w-4" stroke={1.5} />
                                         </TooltipTrigger>
                                         <TooltipContent 
                                             side="top" 
                                             sideOffset={6} 
-                                            className="max-w-[260px] rounded-lg border border-border bg-surface px-3.5 py-2.5 text-center text-[13px] leading-relaxed text-text-secondary shadow-lg"
+                                            className="bg-[#1F2520] text-[#F1F4EE] px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                                         >
                                             Safety snapshots are lightweight, canonical-only backups taken automatically before any restore to protect your current data.
                                         </TooltipContent>
