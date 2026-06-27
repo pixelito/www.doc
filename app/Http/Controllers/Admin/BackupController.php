@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -93,6 +94,8 @@ class BackupController extends Controller
             'mail.from_address' => ['nullable', 'email', 'max:255'],
             'mail.from_name'    => ['nullable', 'string', 'max:255'],
         ]);
+
+        $this->assertMailAuthPaired($request);
 
         Setting::put('backup', $this->mergeSettings($validated));
 
@@ -195,6 +198,8 @@ class BackupController extends Controller
             'mail.encryption' => ['required', Rule::in(['tls', 'ssl', 'none'])],
         ]);
 
+        $this->assertMailAuthPaired($request);
+
         try {
             $notifier->sendTest($this->resolveMailForTest($request));
         } catch (\Throwable $e) {
@@ -205,6 +210,31 @@ class BackupController extends Controller
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * SMTP auth is all-or-nothing: a username needs a password and vice-versa.
+     * A password counts as present when typed OR already saved (blank = keep
+     * stored), so editing the username on an authenticated account doesn't fail.
+     */
+    private function assertMailAuthPaired(Request $request): void
+    {
+        $username    = trim((string) $request->input('mail.username', ''));
+        $typedPw     = (string) $request->input('mail.password', '') !== '';
+        $savedPw     = ! empty(BackupSettings::get()['mail']['password'] ?? '');
+        $passPresent = $typedPw || $savedPw;
+
+        $errors = [];
+        if ($username !== '' && ! $passPresent) {
+            $errors['mail.password'] = 'Enter a password to go with the username, or clear the username.';
+        }
+        if ($username === '' && $typedPw) {
+            $errors['mail.username'] = 'Enter a username to go with the password.';
+        }
+
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
 
     /**
      * Merge the submitted settings over the stored ones, re-encrypting changed

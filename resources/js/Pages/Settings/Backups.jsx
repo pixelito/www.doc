@@ -47,6 +47,7 @@ export default function Backups() {
     const { backups, settings, intervals, drivers } = usePage().props;
     const [confirm, setConfirm] = useState(null); // { type: 'restore'|'delete', backup }
     const [testing, setTesting] = useState(null);  // 'destination' | 'email' | null
+    const [starting, setStarting] = useState(false); // manual "Back up now" in flight
 
     const form = useForm({
         enabled:   settings.enabled ?? false,
@@ -80,6 +81,20 @@ export default function Backups() {
     const isSmb     = form.data.driver === 'smb';
     const mailOn    = form.data.mail.enabled;
     const keyReady  = settings.encryption_available;
+
+    // A test can only succeed with the connection essentials present, so gate the
+    // buttons on them (credentials stay optional — open shares / unauthenticated
+    // relays are valid). Saved-but-blank password fields don't block a test.
+    const filled    = (v) => String(v ?? '').trim() !== '';
+    const smbReady  = filled(form.data.smb.host) && filled(form.data.smb.share);
+
+    // SMTP auth is all-or-nothing. A password counts as present when typed OR
+    // already saved (blank field = keep the stored one).
+    const mailUser      = filled(form.data.mail.username);
+    const mailPass      = filled(form.data.mail.password) || mailPwSet;
+    const mailAuthPaired = mailUser === mailPass;
+    const mailReady = ['to', 'host', 'from_address'].every((f) => filled(form.data.mail[f]))
+        && filled(form.data.mail.port) && mailAuthPaired;
 
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
@@ -130,7 +145,11 @@ export default function Backups() {
     }
 
     function backupNow() {
-        router.post('/admin/backups', {}, { preserveScroll: true });
+        setStarting(true);
+        router.post('/admin/backups', {}, {
+            preserveScroll: true,
+            onFinish: () => setStarting(false),
+        });
     }
 
     return (
@@ -261,12 +280,18 @@ export default function Backups() {
                                     onChange={(e) => setNested('smb', 'domain', e.target.value)}
                                     placeholder="WORKGROUP" className="mt-1" />
                             </div>
-                            <Button type="button" variant="outline" onClick={testDestination} disabled={testing === 'destination'}>
-                                {testing === 'destination'
-                                    ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
-                                    : <IconPlugConnected className="h-3.5 w-3.5" stroke={1.5} />}
-                                Test connection
-                            </Button>
+                            <div className="flex items-center gap-2.5">
+                                <Button type="button" variant="outline" onClick={testDestination}
+                                    disabled={testing === 'destination' || !smbReady}>
+                                    {testing === 'destination'
+                                        ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
+                                        : <IconPlugConnected className="h-3.5 w-3.5" stroke={1.5} />}
+                                    {testing === 'destination' ? 'Testing…' : 'Test connection'}
+                                </Button>
+                                {!smbReady && (
+                                    <span className="text-xs text-text-tertiary">Enter a host and share to test.</span>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -320,7 +345,7 @@ export default function Backups() {
                         {mailOn && (
                             <div className="mt-4 space-y-4 rounded-md border border-border bg-surface-hover/40 p-4">
                                 <div>
-                                    <Label htmlFor="mail-to">Send report to</Label>
+                                    <Label htmlFor="mail-to">Send report to <span className="text-danger">*</span></Label>
                                     <Input id="mail-to" type="email" value={form.data.mail.to}
                                         onChange={(e) => setNested('mail', 'to', e.target.value)}
                                         placeholder="it-admin@company.com" className="mt-1" />
@@ -328,31 +353,40 @@ export default function Backups() {
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <div className="sm:col-span-2">
-                                        <Label htmlFor="mail-host">SMTP host</Label>
+                                        <Label htmlFor="mail-host">SMTP host <span className="text-danger">*</span></Label>
                                         <Input id="mail-host" value={form.data.mail.host}
                                             onChange={(e) => setNested('mail', 'host', e.target.value)}
                                             placeholder="smtp.company.com" className="mt-1" />
                                     </div>
                                     <div>
-                                        <Label htmlFor="mail-port">Port</Label>
+                                        <Label htmlFor="mail-port">Port <span className="text-danger">*</span></Label>
                                         <Input id="mail-port" type="number" min={1} max={65535} value={form.data.mail.port}
                                             onChange={(e) => setNested('mail', 'port', e.target.value)} className="mt-1" />
                                     </div>
                                 </div>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <Label htmlFor="mail-username">SMTP username</Label>
-                                        <Input id="mail-username" value={form.data.mail.username}
-                                            onChange={(e) => setNested('mail', 'username', e.target.value)}
-                                            autoComplete="off" className="mt-1" />
+                                <div>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <Label htmlFor="mail-username">SMTP username</Label>
+                                            <Input id="mail-username" value={form.data.mail.username}
+                                                onChange={(e) => setNested('mail', 'username', e.target.value)}
+                                                autoComplete="off" className="mt-1" />
+                                            {form.errors['mail.username'] && <p className="mt-1 text-xs text-danger">{form.errors['mail.username']}</p>}
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="mail-password">SMTP password</Label>
+                                            <Input id="mail-password" type="password" value={form.data.mail.password}
+                                                onChange={(e) => setNested('mail', 'password', e.target.value)}
+                                                autoComplete="new-password"
+                                                placeholder={mailPwSet ? '•••••••• (saved)' : ''} className="mt-1" />
+                                            {form.errors['mail.password'] && <p className="mt-1 text-xs text-danger">{form.errors['mail.password']}</p>}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <Label htmlFor="mail-password">SMTP password</Label>
-                                        <Input id="mail-password" type="password" value={form.data.mail.password}
-                                            onChange={(e) => setNested('mail', 'password', e.target.value)}
-                                            autoComplete="new-password"
-                                            placeholder={mailPwSet ? '•••••••• (saved)' : ''} className="mt-1" />
-                                    </div>
+                                    {!mailAuthPaired && (
+                                        <p className="mt-2 text-xs text-text-tertiary">
+                                            Enter both a username and password, or leave both blank for an unauthenticated relay.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <div>
@@ -366,7 +400,7 @@ export default function Backups() {
                                         </select>
                                     </div>
                                     <div>
-                                        <Label htmlFor="mail-from">From address</Label>
+                                        <Label htmlFor="mail-from">From address <span className="text-danger">*</span></Label>
                                         <Input id="mail-from" type="email" value={form.data.mail.from_address}
                                             onChange={(e) => setNested('mail', 'from_address', e.target.value)}
                                             placeholder="backups@company.com" className="mt-1" />
@@ -377,12 +411,20 @@ export default function Backups() {
                                             onChange={(e) => setNested('mail', 'from_name', e.target.value)} className="mt-1" />
                                     </div>
                                 </div>
-                                <Button type="button" variant="outline" onClick={testEmail} disabled={testing === 'email'}>
-                                    {testing === 'email'
-                                        ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
-                                        : <IconMailFast className="h-3.5 w-3.5" stroke={1.5} />}
-                                    Send test email
-                                </Button>
+                                <div className="flex items-center gap-2.5">
+                                    <Button type="button" variant="outline" onClick={testEmail}
+                                        disabled={testing === 'email' || !mailReady}>
+                                        {testing === 'email'
+                                            ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
+                                            : <IconMailFast className="h-3.5 w-3.5" stroke={1.5} />}
+                                        {testing === 'email' ? 'Sending…' : 'Send test email'}
+                                    </Button>
+                                    {!mailReady && (
+                                        <span className="text-xs text-text-tertiary">
+                                            Fill in the recipient, SMTP host, port and from address.
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -405,9 +447,11 @@ export default function Backups() {
                         <h2 className="text-sm font-semibold text-foreground">Archives</h2>
                         <p className="mt-1 text-sm text-text-secondary">Run a backup now or restore from a previous one.</p>
                     </div>
-                    <Button type="button" variant="outline" onClick={backupNow}>
-                        <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
-                        Back up now
+                    <Button type="button" variant="outline" onClick={backupNow} disabled={starting || inFlight}>
+                        {starting || inFlight
+                            ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
+                            : <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />}
+                        {starting ? 'Starting…' : inFlight ? 'Backup running…' : 'Back up now'}
                     </Button>
                 </div>
 
