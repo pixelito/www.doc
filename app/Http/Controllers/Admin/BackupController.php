@@ -198,7 +198,7 @@ class BackupController extends Controller
         try {
             $notifier->sendTest($this->resolveMailForTest($request));
         } catch (\Throwable $e) {
-            return back()->with('error', 'Could not send: ' . $e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
 
         return back()->with('success', 'Test email sent to ' . $request->input('mail.to') . '.');
