@@ -149,7 +149,8 @@ export default function Backups() {
     const mailPwSet = settings.mail?.password_set;
     const isSmb     = form.data.driver === 'smb';
     const mailOn    = form.data.mail.enabled;
-    const keyReady  = settings.encryption_available;
+    const keyReady   = settings.encryption_available;
+    const keyPresent = settings.encryption_key_present;
 
     // A test can only succeed with the connection essentials present, so gate the
     // buttons on them (credentials stay optional — open shares / unauthenticated
@@ -499,11 +500,19 @@ export default function Backups() {
                                 without it an encrypted backup cannot be restored or read.
                             </p>
                         ) : (
-                            <div className="mt-4 p-3.5 rounded-xl border border-border bg-surface-hover/50 space-y-3.5">
+                            <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger/30 bg-danger/5' : 'border-border bg-surface-hover/50'}`}>
                                 <div className="flex items-start gap-2.5">
-                                    <IconAlertTriangle className="h-4 w-4 text-sage-600 mt-0.5 shrink-0" stroke={1.5} />
+                                    <IconAlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${keyPresent ? 'text-danger' : 'text-sage-600'}`} stroke={1.5} />
                                     <div className="text-[12.5px] text-text-secondary leading-relaxed">
-                                        Encryption is currently disabled. Set <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file to enable it.
+                                        {keyPresent ? (
+                                            <>
+                                                The <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file is invalid. It must be exactly 32 bytes and valid base64. Generate a new one below.
+                                            </>
+                                        ) : (
+                                            <>
+                                                Encryption is currently disabled. Set <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file to enable it.
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2.5 pl-6">

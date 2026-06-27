@@ -78,6 +78,9 @@ class BackupSettings
         // Whether a BACKUP_ENCRYPTION_KEY exists at all — the UI disables the
         // encryption toggle (and shows how to set the key) when it doesn't.
         $s['encryption_available'] = \App\Services\Backup\ArchiveCipher::configured();
+        
+        // Tells the UI if a key is present but invalid, so it can show an error.
+        $s['encryption_key_present'] = (bool) config('backup.encryption_key');
 
         return $s;
     }
