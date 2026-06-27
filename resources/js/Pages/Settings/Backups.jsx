@@ -738,6 +738,7 @@ export default function Backups() {
                                     <div className="mt-0.5 text-xs text-text-tertiary">
                                         {formatBytes(b.size_bytes)}
                                         {b.counts && ` · ${b.counts.documents} docs, ${b.counts.assets} assets`}
+                                        {b.counts?.attachments != null && `, ${b.counts.attachments} attachments`}
                                         {b.created_by && ` · by ${b.created_by}`}
                                         {b.status === 'failed' && b.error && <span className="text-danger"> · {b.error}</span>}
                                     </div>
