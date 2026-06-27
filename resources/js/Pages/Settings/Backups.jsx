@@ -85,7 +85,8 @@ export default function Backups() {
 
     const form = useForm({
         enabled:   settings.enabled ?? false,
-        interval:  settings.interval ?? 'daily',
+        // String either way: a preset key ('daily') or a custom interval in hours ('72').
+        interval:  String(settings.interval ?? 'daily'),
         retention:  settings.retention ?? 7,
         driver:     settings.driver ?? 'local',
         encryption: settings.encryption ?? false,
@@ -109,6 +110,40 @@ export default function Backups() {
             from_name:    settings.mail?.from_name ?? '',
         },
     });
+
+    // ── Frequency: presets + a custom value in hours/days ───────────────────
+    // A custom interval is whatever isn't a preset key — stored as a number of
+    // hours; the local amount/unit just drive the inputs.
+    const isCustomInterval = !intervals.includes(form.data.interval);
+    const initialHours = isCustomInterval ? Math.max(1, Number(form.data.interval) || 24) : 72;
+    const [intervalUnit, setIntervalUnit] = useState(
+        isCustomInterval && initialHours % 24 === 0 ? 'days' : 'hours'
+    );
+    const [intervalAmount, setIntervalAmount] = useState(
+        String(isCustomInterval && initialHours % 24 === 0 ? initialHours / 24 : initialHours)
+    );
+
+    function pushCustomInterval(amount, unit) {
+        const n = Math.floor(Number(amount));
+        const hours = !n || n < 1 ? 0 : unit === 'days' ? n * 24 : n; // 0 → server rejects, error shows
+        form.setData('interval', String(hours));
+    }
+    function changeFrequency(value) {
+        if (value === 'custom') pushCustomInterval(intervalAmount, intervalUnit);
+        else form.setData('interval', value);
+    }
+
+    // ── Retention: "never delete" maps to retention 0 (BackupService skips prune) ──
+    const neverDelete = Number(form.data.retention) === 0;
+    const lastRetention = useRef(Number(settings.retention) || 7);
+    function toggleNeverDelete(on) {
+        if (on) {
+            lastRetention.current = Number(form.data.retention) || 7;
+            form.setData('retention', 0);
+        } else {
+            form.setData('retention', lastRetention.current || 7);
+        }
+    }
 
     const smbPwSet  = settings.smb?.password_set;
     const mailPwSet = settings.mail?.password_set;
@@ -277,26 +312,63 @@ export default function Backups() {
                             <Label htmlFor="interval">Frequency</Label>
                             <select
                                 id="interval"
-                                value={form.data.interval}
-                                onChange={(e) => form.setData('interval', e.target.value)}
+                                value={isCustomInterval ? 'custom' : form.data.interval}
+                                onChange={(e) => changeFrequency(e.target.value)}
                                 disabled={!form.data.enabled}
                                 className={selectCls}
                             >
                                 {intervals.map((i) => <option key={i} value={i}>{INTERVAL_LABELS[i] ?? i}</option>)}
+                                <option value="custom">Custom…</option>
                             </select>
+                            {isCustomInterval && (
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-sm text-text-secondary">Every</span>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        value={intervalAmount}
+                                        onChange={(e) => { setIntervalAmount(e.target.value); pushCustomInterval(e.target.value, intervalUnit); }}
+                                        disabled={!form.data.enabled}
+                                        className="w-20 disabled:opacity-100"
+                                        aria-label="Custom interval amount"
+                                    />
+                                    <select
+                                        value={intervalUnit}
+                                        onChange={(e) => { setIntervalUnit(e.target.value); pushCustomInterval(intervalAmount, e.target.value); }}
+                                        disabled={!form.data.enabled}
+                                        className={`${selectCls} mt-0 w-28`}
+                                        aria-label="Custom interval unit"
+                                    >
+                                        <option value="hours">hours</option>
+                                        <option value="days">days</option>
+                                    </select>
+                                </div>
+                            )}
+                            {form.errors.interval && <p className="mt-1 text-xs text-danger">{form.errors.interval}</p>}
                         </div>
                         <div>
                             <Label htmlFor="retention">Keep last</Label>
-                            <Input
-                                id="retention"
-                                type="number"
-                                min={1}
-                                max={365}
-                                value={form.data.retention}
-                                onChange={(e) => form.setData('retention', e.target.value)}
-                                disabled={!form.data.enabled}
-                                className="mt-1 disabled:opacity-100"
-                            />
+                            <div className="mt-1 flex items-center gap-2">
+                                <Input
+                                    id="retention"
+                                    type="number"
+                                    min={1}
+                                    max={365}
+                                    value={neverDelete ? '' : form.data.retention}
+                                    onChange={(e) => form.setData('retention', e.target.value)}
+                                    disabled={!form.data.enabled || neverDelete}
+                                    className="w-24 disabled:opacity-100"
+                                />
+                                <span className="text-sm text-text-secondary">backups</span>
+                            </div>
+                            <label className="mt-2.5 flex items-center gap-2.5">
+                                <Switch
+                                    checked={neverDelete}
+                                    onCheckedChange={toggleNeverDelete}
+                                    disabled={!form.data.enabled}
+                                />
+                                <span className="text-sm text-foreground">Never delete — keep every backup</span>
+                            </label>
                             {form.errors.retention && <p className="mt-1 text-xs text-danger">{form.errors.retention}</p>}
                         </div>
                     </div>
