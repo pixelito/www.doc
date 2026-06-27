@@ -9,6 +9,9 @@ services:
   redis: { image: redis:7-alpine }
   app:
     build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
+    # Run as the host user so files written to the bind mount (backups, logs,
+    # compiled views) are owned by you, not root.
+    user: &app-user "1000:1000"
     command: php artisan serve --host=0.0.0.0 --port=8000
     environment: &app-env
       APP_ENV: local
@@ -26,6 +29,7 @@ services:
     depends_on: &app-deps { db: { condition: service_healthy }, redis: { condition: service_started } }
   worker:
     build: *app-build
+    user: *app-user
     # Processes queued conversion jobs (DOCX/PDF import + export). Longer timeout
     # so large imports aren't killed mid-parse. Restart on code changes.
     command: php artisan queue:work --tries=3 --timeout=300
@@ -34,6 +38,7 @@ services:
     depends_on: *app-deps
   scheduler:
     build: *app-build
+    user: *app-user
     # Runs Laravel's scheduler in-process (wakes every minute) so routes/console.php
     # tasks fire — today the daily assets:prune. Mirrors the prod scheduler service.
     command: php artisan schedule:work
