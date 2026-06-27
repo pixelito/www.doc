@@ -26,7 +26,23 @@ use Icewind\SMB\ServerFactory;
  */
 class SmbDestination implements Destination
 {
-    public function __construct(private readonly array $cfg) {}
+    /** @var array{host:string,share:string,path:string,username:string,password:string,domain:string} */
+    private readonly array $cfg;
+
+    public function __construct(array $cfg)
+    {
+        // Optional fields (username/password/domain/path) persist as null when
+        // left blank; BasicAuth and the path helpers require strings, so coerce
+        // every field once here — covers both the saved and "test typed" paths.
+        $this->cfg = [
+            'host'     => (string) ($cfg['host'] ?? ''),
+            'share'    => (string) ($cfg['share'] ?? ''),
+            'path'     => (string) ($cfg['path'] ?? ''),
+            'username' => (string) ($cfg['username'] ?? ''),
+            'password' => (string) ($cfg['password'] ?? ''),
+            'domain'   => (string) ($cfg['domain'] ?? ''),
+        ];
+    }
 
     public function store(string $localZipPath, string $name): array
     {
