@@ -72,6 +72,7 @@ class HandleInertiaRequests extends Middleware
             ->whereNull('acknowledged_at')
             ->where('report_emailed', false)
             ->whereIn('status', ['done', 'failed'])
+            ->where('trigger', '!=', 'pre-restore')
             ->latest('id')
             ->limit(10)
             ->get(['id', 'status', 'error', 'report_error', 'created_at'])

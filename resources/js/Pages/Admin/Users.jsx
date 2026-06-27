@@ -4,6 +4,7 @@ import { IconTrash, IconLoader2 } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { avatarStyle, initials } from '@/lib/avatar';
 
@@ -53,8 +54,14 @@ export default function Users() {
             <Head title="Users — Admin" />
 
             {/* User list */}
-            <div className="divide-y divide-border rounded-md border border-border bg-surface">
-                {users.map((user) => {
+            <Card className="mb-6">
+                <CardHeader>
+                    <CardTitle className="text-sm font-semibold text-foreground">Team members</CardTitle>
+                    <CardDescription>Manage who has access to this knowledge base.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="divide-y divide-border">
+                        {users.map((user) => {
                     const isSelf = user.id === auth.user.id;
                     return (
                         <div key={user.id} className="flex items-center gap-3 px-4 py-3">
@@ -89,13 +96,20 @@ export default function Users() {
                             </button>
                         </div>
                     );
-                })}
-            </div>
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Add a user */}
-            <form onSubmit={createUser} className="mt-6 rounded-md border border-border bg-surface p-5">
-                <h2 className="text-sm font-semibold text-foreground">Add a user</h2>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <form onSubmit={createUser}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold text-foreground">Add a user</CardTitle>
+                        <CardDescription>Create a new account with a specific role.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Name</label>
                         <Input value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
@@ -120,7 +134,9 @@ export default function Users() {
                         <RoleSelect value={form.data.role} roles={roles} onChange={(role) => form.setData('role', role)} />
                     </div>
                 </div>
-                <div className="mt-4">
+            </CardContent>
+                </Card>
+                <div className="mt-4 flex items-center justify-end">
                     <Button type="submit" disabled={form.processing}>
                         {form.processing && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
                         {form.processing ? 'Adding…' : 'Add user'}

@@ -4,12 +4,14 @@ import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
-    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock,
+    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle
 } from '@tabler/icons-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -18,6 +20,7 @@ import { formatDateTime } from '@/lib/date';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
+const TRIGGER_LABELS = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Safety snapshot' };
 
 function formatBytes(bytes) {
     if (!bytes) return '—';
@@ -66,6 +69,19 @@ export default function Backups() {
     const [starting, setStarting] = useState(false); // manual "Back up now" in flight
     const [restoring, setRestoring] = useState(false); // restore POST in flight
     const restoringId = useRef(null);                  // which backup we kicked off a restore for
+
+    const [showSnapshots, setShowSnapshots] = useState(false);
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+
+    const filteredBackups = backups.filter((b) => showSnapshots || b.trigger !== 'pre-restore');
+    const totalPages = Math.max(1, Math.ceil(filteredBackups.length / pageSize));
+    useEffect(() => {
+        if (page > totalPages) setPage(totalPages);
+    }, [totalPages, page]);
+    
+    const paginatedBackups = filteredBackups.slice((page - 1) * pageSize, page * pageSize);
+    const latestDoneBackup = backups.find((b) => b.status === 'done' && b.trigger !== 'pre-restore');
 
     const form = useForm({
         enabled:   settings.enabled ?? false,
@@ -230,15 +246,17 @@ export default function Backups() {
             <Head title="Backups" />
 
             {/* ── Schedule + destination + mail settings ─────────────────────── */}
-            <section className="rounded-lg border border-border bg-surface p-5">
-                <h2 className="text-sm font-semibold text-foreground">Scheduled backups</h2>
-                <p className="mt-1 text-sm text-text-secondary">
-                    Back up the whole knowledge base on a cadence. Archives are written to a private
-                    destination and can be restored from the canonical layer.
-                </p>
-
-                <form onSubmit={saveSettings} className="mt-4 space-y-4">
-                    <div className="flex items-center gap-2.5">
+            <form onSubmit={saveSettings} className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold">Scheduled backups</CardTitle>
+                        <CardDescription>
+                            Back up the whole knowledge base on a cadence. Archives are written to a private
+                            destination and can be restored from the canonical layer.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-2.5">
                         <Switch
                             checked={form.data.enabled}
                             onCheckedChange={(v) => form.setData('enabled', v)}
@@ -282,10 +300,18 @@ export default function Backups() {
                             {form.errors.retention && <p className="mt-1 text-xs text-danger">{form.errors.retention}</p>}
                         </div>
                     </div>
+                    </CardContent>
+                </Card>
 
-                    {/* ── Destination ───────────────────────────────────────── */}
-                    <div className="border-t border-border pt-4">
-                        <Label htmlFor="driver">Destination</Label>
+                {/* ── Destination ───────────────────────────────────────── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold">Destination</CardTitle>
+                        <CardDescription>Archives are written to a private destination.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <Label htmlFor="driver">Destination</Label>
                         <select
                             id="driver"
                             value={form.data.driver}
@@ -367,9 +393,16 @@ export default function Backups() {
                             </div>
                         </div>
                     )}
+                    </CardContent>
+                </Card>
 
-                    {/* ── Encryption at rest ────────────────────────────────── */}
-                    <div className="border-t border-border pt-4">
+                {/* ── Encryption at rest ────────────────────────────────── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold">Encryption at rest</CardTitle>
+                        <CardDescription>Encrypt archives before they leave the app.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="flex items-center gap-2.5">
                             <Switch
                                 checked={form.data.encryption}
@@ -403,10 +436,16 @@ export default function Backups() {
                                 </>
                             )}
                         </p>
-                    </div>
+                    </CardContent>
+                </Card>
 
-                    {/* ── Email notifications ───────────────────────────────── */}
-                    <div className="border-t border-border pt-4">
+                {/* ── Email notifications ───────────────────────────────── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold">Email notifications</CardTitle>
+                        <CardDescription>Email a report after each backup.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="flex items-center gap-2.5">
                             <Switch checked={mailOn} onCheckedChange={(v) => setNested('mail', 'enabled', v)} />
                             <button type="button" onClick={() => setNested('mail', 'enabled', !mailOn)}
@@ -500,8 +539,10 @@ export default function Backups() {
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </CardContent>
+                </Card>
 
+                <div className="flex justify-end">
                     <Button type="submit" disabled={form.processing || !form.isDirty}>
                         {form.processing
                             ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
@@ -510,36 +551,72 @@ export default function Backups() {
                             : null}
                         {form.processing ? 'Saving…' : form.recentlySuccessful ? 'Saved' : 'Save settings'}
                     </Button>
-                </form>
-            </section>
+                </div>
+            </form>
 
             {/* ── Backups list ───────────────────────────────────────────────── */}
-            <section className="rounded-lg border border-border bg-surface p-5">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-sm font-semibold text-foreground">Archives</h2>
-                        <p className="mt-1 text-sm text-text-secondary">Run a backup now or restore from a previous one.</p>
+            <Card className="mt-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <div className="space-y-1">
+                        <CardTitle className="text-sm font-semibold text-foreground">Archives</CardTitle>
+                        <CardDescription>Run a backup now or restore from a previous one.</CardDescription>
                     </div>
                     {/* Static — the progress modal takes over the moment it's running. */}
                     <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning}>
                         <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
                         Back up now
                     </Button>
-                </div>
+                </CardHeader>
 
-                {backups.length === 0 ? (
-                    <p className="mt-5 text-sm text-text-tertiary">No backups yet.</p>
-                ) : (
-                    <div className="mt-4 divide-y divide-border">
-                        {backups.map((b) => (
-                            <div key={b.id} className="flex items-center gap-3 py-3">
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <StatusBadge status={b.status} encrypted={b.encrypted} />
+                <CardContent>
+                    <div className="flex items-center justify-end pb-4 border-b border-border">
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                                <Label htmlFor="showSnapshots" className="mb-0 text-sm font-normal text-text-secondary cursor-pointer">
+                                    Show safety snapshots
+                                </Label>
+                                <TooltipProvider>
+                                    <Tooltip delayDuration={300}>
+                                        <TooltipTrigger type="button" className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary focus:outline-none">
+                                            <IconInfoCircle className="h-4 w-4" stroke={1.5} />
+                                        </TooltipTrigger>
+                                        <TooltipContent 
+                                            side="top" 
+                                            sideOffset={6} 
+                                            className="max-w-[260px] rounded-lg border border-border bg-surface px-3.5 py-2.5 text-center text-[13px] leading-relaxed text-text-secondary shadow-lg"
+                                        >
+                                            Safety snapshots are lightweight, canonical-only backups taken automatically before any restore to protect your current data.
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                            <Switch 
+                                id="showSnapshots" 
+                                checked={showSnapshots} 
+                                onCheckedChange={(v) => { setShowSnapshots(v); setPage(1); }} 
+                                className="ml-1.5"
+                            />
+                        </div>
+                    </div>
+
+                    {filteredBackups.length === 0 ? (
+                        <p className="mt-5 text-sm text-text-tertiary">No backups yet.</p>
+                    ) : (
+                        <div className="mt-4 divide-y divide-border">
+                            {paginatedBackups.map((b) => (
+                                <div key={b.id} className="flex items-center gap-3 py-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <StatusBadge status={b.status} encrypted={b.encrypted} />
+                                            {latestDoneBackup?.id === b.id && (
+                                                <span className="inline-flex items-center rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
+                                                    Latest
+                                                </span>
+                                            )}
                                         <span className="text-sm font-medium text-foreground">
                                             {formatDateTime(b.created_at)}
                                         </span>
-                                        <span className="text-xs capitalize text-text-tertiary">· {b.trigger} · {b.disk?.toUpperCase()}</span>
+                                        <span className="text-xs text-text-tertiary">· {TRIGGER_LABELS[b.trigger] ?? b.trigger} · {b.disk?.toUpperCase()}</span>
                                     </div>
                                     <div className="mt-0.5 text-xs text-text-tertiary">
                                         {formatBytes(b.size_bytes)}
@@ -580,7 +657,24 @@ export default function Backups() {
                         ))}
                     </div>
                 )}
-            </section>
+                
+                {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                        <span className="text-xs text-text-tertiary">
+                            Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredBackups.length)} of {filteredBackups.length}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                                Previous
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                </CardContent>
+            </Card>
 
             <ConfirmDialog
                 open={confirm?.type === 'restore'}

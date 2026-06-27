@@ -4,6 +4,7 @@ import { IconCheck, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 
 function PasswordInput({ value, onChange, placeholder, id }) {
@@ -145,19 +146,19 @@ export default function ProfilePage({ user }) {
             <Head title="Profile — Settings" />
 
             {/* ── Avatar ───────────────────────────────────────────────────── */}
-            <section className="rounded-md border border-border bg-card">
-                <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
-                    <div>
-                        <h2 className="text-[15px] font-semibold text-foreground">Avatar</h2>
-                        <p className="mt-0.5 text-xs text-text-tertiary">Pick an accent colour — it saves automatically.</p>
+            <Card className="mb-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                    <div className="space-y-1">
+                        <CardTitle className="text-sm font-semibold text-foreground">Avatar</CardTitle>
+                        <CardDescription>Pick an accent colour — it saves automatically.</CardDescription>
                     </div>
                     {colorSaved && (
                         <span className="flex items-center gap-1 text-xs text-sage-600">
                             <IconCheck className="h-3.5 w-3.5" stroke={1.5} /> Saved
                         </span>
                     )}
-                </div>
-                <div className="flex items-center gap-6 px-5 py-5">
+                </CardHeader>
+                <CardContent className="flex items-center gap-6">
                     <div
                         className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
                         style={avatarStyle(avatarColor)}
@@ -181,17 +182,17 @@ export default function ProfilePage({ user }) {
                             />
                         ))}
                     </div>
-                </div>
-            </section>
+                </CardContent>
+            </Card>
 
             {/* ── Profile information ───────────────────────────────────────── */}
-            <section className="rounded-md border border-border bg-card">
-                <div className="border-b border-border-subtle px-5 py-4">
-                    <h2 className="text-[15px] font-semibold text-foreground">Profile information</h2>
-                    <p className="mt-0.5 text-xs text-text-tertiary">Update your name and email address.</p>
-                </div>
-                <form onSubmit={saveProfile}>
-                    <div className="space-y-4 px-5 py-5">
+            <form onSubmit={saveProfile}>
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold text-foreground">Profile information</CardTitle>
+                        <CardDescription>Update your name and email address.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div>
                             <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-foreground">
                                 Name
@@ -217,21 +218,21 @@ export default function ProfilePage({ user }) {
                             />
                             <FieldError error={profErrors.email} />
                         </div>
-                    </div>
-                    <div className="flex items-center justify-end rounded-b-md border-t border-border-subtle bg-canvas px-5 py-3.5">
-                        <SaveButton saving={profSaving} success={profSuccess} disabled={!profileDirty} />
-                    </div>
-                </form>
-            </section>
+                    </CardContent>
+                </Card>
+                <div className="mb-8 mt-4 flex items-center justify-end">
+                    <SaveButton saving={profSaving} success={profSuccess} disabled={!profileDirty} />
+                </div>
+            </form>
 
             {/* ── Change password ───────────────────────────────────────────── */}
-            <section className="rounded-md border border-border bg-card">
-                <div className="border-b border-border-subtle px-5 py-4">
-                    <h2 className="text-[15px] font-semibold text-foreground">Change password</h2>
-                    <p className="mt-0.5 text-xs text-text-tertiary">Use a strong password of at least 8 characters.</p>
-                </div>
-                <form onSubmit={savePassword}>
-                    <div className="space-y-4 px-5 py-5">
+            <form onSubmit={savePassword}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold text-foreground">Change password</CardTitle>
+                        <CardDescription>Use a strong password of at least 8 characters.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div>
                             <label htmlFor="current_password" className="mb-1.5 block text-sm font-medium text-foreground">
                                 Current password
@@ -268,12 +269,12 @@ export default function ProfilePage({ user }) {
                             />
                             <FieldError error={pwErrors.password_confirmation} />
                         </div>
-                    </div>
-                    <div className="flex items-center justify-end rounded-b-md border-t border-border-subtle bg-canvas px-5 py-3.5">
-                        <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwFilled} label="Update password" />
-                    </div>
-                </form>
-            </section>
+                    </CardContent>
+                </Card>
+                <div className="mt-4 flex items-center justify-end">
+                    <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwFilled} label="Update password" />
+                </div>
+            </form>
         </SettingsLayout>
     );
 }
