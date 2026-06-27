@@ -104,7 +104,8 @@ export default function Backups() {
     // Poll while any backup is in flight so status updates without a manual refresh.
     const inFlight = backups.some((b) => b.status === 'pending' || b.status === 'processing');
     const backupRunning = starting || inFlight;
-    const runningLabel = backups.some((b) => b.status === 'processing') ? 'Running' : 'Queued';
+    // Heading reflects the real phase: queued (waiting for the worker) vs running.
+    const phaseTitle = backups.some((b) => b.status === 'processing') ? 'Backing up…' : 'Backup queued';
     const timer = useRef(null);
     useEffect(() => {
         if (!inFlight) return;
@@ -112,16 +113,18 @@ export default function Backups() {
         return () => clearInterval(timer.current);
     }, [inFlight]);
 
-    // Toast when a run finishes (the progress modal closes on the same edge).
-    const wasRunning = useRef(backupRunning);
+    // Toast when a real run finishes (the progress modal closes on the same
+    // edge). Keyed on inFlight — a server-confirmed run — so a POST that never
+    // queues a backup can't fire a false "ready".
+    const wasInFlight = useRef(inFlight);
     useEffect(() => {
-        if (wasRunning.current && !backupRunning) {
+        if (wasInFlight.current && !inFlight) {
             backups[0]?.status === 'failed'
                 ? toast.error('Backup failed. See the archives list for details.')
                 : toast.success('Backup ready.');
         }
-        wasRunning.current = backupRunning;
-    }, [backupRunning]); // eslint-disable-line react-hooks/exhaustive-deps
+        wasInFlight.current = inFlight;
+    }, [inFlight]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Warn before leaving (in-app nav or browser close) with unsaved settings.
     const dirtyRef = useRef(false);
@@ -473,11 +476,10 @@ export default function Backups() {
                         <h2 className="text-sm font-semibold text-foreground">Archives</h2>
                         <p className="mt-1 text-sm text-text-secondary">Run a backup now or restore from a previous one.</p>
                     </div>
-                    <Button type="button" variant="outline" onClick={backupNow} disabled={starting || inFlight}>
-                        {starting || inFlight
-                            ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
-                            : <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />}
-                        {starting ? 'Starting…' : inFlight ? 'Backup running…' : 'Back up now'}
+                    {/* Static — the progress modal takes over the moment it's running. */}
+                    <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning}>
+                        <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
+                        Back up now
                     </Button>
                 </div>
 
@@ -583,16 +585,11 @@ export default function Backups() {
                             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
                                 <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
                             </span>
-                            <h2 className="mt-4 text-[15px] font-medium text-foreground">Backup in progress</h2>
+                            <h2 className="mt-4 text-[15px] font-medium text-foreground">{phaseTitle}</h2>
                             <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                                Your knowledge base is being archived
-                                {inFlight ? ' to the configured destination' : ''}. Please keep this
-                                page open — don’t refresh or navigate away until it finishes.
+                                Your knowledge base is being archived to the configured destination.
+                                Please keep this page open — don’t refresh or navigate away until it finishes.
                             </p>
-                            <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-surface-hover px-2.5 py-1 text-xs font-medium text-text-secondary">
-                                <IconClock className="h-3 w-3" stroke={1.5} />
-                                {starting && !inFlight ? 'Starting…' : runningLabel}
-                            </span>
                         </div>
                     </div>
                 </div>,

@@ -116,7 +116,9 @@ class BackupController extends Controller
 
         RunBackupJob::dispatch($backup->id);
 
-        return back()->with('success', 'Backup started.');
+        // No flash: the in-progress modal signals the start, and the page toasts
+        // once on completion. A "started" flash here would double up.
+        return back();
     }
 
     /** Poll a single backup's status (for the in-progress spinner). */
