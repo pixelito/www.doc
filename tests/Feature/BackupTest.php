@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Attachment;
 use App\Models\Backup;
 use App\Models\Document;
 use App\Models\DocumentVersion;
@@ -383,6 +384,32 @@ test('restore round-trips the page tree, tags, versions and verbatim content', f
     $restoredVersion = DocumentVersion::find($version->id);           // versions round-trip
     expect($restoredVersion?->document_id)->toBe($child->id);
     expect($restoredVersion->content)->toEqual(DocumentFactory::tiptap('older body'));
+});
+
+test('restore round-trips page attachments and their binaries', function () {
+    Storage::fake('local');
+    login();
+
+    $document = Document::factory()->create();
+    Storage::disk('local')->put('attachments/keep.pdf', 'ORIGINAL BYTES');
+    $attachment = Attachment::factory()->for($document)->create([
+        'path'          => 'attachments/keep.pdf',
+        'original_name' => 'Policy.pdf',
+    ]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift away from the backed-up state: remove the row and the binary.
+    DB::table('attachments')->delete();
+    Storage::disk('local')->delete('attachments/keep.pdf');
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    $restored = Attachment::find($attachment->id);
+    expect($restored?->original_name)->toBe('Policy.pdf')
+        ->and($restored->document_id)->toBe($document->id);
+    expect(Storage::disk('local')->get('attachments/keep.pdf'))->toBe('ORIGINAL BYTES');
 });
 
 test('the archive cipher round-trips and rejects wrong keys, tampering and truncation', function () {

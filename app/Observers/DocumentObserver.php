@@ -9,6 +9,7 @@ use App\Support\SearchVector;
 use App\Support\TipTap;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentObserver
 {
@@ -64,6 +65,20 @@ class DocumentObserver
     public function deleted(Document $document): void
     {
         $document->workspace?->touch();
+    }
+
+    /**
+     * Permanently purging a page: delete its attachment binaries. The DB foreign
+     * key cascade removes the attachment ROWS, but bypasses Eloquent events, so the
+     * files would otherwise be orphaned on disk. Fires on every force-delete path
+     * (trash purge of a page subtree AND a workspace purge), unlike a soft delete,
+     * which leaves the page restorable from Trash with its files intact.
+     */
+    public function forceDeleting(Document $document): void
+    {
+        foreach ($document->attachments as $attachment) {
+            Storage::disk($attachment->disk)->delete($attachment->path);
+        }
     }
 
     /** Snapshot every save into the version history (never destructive). */

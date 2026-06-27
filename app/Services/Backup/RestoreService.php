@@ -64,11 +64,14 @@ class RestoreService
 
                 $this->insert('links', $this->jsonArray($work, 'links'));
                 $this->insert('assets', $this->scrubUsers($this->jsonArray($work, 'assets'), ['uploaded_by_id']));
+                // Attachments reference documents, so they go in after them.
+                $this->insert('attachments', $this->scrubUsers($this->jsonArray($work, 'attachments'), ['uploaded_by_id']));
 
                 $this->resyncSequences();
             });
 
             $this->restoreAssetBinaries($this->jsonArray($work, 'assets'), $work);
+            $this->restoreAttachmentBinaries($this->jsonArray($work, 'attachments'), $work);
             $this->reindexSearch();
         } finally {
             File::deleteDirectory($work);
@@ -144,9 +147,9 @@ class RestoreService
 
     private function wipe(): void
     {
-        // Children before parents. taggables/links/versions reference documents;
-        // documents reference workspaces. assets are standalone.
-        foreach (['links', 'document_versions', 'taggables', 'documents', 'tags', 'workspaces', 'assets'] as $table) {
+        // Children before parents. taggables/links/versions/attachments reference
+        // documents; documents reference workspaces. assets are standalone.
+        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'assets'] as $table) {
             DB::table($table)->delete();
         }
     }
@@ -237,7 +240,7 @@ class RestoreService
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets'] as $table) {
+        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],
@@ -251,6 +254,16 @@ class RestoreService
             $src = "{$work}/assets/" . basename($asset['path']);
             if (File::exists($src)) {
                 Storage::disk($asset['disk'])->put($asset['path'], File::get($src));
+            }
+        }
+    }
+
+    private function restoreAttachmentBinaries(array $attachments, string $work): void
+    {
+        foreach ($attachments as $attachment) {
+            $src = "{$work}/attachment-files/" . basename($attachment['path']);
+            if (File::exists($src)) {
+                Storage::disk($attachment['disk'])->put($attachment['path'], File::get($src));
             }
         }
     }

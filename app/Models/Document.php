@@ -65,6 +65,12 @@ class Document extends Model
         return $this->hasMany(DocumentVersion::class)->latest();
     }
 
+    /** Files attached to this page, in display order. Not part of version snapshots. */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(Attachment::class)->orderBy('position');
+    }
+
     public function tags(): MorphToMany
     {
         return $this->morphToMany(Tag::class, 'taggable');
@@ -219,6 +225,9 @@ class Document extends Model
             $child->forceDeleteSubtree();
         }
 
+        // Attachment binaries are cleaned up by DocumentObserver::forceDeleting,
+        // which covers this path AND a workspace purge (the FK cascade removes the
+        // rows; the observer removes the files).
         $this->forceDelete();
     }
 }

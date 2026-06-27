@@ -47,6 +47,7 @@ class DocumentController extends Controller
             'tags',
             'creator',
             'updater',
+            'attachments.uploader:id,name',
             'outgoingLinks.target:id,title,slug',
         ]);
 

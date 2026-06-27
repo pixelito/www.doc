@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Models\Asset;
+use App\Models\Attachment;
 use App\Models\Backup;
 use App\Models\Document;
 use App\Models\DocumentVersion;
@@ -49,9 +50,11 @@ class BackupService
         try {
             File::ensureDirectoryExists("{$work}/canonical");
             File::ensureDirectoryExists("{$work}/assets");
+            File::ensureDirectoryExists("{$work}/attachment-files");
 
             $counts = $this->writeCanonical($work);
             $this->writeAssets($work);
+            $this->writeAttachments($work);
 
             if (! $canonicalOnly) {
                 File::ensureDirectoryExists("{$work}/readable");
@@ -105,11 +108,15 @@ class BackupService
 
         $assets = Asset::orderBy('id')->get()->map->toArray();
 
+        // Page attachments: page-scoped files. Restored after documents (FK).
+        $attachments = Attachment::orderBy('id')->get()->map->toArray();
+
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
         $this->putJson("{$work}/canonical/tags.json", $tags);
         $this->putJson("{$work}/canonical/links.json", $links);
         $this->putJson("{$work}/canonical/users.json", $users);
         $this->putJson("{$work}/canonical/assets.json", $assets);
+        $this->putJson("{$work}/canonical/attachments.json", $attachments);
 
         // High-volume tables stream to NDJSON (one JSON object per line) so peak
         // memory stays flat no matter how many pages/versions exist — each row is
@@ -128,6 +135,7 @@ class BackupService
             'links'      => $links->count(),
             'users'      => $users->count(),
             'assets'     => $assets->count(),
+            'attachments' => $attachments->count(),
         ];
     }
 
@@ -196,6 +204,19 @@ class BackupService
             }
             $dest = "{$work}/assets/" . basename($asset->path);
             File::put($dest, $disk->get($asset->path));
+        }
+    }
+
+    /** Copy every page-attachment binary into the archive. */
+    private function writeAttachments(string $work): void
+    {
+        foreach (Attachment::all() as $attachment) {
+            $disk = Storage::disk($attachment->disk);
+            if (! $disk->exists($attachment->path)) {
+                continue;
+            }
+            $dest = "{$work}/attachment-files/" . basename($attachment->path);
+            File::put($dest, $disk->get($attachment->path));
         }
     }
 

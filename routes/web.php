@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExportController;
@@ -25,6 +26,7 @@ Route::pattern('tag', '[0-9]+');
 Route::pattern('job', '[0-9]+');
 Route::pattern('user', '[0-9]+');
 Route::pattern('backup', '[0-9]+');
+Route::pattern('attachment', '[0-9]+');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -79,6 +81,11 @@ Route::middleware('auth')->group(function () {
     // Asset upload + rehost (must be before any {asset} resource route)
     Route::post('assets/rehost', [AssetController::class, 'rehost'])->name('assets.rehost');
     Route::post('assets', [AssetController::class, 'store'])->name('assets.store');
+
+    // Page attachments — files attached to a document, served as forced downloads.
+    Route::post('documents/{document}/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
+    Route::get('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'download'])->name('attachments.download');
+    Route::delete('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
 
     // Export pipeline
     Route::post('documents/{document}/exports', [ExportController::class, 'store'])->name('exports.store');

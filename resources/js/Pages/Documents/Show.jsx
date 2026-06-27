@@ -15,6 +15,7 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import TipTapEditor from '@/components/editor/TipTapEditor';
+import AttachmentsPanel from '@/components/AttachmentsPanel';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
@@ -355,6 +356,12 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     const [deleteOpen, setDeleteOpen]   = useState(false);
     const isDirtyRef = useRef(false);
 
+    // Attachment changes are STAGED while editing — new files and ids marked for
+    // removal — and only committed to the server when the page is saved (see
+    // performSave). Cancel discards them; nothing was ever sent.
+    const [pendingUploads, setPendingUploads]   = useState([]);
+    const [pendingRemovals, setPendingRemovals] = useState([]);
+
     const [showNewTag, setShowNewTag]           = useState(false);
     const [newTagName, setNewTagName]           = useState('');
     const [newTagProcessing, setNewTagProcessing] = useState(false);
@@ -384,8 +391,19 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         if (titleChanged || tagsChanged) isDirtyRef.current = true;
     }, [editTitle, editTags, isEditing]);
 
+    // Staged attachment changes are unsaved changes too — so the discard guard
+    // prompts before leaving edit mode with files pending.
+    useEffect(() => {
+        if (!isEditing) return;
+        if (pendingUploads.length > 0 || pendingRemovals.length > 0) isDirtyRef.current = true;
+    }, [pendingUploads, pendingRemovals, isEditing]);
+
     // Reset form fields when entering/leaving edit mode
     useEffect(() => {
+        // Always drop staged attachment changes on a mode toggle — a fresh edit
+        // starts clean, and leaving (cancel/save) clears the staging area.
+        setPendingUploads([]);
+        setPendingRemovals([]);
         if (isEditing) {
             setEditTitle(document.title);
             setEditTags(document.tags.map((t) => t.id));
@@ -401,27 +419,71 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
 
     // --- Save helpers ---
 
+    // Commit the staged attachment changes (removals, then uploads) to the server.
+    // Each successful op is dropped from the pending set so a retry after a partial
+    // failure resumes from where it stopped instead of repeating work. A 404 on a
+    // removal means it's already gone — treat that as done.
+    const commitAttachments = useCallback(async () => {
+        let removals = [...pendingRemovals];
+        let uploads  = [...pendingUploads];
+        try {
+            for (const id of [...removals]) {
+                const res = await fetch(`/documents/${document.id}/attachments/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': CSRF(), 'Accept': 'application/json' },
+                });
+                if (!res.ok && res.status !== 404) throw new Error('remove');
+                removals = removals.filter((x) => x !== id);
+            }
+            for (const item of [...uploads]) {
+                const body = new FormData();
+                body.append('file', item.file);
+                body.append('name', item.name);
+                const res = await fetch(`/documents/${document.id}/attachments`, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF(), 'Accept': 'application/json' },
+                    body,
+                });
+                if (!res.ok) throw new Error('upload');
+                uploads = uploads.filter((x) => x !== item);
+            }
+        } finally {
+            // Leave only the uncommitted changes staged.
+            setPendingRemovals(removals);
+            setPendingUploads(uploads);
+        }
+    }, [document.id, pendingRemovals, pendingUploads]);
+
     const performSave = useCallback(
         (content) => {
             setSaveStatus('saving');
-            router.patch(
-                `/documents/${document.id}`,
-                { title: editTitle, content, tags: editTags },
-                {
-                    preserveState: false,
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        setSaveStatus('saved');
-                        setIsEditing(false);
-                    },
-                    onError: () => {
-                        setSaveStatus(null);
-                        toast.error("Couldn't save your changes — they're still here, try again.");
-                    },
+            (async () => {
+                try {
+                    await commitAttachments();
+                } catch {
+                    setSaveStatus(null);
+                    toast.error("Couldn't save your attachments — your changes are still here, try again.");
+                    return; // keep editing; the document save is skipped
                 }
-            );
+                router.patch(
+                    `/documents/${document.id}`,
+                    { title: editTitle, content, tags: editTags },
+                    {
+                        preserveState: false,
+                        preserveScroll: true,
+                        onSuccess: () => {
+                            setSaveStatus('saved');
+                            setIsEditing(false);
+                        },
+                        onError: () => {
+                            setSaveStatus(null);
+                            toast.error("Couldn't save your changes — they're still here, try again.");
+                        },
+                    }
+                );
+            })();
         },
-        [document.id, editTitle, editTags]
+        [document.id, editTitle, editTags, commitAttachments]
     );
 
     const handleEditorUpdate = useCallback((json) => {
@@ -433,6 +495,12 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         e.preventDefault();
         performSave(editorContentRef.current);
     }
+
+    // --- Attachment staging handlers ---
+    const addPendingUpload = useCallback((item) => setPendingUploads((prev) => [...prev, item]), []);
+    const removeExistingAttachment = useCallback((id) => setPendingRemovals((prev) => prev.includes(id) ? prev : [...prev, id]), []);
+    const undoRemoveAttachment = useCallback((id) => setPendingRemovals((prev) => prev.filter((x) => x !== id)), []);
+    const removePendingUpload = useCallback((index) => setPendingUploads((prev) => prev.filter((_, i) => i !== index)), []);
 
     function handleTagToggle(tagId) {
         setEditTags((prev) =>
@@ -705,6 +773,19 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                     ))}
                 </div>
             )}
+
+            {/* Attachments — files attached to this page, above the body for prominence */}
+            <AttachmentsPanel
+                documentId={document.id}
+                attachments={document.attachments ?? []}
+                editable={isEditing && perms.update}
+                pendingUploads={pendingUploads}
+                pendingRemovals={pendingRemovals}
+                onAddUpload={addPendingUpload}
+                onRemoveExisting={removeExistingAttachment}
+                onUndoRemove={undoRemoveAttachment}
+                onRemovePending={removePendingUpload}
+            />
 
             {/* Content — full width */}
             <div className="mt-6">
