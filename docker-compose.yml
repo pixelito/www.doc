@@ -56,4 +56,10 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+  samba:
+    image: dperson/samba
+    ports:
+      - "139:139"
+      - "445:445"
+    command: -w "WORKGROUP" -u "smbuser;smbpassword" -s "backups;/shares/backups;yes;no;no;smbuser" -p
 volumes: { pgdata: {} }
