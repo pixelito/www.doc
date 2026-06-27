@@ -274,19 +274,30 @@ class BackupController extends Controller
     {
         $current = BackupSettings::get();
 
-        $smb = array_merge($current['smb'], array_filter(
-            $validated['smb'] ?? [],
-            fn ($k) => $k !== 'password',
-            ARRAY_FILTER_USE_KEY,
-        ));
-        $smb['password'] = $this->keepOrEncrypt($validated['smb']['password'] ?? '', $current['smb']['password'] ?? '');
+        // Only overwrite SMB settings if the user is actively configuring the SMB driver.
+        if (($validated['driver'] ?? 'local') === 'smb') {
+            $smb = array_merge($current['smb'], array_filter(
+                $validated['smb'] ?? [],
+                fn ($k) => $k !== 'password',
+                ARRAY_FILTER_USE_KEY,
+            ));
+            $smb['password'] = $this->keepOrEncrypt($validated['smb']['password'] ?? '', $current['smb']['password'] ?? '');
+        } else {
+            $smb = $current['smb'];
+        }
 
-        $mail = array_merge($current['mail'], array_filter(
-            $validated['mail'] ?? [],
-            fn ($k) => $k !== 'password',
-            ARRAY_FILTER_USE_KEY,
-        ));
-        $mail['password'] = $this->keepOrEncrypt($validated['mail']['password'] ?? '', $current['mail']['password'] ?? '');
+        // Only overwrite Mail settings if mail notifications are being enabled/configured.
+        if (!empty($validated['mail']['enabled'])) {
+            $mail = array_merge($current['mail'], array_filter(
+                $validated['mail'] ?? [],
+                fn ($k) => $k !== 'password',
+                ARRAY_FILTER_USE_KEY,
+            ));
+            $mail['password'] = $this->keepOrEncrypt($validated['mail']['password'] ?? '', $current['mail']['password'] ?? '');
+        } else {
+            $mail = $current['mail'];
+            $mail['enabled'] = false;
+        }
 
         return [
             'enabled'    => (bool) $validated['enabled'],
