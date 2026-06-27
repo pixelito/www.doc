@@ -502,9 +502,24 @@ export default function Backups() {
                             ) : (
                                 <>
                                     Set <span className="font-mono">BACKUP_ENCRYPTION_KEY</span> in the environment to enable
-                                    encryption (a base64 32-byte key). Generate one with{' '}
-                                    <span className="font-mono">php artisan tinker</span> →{' '}
-                                    <span className="font-mono">ArchiveCipher::generateKey()</span>.
+                                    encryption (a base64 32-byte key).{' '}
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            const bytes = new Uint8Array(32);
+                                            crypto.getRandomValues(bytes);
+                                            let binary = '';
+                                            for (let i = 0; i < bytes.byteLength; i++) {
+                                                binary += String.fromCharCode(bytes[i]);
+                                            }
+                                            const base64 = btoa(binary);
+                                            navigator.clipboard.writeText(`BACKUP_ENCRYPTION_KEY=${base64}`);
+                                            toast.success('Encryption key copied to clipboard');
+                                        }}
+                                        className="text-sage-600 font-medium hover:underline cursor-pointer"
+                                    >
+                                        Generate and copy key
+                                    </button>.
                                 </>
                             )}
                         </p>
