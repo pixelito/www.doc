@@ -83,10 +83,10 @@ class BackupController extends Controller
             'retention' => ['required', 'integer', 'min:0', 'max:365'],
             'driver'    => ['required', Rule::in(config('backup.drivers'))],
 
-            // Encrypt archives at rest — only allowed once a key exists in env.
+            // Encrypt archives at rest — only allowed once a valid 32-byte base64 key exists in env.
             'encryption' => ['required', 'boolean', function ($attr, $value, $fail) {
                 if ($value && ! \App\Services\Backup\ArchiveCipher::configured()) {
-                    $fail('Set BACKUP_ENCRYPTION_KEY before enabling archive encryption.');
+                    $fail('The BACKUP_ENCRYPTION_KEY in your environment is missing or invalid (must be a 32-byte base64 string).');
                 }
             }],
 

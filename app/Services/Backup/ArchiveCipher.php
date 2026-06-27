@@ -53,10 +53,15 @@ class ArchiveCipher
         return new self($key);
     }
 
-    /** Whether a key is configured at all (drives the UI toggle + validation). */
+    /** Whether a VALID 32-byte key is configured (drives the UI toggle + validation). */
     public static function configured(): bool
     {
-        return (bool) config('backup.encryption_key');
+        try {
+            self::fromConfig();
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /** Generate a fresh base64 key for an operator to paste into their env. */
