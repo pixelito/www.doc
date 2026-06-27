@@ -28,7 +28,12 @@ class RunScheduledBackup extends Command
             return self::SUCCESS;
         }
 
-        $hours = config("backup.intervals.{$settings['interval']}", 24);
+        // The cadence is either a preset key (daily/2days/weekly → hours from
+        // config) or a custom interval stored directly as a number of hours.
+        $interval = $settings['interval'] ?? 'daily';
+        $hours = is_numeric($interval)
+            ? max(1, (int) $interval)
+            : config("backup.intervals.{$interval}", 24);
 
         $last = Backup::where('trigger', 'scheduled')
             ->where('status', 'done')

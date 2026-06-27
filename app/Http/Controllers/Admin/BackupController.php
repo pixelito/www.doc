@@ -68,8 +68,19 @@ class BackupController extends Controller
 
         $validated = $request->validate([
             'enabled'   => ['required', 'boolean'],
-            'interval'  => ['required', Rule::in(array_keys(config('backup.intervals')))],
-            'retention' => ['required', 'integer', 'min:1', 'max:365'],
+            // A preset cadence key (daily/2days/weekly) OR a custom interval given
+            // directly in hours (1..8760 = up to a year). RunScheduledBackup
+            // resolves either to a number of hours.
+            'interval'  => ['required', function ($attr, $value, $fail) {
+                if (in_array($value, array_keys(config('backup.intervals')), true)) {
+                    return;
+                }
+                if (! ctype_digit((string) $value) || (int) $value < 1 || (int) $value > 8760) {
+                    $fail('Choose a preset frequency or a custom interval of 1–8760 hours.');
+                }
+            }],
+            // 0 = never prune (keep every backup); 1..365 = keep that many newest.
+            'retention' => ['required', 'integer', 'min:0', 'max:365'],
             'driver'    => ['required', Rule::in(config('backup.drivers'))],
 
             // Encrypt archives at rest — only allowed once a key exists in env.
@@ -279,7 +290,9 @@ class BackupController extends Controller
 
         return [
             'enabled'    => (bool) $validated['enabled'],
-            'interval'   => $validated['interval'],
+            // Custom intervals come in as a numeric (hours) string — store as int;
+            // preset keys stay strings.
+            'interval'   => is_numeric($validated['interval']) ? (int) $validated['interval'] : $validated['interval'],
             'retention'  => (int) $validated['retention'],
             'driver'     => $validated['driver'],
             'encryption' => (bool) $validated['encryption'],
