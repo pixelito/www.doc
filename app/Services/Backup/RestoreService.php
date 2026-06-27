@@ -6,6 +6,7 @@ use App\Models\Backup;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\Backup\Destinations\DestinationFactory;
+use App\Support\BackupSettings;
 use App\Support\SearchVector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -39,6 +40,10 @@ class RestoreService
             $this->extract($backup, $work);
             $this->verify($work);
 
+            // Capture the current state before the destructive wipe, so a bad
+            // restore is recoverable. Aborts the restore if it can't be taken.
+            $this->safetySnapshot();
+
             DB::transaction(function () use ($work) {
                 $this->wipe();
 
@@ -67,6 +72,32 @@ class RestoreService
             $this->reindexSearch();
         } finally {
             File::deleteDirectory($work);
+        }
+    }
+
+    /**
+     * Back up the CURRENT content model before wiping it. Canonical-only (no
+     * readable PDFs — recoverability is all that matters here) via the configured
+     * destination + encryption, tagged 'pre-restore'. If it can't be taken, throw
+     * so the restore aborts rather than wipe with no way back.
+     */
+    private function safetySnapshot(): void
+    {
+        $snapshot = Backup::create([
+            'trigger'    => 'pre-restore',
+            'disk'       => BackupSettings::get()['driver'] ?? 'local',
+            'status'     => 'processing',
+            'started_at' => now(),
+        ]);
+
+        try {
+            app(BackupService::class)->run($snapshot, canonicalOnly: true);
+        } catch (\Throwable $e) {
+            $snapshot->update(['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => now()]);
+            throw new \RuntimeException(
+                'Pre-restore safety snapshot failed; restore aborted to protect the current data. ' . $e->getMessage(),
+                previous: $e,
+            );
         }
     }
 

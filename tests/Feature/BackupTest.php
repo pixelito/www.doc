@@ -374,6 +374,30 @@ test('the scheduled command dispatches a backup when enabled and due', function 
     expect($backup?->status)->toBe('done'); // ran synchronously
 });
 
+test('restore takes a canonical-only safety snapshot of the current state first', function () {
+    Storage::fake('local');
+    login();
+
+    $ws = Workspace::factory()->create();
+    Document::factory()->for($ws)->create(['content' => DocumentFactory::tiptap('the live state')]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    Document::query()->delete(); // drift away from the backed-up state
+    app(RestoreService::class)->restore($backup->fresh());
+
+    $snapshot = Backup::where('trigger', 'pre-restore')->latest('id')->first();
+    expect($snapshot)->not->toBeNull();
+    expect($snapshot->status)->toBe('done');
+    expect(Storage::disk('local')->exists($snapshot->path))->toBeTrue();
+
+    // Canonical-only: the archive captures the content but skips the readable PDFs.
+    $entries = archiveEntries($snapshot);
+    expect(collect($entries)->contains(fn ($e) => str_starts_with($e, 'canonical/')))->toBeTrue();
+    expect(collect($entries)->contains(fn ($e) => str_starts_with($e, 'readable/')))->toBeFalse();
+});
+
 test('restore nulls authorship for a user deleted since the backup', function () {
     Storage::fake('local');
     login();

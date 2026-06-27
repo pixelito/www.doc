@@ -37,18 +37,26 @@ use ZipArchive;
  */
 class BackupService
 {
-    public function run(Backup $backup): void
+    /**
+     * @param bool $canonicalOnly Skip the readable PDF layer. Used for the
+     *   pre-restore safety snapshot, which only needs to be restorable (canonical)
+     *   — not human-readable — so it stays fast and free of the Node/PDF dependency.
+     */
+    public function run(Backup $backup, bool $canonicalOnly = false): void
     {
         $work = $this->tempDir();
 
         try {
             File::ensureDirectoryExists("{$work}/canonical");
             File::ensureDirectoryExists("{$work}/assets");
-            File::ensureDirectoryExists("{$work}/readable");
 
             $counts = $this->writeCanonical($work);
             $this->writeAssets($work);
-            $this->writeReadable($work);
+
+            if (! $canonicalOnly) {
+                File::ensureDirectoryExists("{$work}/readable");
+                $this->writeReadable($work);
+            }
 
             $encrypt  = $this->shouldEncrypt();
             $manifest = $this->writeManifest($work, $counts, $encrypt);
