@@ -412,6 +412,53 @@ test('restore round-trips page attachments and their binaries', function () {
     expect(Storage::disk('local')->get('attachments/keep.pdf'))->toBe('ORIGINAL BYTES');
 });
 
+test('the archive carries the attachments layer with checksummed binaries', function () {
+    Storage::fake('local');
+    login();
+
+    $document = Document::factory()->create();
+    Storage::disk('local')->put('attachments/known.pdf', 'PDF BYTES');
+    Attachment::factory()->for($document)->create(['path' => 'attachments/known.pdf', 'original_name' => 'Known.pdf']);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+    $backup->refresh();
+
+    expect(archiveEntries($backup))
+        ->toContain('canonical/attachments.json')
+        ->toContain('attachment-files/known.pdf');
+
+    expect($backup->manifest['counts']['attachments'])->toBe(1);
+    // The binary is in the integrity set, so restore would reject a tampered copy.
+    expect($backup->manifest['files'])->toHaveKey('attachment-files/known.pdf');
+});
+
+test('backup and restore preserve attachments on a trashed page', function () {
+    Storage::fake('local');
+    login();
+
+    // An attachment on a soft-deleted (trashed) page must survive a point-in-time
+    // backup — the backup captures Trash, so the restore is a faithful copy.
+    $document = Document::factory()->create();
+    Storage::disk('local')->put('attachments/trashed.pdf', 'BYTES');
+    $attachment = Attachment::factory()->for($document)->create([
+        'path' => 'attachments/trashed.pdf', 'original_name' => 'Trashed.pdf',
+    ]);
+    $document->delete();
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    DB::table('attachments')->delete();
+    Storage::disk('local')->delete('attachments/trashed.pdf');
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    expect(Attachment::find($attachment->id)?->original_name)->toBe('Trashed.pdf');
+    expect(Document::withTrashed()->find($document->id)->trashed())->toBeTrue();
+    expect(Storage::disk('local')->get('attachments/trashed.pdf'))->toBe('BYTES');
+});
+
 test('the archive cipher round-trips and rejects wrong keys, tampering and truncation', function () {
     $cipher = new \App\Services\Backup\ArchiveCipher(
         sodium_crypto_secretstream_xchacha20poly1305_keygen(),
