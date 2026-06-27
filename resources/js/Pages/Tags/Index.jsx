@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconPlus, IconTrash, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
+import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { can } from '@/lib/permissions';
 
@@ -35,11 +36,21 @@ export default function TagsIndex({ tags }) {
         <DocsLayout>
             <Head title="Tags" />
 
-            <div>
-                <h1 className="text-[19px] font-semibold text-foreground">Tags</h1>
-                <p className="mt-0.5 text-sm text-text-secondary">
-                    {tags.length} {tags.length === 1 ? 'tag' : 'tags'} · Cross-cutting labels that span workspaces.
-                </p>
+            <div className="flex min-w-0 items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <h1 className="text-[19px] font-semibold text-foreground">Tags</h1>
+                    <p className="mt-0.5 text-sm text-text-secondary">
+                        {tags.length} {tags.length === 1 ? 'tag' : 'tags'} · Cross-cutting labels that span workspaces.
+                    </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5 self-center">
+                    {perms.create && (
+                        <Button onClick={() => { setShowForm(true); }}>
+                            <IconPlus stroke={1.5} />
+                            New tag
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
@@ -53,6 +64,39 @@ export default function TagsIndex({ tags }) {
                 {/* Empty placeholder */}
                 {tags.length === 0 && !showForm && (
                     <p className="px-4 py-8 text-center text-sm text-text-tertiary">No tags yet.</p>
+                )}
+
+                {/* Inline form — new tag (at the top) */}
+                {showForm && (
+                    <div className="border-b border-border bg-surface-hover/30 px-4 py-3">
+                        <form onSubmit={submit} className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => { setName(e.target.value); setError(''); }}
+                                    placeholder="Tag name"
+                                    className="h-[33px] w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                />
+                                {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={processing || !name.trim()}
+                                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-opacity hover:opacity-90 disabled:opacity-50"
+                            >
+                                Create
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setShowForm(false); setName(''); setError(''); }}
+                                className="rounded-sm px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                            >
+                                Cancel
+                            </button>
+                        </form>
+                    </div>
                 )}
 
                 {/* Tag rows */}
@@ -91,48 +135,6 @@ export default function TagsIndex({ tags }) {
                         ))}
                     </ul>
                 )}
-
-                {/* Footer — new tag */}
-                {perms.create && (showForm ? (
-                    <div className="border-t border-border px-4 py-3">
-                        <form onSubmit={submit} className="flex items-center gap-2">
-                            <div className="flex-1">
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => { setName(e.target.value); setError(''); }}
-                                    placeholder="Tag name (e.g. production)"
-                                    className="h-8 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
-                                />
-                                {error && <p className="mt-1 text-xs text-danger">{error}</p>}
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={processing || !name.trim()}
-                                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-opacity hover:opacity-90 disabled:opacity-50"
-                            >
-                                Create
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setShowForm(false); setName(''); setError(''); }}
-                                className="rounded-sm px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
-                            >
-                                Cancel
-                            </button>
-                        </form>
-                    </div>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={() => setShowForm(true)}
-                        className="flex w-full items-center gap-1.5 border-t border-border px-4 py-2.5 text-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                    >
-                        <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
-                        New tag
-                    </button>
-                ))}
             </div>
         </DocsLayout>
 
