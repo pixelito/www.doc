@@ -10,9 +10,9 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * A minimal "your SMTP works" message, sent by the setup wizard and the admin
- * Email settings tab. No Blade view — the body is an inline HTML string so the
- * mailable carries no template dependency.
+ * A "your SMTP works" message, sent by the setup wizard and the admin Email
+ * settings tab. Styled like the backup report (mail.test mirrors
+ * mail.backup-report) so all of the app's mail looks consistent.
  */
 class TestMail extends Mailable
 {
@@ -27,15 +27,15 @@ class TestMail extends Mailable
     {
         return new Envelope(
             from: new Address($this->fromAddress, $this->fromName),
-            subject: 'Test email from ' . config('app.name'),
+            subject: '[' . config('app.name') . '] Email settings test',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            htmlString: '<p>This is a test email confirming your SMTP settings are working.</p>'
-                . '<p>If you received this, password resets and notifications will be delivered.</p>',
+            view: 'mail.test',
+            with: ['appName' => config('app.name')],
         );
     }
 }
