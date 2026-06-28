@@ -43,18 +43,9 @@ class DocxImporter implements ImporterContract
         // Strip the full HTML envelope; tiptap-php only wants the body content
         $body = $this->extractBody($html);
 
-        $doc = (new Editor([
-            'extensions' => [
-                new StarterKit,
-                new Underline,
-                new Link,
-                new Image,
-                new Table,
-                new TableRow,
-                new TableHeader,
-                new TableCell,
-            ],
-        ]))->setContent($body)->getDocument();
+        // Use the one canonical schema parser so we don't drop formatting (like
+        // text alignment or colours) that the main schema supports.
+        $doc = \App\Services\RenderDocument::fromHtml($body);
 
         return [
             'title'   => $title !== '' ? $title : 'Imported document',

@@ -17,7 +17,7 @@ class TrashController extends Controller
      */
     public function index(): Response
     {
-        abort_unless(auth()->user()->hasRole('admin'), 403);
+        \Illuminate\Support\Facades\Gate::authorize('viewTrash');
 
         $workspaces = Workspace::onlyTrashed()
             ->withCount(['documents' => fn ($q) => $q->withTrashed()])
@@ -57,7 +57,7 @@ class TrashController extends Controller
      */
     public function empty(): RedirectResponse
     {
-        abort_unless(auth()->user()->hasRole('admin'), 403);
+        \Illuminate\Support\Facades\Gate::authorize('emptyTrash');
 
         Workspace::onlyTrashed()->get()->each->forceDeleteWithDocuments();
 

@@ -27,7 +27,18 @@ class RenderDocument
             return '';
         }
 
-        return (new Editor([
+        return self::editor()->setContent($doc)->getHTML();
+    }
+
+    /** Convert HTML to TipTap JSON using the identical schema. */
+    public static function fromHtml(string $html): array
+    {
+        return self::editor()->setContent($html)->getDocument();
+    }
+
+    private static function editor(): Editor
+    {
+        return new Editor([
             'extensions' => [
                 new StarterKit,
                 new Underline,
@@ -43,7 +54,7 @@ class RenderDocument
                 new WikiLinkNode,
                 new TextAlign(['types' => ['heading', 'paragraph']]),
             ],
-        ]))->setContent($doc)->getHTML();
+        ]);
     }
 
     public static function resolveImageToDataUri(string $src): string
@@ -88,9 +99,18 @@ class RenderDocument
  * Renders image nodes with width and alignment preserved in exports.
  * Applies inline styles so PDF/DOCX pipelines see the correct layout.
  */
-class ResizableImageNode extends Node
+class ResizableImageNode extends \Tiptap\Nodes\Image
 {
     public static $name = 'image';
+
+    public function addAttributes()
+    {
+        return array_merge(parent::addAttributes(), [
+            'align' => [
+                'default' => 'left',
+            ],
+        ]);
+    }
 
     public function renderHTML($node, $HTMLAttributes = [])
     {

@@ -22,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Gate::define('viewTrash', function ($user) {
+            return $user->hasRole('admin');
+        });
+
+        \Illuminate\Support\Facades\Gate::define('emptyTrash', function ($user) {
+            return $user->hasRole('admin');
+        });
         // Apply operator-configured, DB-stored instance settings over config.
         // Guarded on the settings table existing so the very first `migrate`
         // (which boots the app before the table is created) doesn't fail here.
