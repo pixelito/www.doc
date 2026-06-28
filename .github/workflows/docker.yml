@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -49,7 +49,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push App Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/app/Dockerfile
@@ -65,7 +65,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build and push Web Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/app/Dockerfile
