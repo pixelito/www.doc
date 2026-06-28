@@ -69,6 +69,11 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
     const mailReady = ['host', 'port', 'from_address'].every((f) => String(mailForm.data[f] ?? '').trim() !== '')
         && isEmail(testRecipient);
 
+    const a = adminForm.data;
+    const passwordsMismatch = a.password_confirmation !== '' && a.password !== a.password_confirmation;
+    const adminReady = a.name.trim() !== '' && isEmail(a.email)
+        && a.password.length >= 8 && a.password === a.password_confirmation;
+
     return (
         <>
             <Head title="Set up www.doc" />
@@ -137,7 +142,11 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
                                         <Input id="admin-email" type="email" value={adminForm.data.email}
                                             onChange={(e) => adminForm.setData('email', e.target.value)}
                                             autoComplete="email" className="mt-1" required />
-                                        {adminForm.errors.email && <p className="mt-1 text-xs text-danger">{adminForm.errors.email}</p>}
+                                        {adminForm.errors.email
+                                            ? <p className="mt-1 text-xs text-danger">{adminForm.errors.email}</p>
+                                            : adminForm.data.email && !isEmail(adminForm.data.email) && (
+                                                <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>
+                                            )}
                                     </div>
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         <div>
@@ -152,13 +161,14 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
                                             <Input id="admin-password2" type="password" value={adminForm.data.password_confirmation}
                                                 onChange={(e) => adminForm.setData('password_confirmation', e.target.value)}
                                                 autoComplete="new-password" className="mt-1" required />
+                                            {passwordsMismatch && <p className="mt-1 text-xs text-danger">Passwords don't match.</p>}
                                         </div>
                                     </div>
                                     <div className="flex justify-between pt-1">
                                         <Button type="button" variant="outline" onClick={back}>
                                             <IconArrowLeft className="h-4 w-4" stroke={1.5} /> Back
                                         </Button>
-                                        <Button type="submit" disabled={adminForm.processing}>
+                                        <Button type="submit" disabled={adminForm.processing || !adminReady}>
                                             {adminForm.processing ? 'Saving…' : 'Continue'}
                                             <IconArrowRight className="h-4 w-4" stroke={1.5} />
                                         </Button>
