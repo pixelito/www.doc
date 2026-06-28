@@ -32,7 +32,11 @@ class AppServiceProvider extends ServiceProvider
         // Apply operator-configured, DB-stored instance settings over config.
         // Guarded on the settings table existing so the very first `migrate`
         // (which boots the app before the table is created) doesn't fail here.
-        if (! Schema::hasTable('settings')) {
+        try {
+            if (! Schema::hasTable('settings')) {
+                return;
+            }
+        } catch (\Throwable $e) {
             return;
         }
 

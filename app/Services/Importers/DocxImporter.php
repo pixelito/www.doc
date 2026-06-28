@@ -115,7 +115,43 @@ class DocxImporter implements ImporterContract
         $xpath = new \DOMXPath($dom);
 
         foreach ($xpath->query('//*[@style]') as $el) {
-            $el->setAttribute('style', $this->normalizeStyle($el->getAttribute('style')));
+            $style = $this->normalizeStyle($el->getAttribute('style'));
+
+            $wrapTags = [];
+            if (preg_match('/\bfont-weight:\s*bold\b/i', $style)) {
+                $wrapTags[] = 'strong';
+                $style = preg_replace('/\bfont-weight:\s*bold\b/i', '', $style);
+            }
+            if (preg_match('/\bfont-style:\s*italic\b/i', $style)) {
+                $wrapTags[] = 'em';
+                $style = preg_replace('/\bfont-style:\s*italic\b/i', '', $style);
+            }
+            if (preg_match('/\btext-decoration:\s*underline\b/i', $style)) {
+                $wrapTags[] = 'u';
+                $style = preg_replace('/\btext-decoration:\s*underline\b/i', '', $style);
+            }
+            if (preg_match('/\btext-decoration:\s*line-through\b/i', $style)) {
+                $wrapTags[] = 's';
+                $style = preg_replace('/\btext-decoration:\s*line-through\b/i', '', $style);
+            }
+
+            $style = trim(str_replace(';;', ';', $style), ' ;');
+
+            if ($style === '') {
+                $el->removeAttribute('style');
+            } else {
+                $el->setAttribute('style', $style);
+            }
+
+            if ($wrapTags) {
+                $current = $el;
+                foreach ($wrapTags as $tag) {
+                    $wrapper = $dom->createElement($tag);
+                    $current->parentNode->insertBefore($wrapper, $current);
+                    $wrapper->appendChild($current);
+                    $current = $wrapper;
+                }
+            }
         }
 
         foreach ($dom->getElementsByTagName('img') as $img) {
