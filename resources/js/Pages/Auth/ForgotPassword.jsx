@@ -4,29 +4,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
-export default function Login() {
-    const { data, setData, post, processing, errors } = useForm({
-        email: '',
-        password: '',
-        remember: false,
-    });
+export default function ForgotPassword({ status }) {
+    const { data, setData, post, processing, errors } = useForm({ email: '' });
 
     function submit(e) {
         e.preventDefault();
-        post('/login');
+        post('/forgot-password');
     }
 
     return (
         <>
-            <Head title="Sign in" />
+            <Head title="Reset your password" />
             <div className="min-h-screen flex items-center justify-center bg-background px-4">
                 <div className="w-full max-w-md">
                     <Card>
                         <CardHeader className="px-8 pt-10 pb-0">
-                            <CardTitle className="text-2xl"><span className="font-normal">www.</span><span className="font-extrabold">doc</span></CardTitle>
-                            <CardDescription>Sign in to continue</CardDescription>
+                            <CardTitle className="text-2xl">Forgot password?</CardTitle>
+                            <CardDescription>We'll email you a link to set a new one.</CardDescription>
                         </CardHeader>
                         <CardContent className="px-8 pb-10 pt-8">
+                            {status && (
+                                <div className="mb-5 rounded-md border border-sage-200 bg-sage-50 px-3.5 py-2.5 text-sm text-sage-700">
+                                    {status}
+                                </div>
+                            )}
                             <form onSubmit={submit} className="space-y-5">
                                 <div>
                                     <Label htmlFor="email">Email</Label>
@@ -41,25 +42,12 @@ export default function Login() {
                                     />
                                     {errors.email && <p className="mt-1.5 text-xs text-danger">{errors.email}</p>}
                                 </div>
-                                <div>
-                                    <Label htmlFor="password">Password</Label>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                        autoComplete="current-password"
-                                        placeholder="•••••••••"
-                                        required
-                                    />
-                                    {errors.password && <p className="mt-1.5 text-xs text-danger">{errors.password}</p>}
-                                </div>
                                 <Button type="submit" disabled={processing} className="w-full">
-                                    {processing ? 'Signing in…' : 'Sign in'}
+                                    {processing ? 'Sending…' : 'Email password reset link'}
                                 </Button>
                             </form>
                             <p className="mt-6 text-center text-sm text-text-secondary">
-                                <Link href="/forgot-password" className="text-sage-600 hover:underline">Forgot your password?</Link>
+                                <Link href="/login" className="text-sage-600 hover:underline">Back to sign in</Link>
                             </p>
                         </CardContent>
                     </Card>

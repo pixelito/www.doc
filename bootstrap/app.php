@@ -15,7 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
-        $middleware->web(append: [
+        // Prepend the first-run gate so every web request is funnelled to the
+        // setup wizard until the instance is configured (no-op once set up).
+        $middleware->web(prepend: [
+            \App\Http\Middleware\EnsureSetupComplete::class,
+        ], append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
         $middleware->alias([

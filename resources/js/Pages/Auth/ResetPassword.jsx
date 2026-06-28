@@ -1,30 +1,31 @@
-import { useForm, Head, Link } from '@inertiajs/react';
+import { useForm, Head } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
-export default function Login() {
+export default function ResetPassword({ token, email }) {
     const { data, setData, post, processing, errors } = useForm({
-        email: '',
+        token,
+        email: email || '',
         password: '',
-        remember: false,
+        password_confirmation: '',
     });
 
     function submit(e) {
         e.preventDefault();
-        post('/login');
+        post('/reset-password');
     }
 
     return (
         <>
-            <Head title="Sign in" />
+            <Head title="Set a new password" />
             <div className="min-h-screen flex items-center justify-center bg-background px-4">
                 <div className="w-full max-w-md">
                     <Card>
                         <CardHeader className="px-8 pt-10 pb-0">
-                            <CardTitle className="text-2xl"><span className="font-normal">www.</span><span className="font-extrabold">doc</span></CardTitle>
-                            <CardDescription>Sign in to continue</CardDescription>
+                            <CardTitle className="text-2xl">Set a new password</CardTitle>
+                            <CardDescription>Choose a new password for your account.</CardDescription>
                         </CardHeader>
                         <CardContent className="px-8 pb-10 pt-8">
                             <form onSubmit={submit} className="space-y-5">
@@ -36,31 +37,37 @@ export default function Login() {
                                         value={data.email}
                                         onChange={(e) => setData('email', e.target.value)}
                                         autoComplete="email"
-                                        placeholder="admin@example.com"
                                         required
                                     />
                                     {errors.email && <p className="mt-1.5 text-xs text-danger">{errors.email}</p>}
                                 </div>
                                 <div>
-                                    <Label htmlFor="password">Password</Label>
+                                    <Label htmlFor="password">New password</Label>
                                     <Input
                                         id="password"
                                         type="password"
                                         value={data.password}
                                         onChange={(e) => setData('password', e.target.value)}
-                                        autoComplete="current-password"
-                                        placeholder="•••••••••"
+                                        autoComplete="new-password"
                                         required
                                     />
                                     {errors.password && <p className="mt-1.5 text-xs text-danger">{errors.password}</p>}
                                 </div>
+                                <div>
+                                    <Label htmlFor="password_confirmation">Confirm new password</Label>
+                                    <Input
+                                        id="password_confirmation"
+                                        type="password"
+                                        value={data.password_confirmation}
+                                        onChange={(e) => setData('password_confirmation', e.target.value)}
+                                        autoComplete="new-password"
+                                        required
+                                    />
+                                </div>
                                 <Button type="submit" disabled={processing} className="w-full">
-                                    {processing ? 'Signing in…' : 'Sign in'}
+                                    {processing ? 'Resetting…' : 'Reset password'}
                                 </Button>
                             </form>
-                            <p className="mt-6 text-center text-sm text-text-secondary">
-                                <Link href="/forgot-password" className="text-sage-600 hover:underline">Forgot your password?</Link>
-                            </p>
                         </CardContent>
                     </Card>
                 </div>

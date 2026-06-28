@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
+use App\Http\Controllers\Admin\MailSettingsController as AdminMailSettingsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttachmentController;
@@ -8,8 +9,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SetupController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TrashController;
 use App\Http\Controllers\VersionController;
@@ -28,9 +31,28 @@ Route::pattern('user', '[0-9]+');
 Route::pattern('backup', '[0-9]+');
 Route::pattern('attachment', '[0-9]+');
 
+// First-run installation wizard. No auth — the operator hasn't created an
+// account yet. EnsureSetupComplete funnels everything here until it's finished,
+// and exempts these `setup.*` routes to avoid a redirect loop.
+Route::prefix('setup')->name('setup.')->group(function () {
+    Route::get('/', [SetupController::class, 'show'])->name('show');
+    Route::post('admin', [SetupController::class, 'storeAdmin'])->name('admin');
+    Route::post('instance', [SetupController::class, 'storeInstance'])->name('instance');
+    Route::post('mail', [SetupController::class, 'storeMail'])->name('mail');
+    Route::post('mail/test', [SetupController::class, 'testMail'])->name('mail.test');
+    Route::post('complete', [SetupController::class, 'complete'])->name('complete');
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+
+    // Password reset (forgot → emailed link → reset). Delivered via the SMTP
+    // settings from the setup wizard / admin Email tab.
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
 });
 
 Route::middleware('auth')->group(function () {
@@ -47,6 +69,11 @@ Route::middleware('auth')->group(function () {
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        // Email (SMTP) settings — the global mailer config (password resets etc.).
+        Route::get('settings/mail', [AdminMailSettingsController::class, 'index'])->name('settings.mail');
+        Route::patch('settings/mail', [AdminMailSettingsController::class, 'update'])->name('settings.mail.update');
+        Route::post('settings/mail/test', [AdminMailSettingsController::class, 'test'])->name('settings.mail.test');
 
         // Backups & restore (NIS2). 'settings'/'run' declared before {backup} so
         // they aren't read as ids (the [0-9]+ pattern already prevents that).

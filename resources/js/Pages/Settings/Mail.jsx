@@ -1,0 +1,96 @@
+import { useState } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
+import SettingsLayout from '@/Layouts/SettingsLayout';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import MailFields from '@/components/MailFields';
+import { IconMailFast, IconLoader2 } from '@tabler/icons-react';
+
+export default function Mail({ settings }) {
+    const form = useForm({
+        host: settings.host ?? '',
+        port: settings.port ?? 587,
+        encryption: settings.encryption ?? 'tls',
+        username: settings.username ?? '',
+        password: '',
+        from_address: settings.from_address ?? '',
+        from_name: settings.from_name ?? '',
+    });
+
+    const [testTo, setTestTo] = useState('');
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState(null);
+
+    function submit(e) {
+        e.preventDefault();
+        form.patch('/admin/settings/mail', { preserveScroll: true });
+    }
+
+    function sendTest() {
+        setTesting(true);
+        setTestResult(null);
+        router.post('/admin/settings/mail/test', { ...form.data, to: testTo }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => setTestResult({ ok: true, message: `Test email sent to ${testTo}.` }),
+            onError: (errs) => setTestResult({ ok: false, message: errs.mail_test || 'Could not send the test email.' }),
+            onFinish: () => setTesting(false),
+        });
+    }
+
+    const mailReady = ['host', 'port', 'from_address'].every((f) => String(form.data[f] ?? '').trim() !== '');
+
+    return (
+        <SettingsLayout>
+            <Head title="Email settings" />
+            <form onSubmit={submit} className="space-y-5">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Email (SMTP)</CardTitle>
+                        <CardDescription>
+                            The mail server the app sends through — password resets and notifications.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                        <MailFields
+                            data={form.data}
+                            setField={(name, value) => form.setData(name, value)}
+                            errors={form.errors}
+                            passwordSet={settings.password_set}
+                        />
+
+                        <div className="rounded-md border border-border bg-surface-hover/40 p-4">
+                            <Label htmlFor="mail-test-to">Send a test email to</Label>
+                            <div className="mt-1 flex items-center gap-2.5">
+                                <Input id="mail-test-to" type="email" value={testTo}
+                                    onChange={(e) => setTestTo(e.target.value)}
+                                    placeholder="you@company.com" className="max-w-xs" />
+                                <Button type="button" variant="outline" onClick={sendTest}
+                                    disabled={testing || !mailReady || !testTo}>
+                                    {testing
+                                        ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
+                                        : <IconMailFast className="h-3.5 w-3.5" stroke={1.5} />}
+                                    {testing ? 'Sending…' : 'Send test'}
+                                </Button>
+                            </div>
+                            {testResult && (
+                                <p className={`mt-2 text-xs ${testResult.ok ? 'text-sage-700' : 'text-danger'}`}>{testResult.message}</p>
+                            )}
+                            {!mailReady && (
+                                <p className="mt-2 text-xs text-text-tertiary">Fill in the host, port and from address first.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={form.processing || !form.isDirty}>
+                        {form.processing ? 'Saving…' : 'Save changes'}
+                    </Button>
+                </div>
+            </form>
+        </SettingsLayout>
+    );
+}

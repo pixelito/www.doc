@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Support\MailSettings;
+use App\Support\Setup;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +22,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Apply operator-configured, DB-stored instance settings over config.
+        // Guarded on the settings table existing so the very first `migrate`
+        // (which boots the app before the table is created) doesn't fail here.
+        if (! Schema::hasTable('settings')) {
+            return;
+        }
+
+        // SMTP from the setup wizard / admin Email tab drives the default mailer,
+        // so password resets and any app mail deliver without touching .env.
+        MailSettings::applyToMailer();
+
+        // The operator's instance name (set in the wizard) becomes app.name.
+        config(['app.name' => Setup::instanceName()]);
     }
 }
