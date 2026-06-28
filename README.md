@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="art/logomd.svg" alt="www.doc" width="520">
+  <img src="https://raw.githubusercontent.com/pixelito/www.doc/master/art/logomd.svg" alt="www.doc" width="520">
 </p>
 
 <p align="center">
@@ -137,7 +137,7 @@ Once the containers are running, simply open your `APP_URL` in a browser. You wi
 The `app` container caches config/routes/views on boot. Uploaded assets and the database live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds safely. 
 
 ### Reverse Proxy & HTTPS
-Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080` by default) for TLS. A sample [`Caddyfile.example`](Caddyfile.example) is included to show how to get automatic HTTPS up and running in minutes.
+Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080`) for TLS. See [Caddyfile.example](https://github.com/pixelito/www.doc/blob/master/Caddyfile.example) for a quick configuration.
 
 ### Log Rotation
 The `docker-compose.prod.yml` enforces JSON file log rotation (`max-size: 10m`, `max-file: 3`) across all containers out-of-the-box, ensuring your server's disk space won't fill up with endless container logs over time.
@@ -182,4 +182,4 @@ docker compose exec app php artisan backup:decrypt /path/to/your/backup.zip.enc 
 
 ## License
 
-Open-source, self-hosted. See [`LICENSE`](LICENSE).
+Open-source, self-hosted. See [LICENSE](https://github.com/pixelito/www.doc/blob/master/LICENSE).
