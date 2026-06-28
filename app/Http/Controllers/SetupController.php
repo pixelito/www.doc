@@ -152,7 +152,14 @@ class SetupController extends Controller
         return redirect()->route('workspaces.index');
     }
 
-    /** Create the Welcome workspace + introductory page for a brand-new instance. */
+    /**
+     * Create the Welcome workspace for a brand-new instance: an introductory
+     * page (with a live example diagram + wiki-links) and two nested guides.
+     *
+     * The two guides are created FIRST so the welcome page's [[wiki-links]]
+     * resolve to them by title on save; they're then nested under the welcome
+     * page (a structural parent_id change — no new version).
+     */
     private function seedWelcomeContent(): void
     {
         try {
@@ -163,68 +170,179 @@ class SetupController extends Controller
                     'position'    => 0,
                 ]);
 
-                Document::create([
-                    'title'        => 'Welcome to ' . config('app.name'),
-                    'workspace_id' => $workspace->id,
-                    'position'     => 0,
-                    'content'      => $this->welcomeContent(),
+                $ws = $workspace->id;
+
+                $writing = Document::create([
+                    'title' => 'Writing & formatting', 'workspace_id' => $ws, 'position' => 0,
+                    'content' => $this->writingGuide(),
                 ]);
+                $organising = Document::create([
+                    'title' => 'Organising your knowledge base', 'workspace_id' => $ws, 'position' => 1,
+                    'content' => $this->organisingGuide(),
+                ]);
+
+                $welcome = Document::create([
+                    'title' => 'Welcome to ' . config('app.name'), 'workspace_id' => $ws, 'position' => 0,
+                    'content' => $this->welcomeContent(),
+                ]);
+
+                // Nest the guides under the welcome page (structural — the
+                // observer doesn't re-snapshot a parent_id-only change).
+                $writing->update(['parent_id' => $welcome->id]);
+                $organising->update(['parent_id' => $welcome->id]);
             });
         } catch (\Throwable $e) {
             report($e);
         }
     }
 
-    /** The TipTap document for the welcome page (StarterKit nodes only). */
-    private function welcomeContent(): array
+    // ── Welcome content (StarterKit nodes + wikiLink + networkDiagram) ──────────
+
+    private function h(string $text): array
     {
-        $h = fn (string $text) => [
-            'type' => 'heading', 'attrs' => ['level' => 2],
-            'content' => [['type' => 'text', 'text' => $text]],
-        ];
-        $p = fn (string $text) => [
-            'type' => 'paragraph',
-            'content' => [['type' => 'text', 'text' => $text]],
-        ];
-        $bullets = fn (array $items) => [
+        return ['type' => 'heading', 'attrs' => ['level' => 2], 'content' => [['type' => 'text', 'text' => $text]]];
+    }
+
+    private function p(string $text): array
+    {
+        return ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $text]]];
+    }
+
+    private function bullets(array $items): array
+    {
+        return [
             'type' => 'bulletList',
             'content' => array_map(fn (string $t) => [
                 'type' => 'listItem',
                 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $t]]]],
             ], $items),
         ];
+    }
 
+    private function welcomeContent(): array
+    {
         $app = config('app.name');
 
         return [
             'type' => 'doc',
             'content' => [
-                $p("{$app} is your team's self-hosted knowledge base — a calm, wiki-style place to write things down and find them again. This page is here to get you started; edit or delete it whenever you like."),
+                $this->p("{$app} is your team's self-hosted knowledge base — a calm, wiki-style place to write things down and find them again. This page is here to get you started; edit or delete it whenever you like."),
 
-                $h('Getting started'),
-                $bullets([
+                $this->h('Getting started'),
+                $this->bullets([
                     'Workspaces are the top-level containers in the sidebar. This "Welcome" one is your first — add more for each area of your work.',
                     'Inside a workspace, create pages. Pages can be nested to build a shallow tree, so related notes live together.',
                     'Turn on edit mode to change a page; every save is kept as a version you can compare and roll back to.',
                 ]),
 
-                $h('What you can do'),
-                $bullets([
-                    'Write with a rich editor — paste from Word or the web and keep the formatting, or paste a screenshot straight in.',
-                    'Link pages together by typing [[Page title]]; backlinks show you everything that points to a page.',
-                    'Find anything fast with full-text search across every page.',
-                    'Embed network diagrams to document your infrastructure, right inside a page.',
-                    'Import and export DOCX and PDF when you need to move content in or out.',
-                ]),
+                // Two starter guides, linked the same way you'll link your own pages.
+                ['type' => 'paragraph', 'content' => [
+                    ['type' => 'text', 'text' => 'Two short guides come with this page: '],
+                    ['type' => 'wikiLink', 'attrs' => ['title' => 'Writing & formatting']],
+                    ['type' => 'text', 'text' => ' and '],
+                    ['type' => 'wikiLink', 'attrs' => ['title' => 'Organising your knowledge base']],
+                    ['type' => 'text', 'text' => '. They\'re nested under this page in the sidebar.'],
+                ]],
 
-                $h('For administrators'),
-                $bullets([
+                $this->h('A live example: network diagrams'),
+                $this->p('Pages can embed network diagrams, rendered right here in the read view. Here\'s a simple one — open this page in edit mode to change it.'),
+                $this->diagramNode(),
+
+                $this->h('For administrators'),
+                $this->bullets([
                     'Invite teammates and set their roles (admin, editor, viewer) under Settings → Users.',
                     'Configure the mail server under Settings → Email so password resets and notifications are delivered.',
                     'Schedule encrypted, off-host backups under Settings → Backups to keep your knowledge base safe.',
                 ]),
 
-                $p('That\'s it — create your first real workspace from the sidebar, and start writing.'),
+                $this->p('That\'s it — create your first real workspace from the sidebar, and start writing.'),
+            ],
+        ];
+    }
+
+    private function writingGuide(): array
+    {
+        return [
+            'type' => 'doc',
+            'content' => [
+                $this->p('The editor is a rich text editor that stays out of your way. A few things worth knowing:'),
+                $this->bullets([
+                    'Paste from Word, Google Docs or the web and the formatting comes across cleanly — headings, lists, tables, links and more.',
+                    'Paste a screenshot straight from your clipboard and it\'s embedded inline; resize it by dragging.',
+                    'Use headings to structure a page; the formatting toolbar covers bold, italic, colours, highlights, code and quotes.',
+                    'Need a diagram? Insert a network diagram block and lay out nodes and connections visually.',
+                ]),
+                $this->p('Every time you save, the previous state is kept as a version — so you can always compare changes or roll back.'),
+            ],
+        ];
+    }
+
+    private function organisingGuide(): array
+    {
+        return [
+            'type' => 'doc',
+            'content' => [
+                $this->p('A little structure keeps a knowledge base easy to navigate as it grows:'),
+                $this->bullets([
+                    'Workspaces group big areas of work and don\'t nest — keep the set small and deliberate.',
+                    'Nest pages under one another to build a shallow tree of related notes.',
+                    'Link related pages by typing [[Page title]]; each page shows its backlinks, so connections work both ways.',
+                    'Add tags to cut across workspaces, and use full-text search to jump straight to anything.',
+                ]),
+                $this->p('When you\'re ready, delete this Welcome workspace and start shaping your own.'),
+            ],
+        ];
+    }
+
+    /**
+     * A small example network diagram, in the same graph shape the editor and
+     * the server-side SVG renderer expect (mirrors WorkspaceSeeder::diagram).
+     */
+    private function diagramNode(): array
+    {
+        $nodes = [
+            ['id' => 'net', 'label' => 'Internet',    'kind' => 'cloud',    'color' => 'blue',       'x' => 200, 'y' => 0],
+            ['id' => 'fw',  'label' => 'Firewall',    'kind' => 'firewall', 'color' => 'terracotta', 'x' => 200, 'y' => 110],
+            ['id' => 'sw',  'label' => 'Core Switch', 'kind' => 'switch',   'color' => 'sage',       'x' => 200, 'y' => 220],
+            ['id' => 'srv', 'label' => 'App Server',  'kind' => 'server',   'color' => 'sage',       'x' => 80,  'y' => 330],
+            ['id' => 'db',  'label' => 'Database',    'kind' => 'database', 'color' => 'sage',       'x' => 320, 'y' => 330],
+        ];
+        $edges = [
+            ['from' => 'net', 'to' => 'fw'],
+            ['from' => 'fw',  'to' => 'sw'],
+            ['from' => 'sw',  'to' => 'srv'],
+            ['from' => 'sw',  'to' => 'db'],
+        ];
+
+        $graphNodes = array_map(fn (array $n) => [
+            'id'       => $n['id'],
+            'type'     => 'labeled',
+            'position' => ['x' => $n['x'], 'y' => $n['y']],
+            'data'     => ['label' => $n['label'], 'kind' => $n['kind'], 'color' => $n['color']],
+        ], $nodes);
+
+        $graphEdges = array_map(fn (array $e) => [
+            'id'           => 'e-' . $e['from'] . '-' . $e['to'],
+            'source'       => $e['from'],
+            'target'       => $e['to'],
+            'sourceHandle' => 'bottom',
+            'targetHandle' => 'top',
+            'data'         => ['label' => '', 'lineStyle' => 'solid', 'arrows' => 'end', 'routing' => 'step', 'color' => '#8E938E'],
+        ], $edges);
+
+        return [
+            'type'  => 'networkDiagram',
+            'attrs' => [
+                'graph'    => [
+                    'nodes'    => $graphNodes,
+                    'edges'    => $graphEdges,
+                    'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1],
+                    'settings' => ['routing' => 'step', 'snap' => false],
+                ],
+                'name'     => 'Example network',
+                'imageSrc' => null,
+                'width'    => null,
+                'align'    => 'left',
             ],
         ];
     }

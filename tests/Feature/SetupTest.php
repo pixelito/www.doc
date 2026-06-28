@@ -57,7 +57,7 @@ test('the wizard captures the admin then creates and signs them in on finish', f
     $this->assertAuthenticatedAs($admin);
 });
 
-test('finishing setup seeds a Welcome workspace and page', function () {
+test('finishing setup seeds a Welcome workspace, an intro page and nested guides', function () {
     freshInstall();
 
     $this->post('/setup/admin', [
@@ -71,12 +71,24 @@ test('finishing setup seeds a Welcome workspace and page', function () {
     $workspace = \App\Models\Workspace::where('name', 'Welcome')->first();
     expect($workspace)->not->toBeNull();
 
-    $page = \App\Models\Document::where('workspace_id', $workspace->id)->first();
-    $admin = User::where('email', 'ada@example.com')->first();
-    expect($page)->not->toBeNull()
-        ->and($page->title)->toContain('Welcome')
-        ->and($page->content_html)->toContain('knowledge base') // rendered from the TipTap content
-        ->and($page->created_by_id)->toBe($admin->id);          // authored as the new admin
+    $admin   = User::where('email', 'ada@example.com')->first();
+    $welcome = \App\Models\Document::where('workspace_id', $workspace->id)->where('title', 'like', 'Welcome to %')->first();
+    expect($welcome)->not->toBeNull()
+        ->and($welcome->created_by_id)->toBe($admin->id)        // authored as the new admin
+        ->and($welcome->content_html)->toContain('knowledge base')
+        ->and($welcome->content_html)->toContain('Core Switch'); // diagram labels reach the rendered HTML
+
+    // The two guides are nested under the welcome page.
+    $writing    = \App\Models\Document::where('title', 'Writing & formatting')->first();
+    $organising = \App\Models\Document::where('title', 'Organising your knowledge base')->first();
+    expect($writing?->parent_id)->toBe($welcome->id)
+        ->and($organising?->parent_id)->toBe($welcome->id);
+
+    // The welcome page's wiki-links resolve to the guides (backlinks work).
+    $resolved = \App\Models\Link::where('source_document_id', $welcome->id)
+        ->pluck('target_document_id')->filter()->values();
+    expect($resolved)->toContain($writing->id)
+        ->and($resolved)->toContain($organising->id);
 });
 
 test('finishing setup without an admin is rejected', function () {
