@@ -60,6 +60,34 @@ class BackupSettings
         $mail = self::get()['mail'];
         $mail['password'] = self::mailPassword();
 
+        return self::applyGlobalMailFallback($mail);
+    }
+
+    /**
+     * When the backup mail block has no SMTP host of its own, borrow the global
+     * mail settings (the setup wizard / admin Email tab) so an operator doesn't
+     * re-enter SMTP just to get backup reports. The recipient and on/off toggle
+     * always stay with the backup block; only the transport (and a from-address
+     * when none is set) falls back.
+     *
+     * @param array $mail a DECRYPTED backup mail block (password in clear)
+     */
+    public static function applyGlobalMailFallback(array $mail): array
+    {
+        if (trim((string) ($mail['host'] ?? '')) !== '' || ! MailSettings::isConfigured()) {
+            return $mail;
+        }
+
+        $g = MailSettings::get();
+
+        $mail['host']         = $g['host'];
+        $mail['port']         = $g['port'];
+        $mail['encryption']   = $g['encryption']; // tls|ssl|none (BackupNotifier maps it)
+        $mail['username']     = $g['username'];
+        $mail['password']     = MailSettings::password();
+        $mail['from_address'] = ($mail['from_address'] ?? '') ?: $g['from_address'];
+        $mail['from_name']    = ($mail['from_name'] ?? '') ?: $g['from_name'];
+
         return $mail;
     }
 
@@ -81,6 +109,10 @@ class BackupSettings
         
         // Tells the UI if a key is present but invalid, so it can show an error.
         $s['encryption_key_present'] = (bool) config('backup.encryption_key');
+
+        // Whether a global SMTP server is configured (setup wizard / Email tab).
+        // When true, the backup mail fields can be left blank to reuse it.
+        $s['global_mail_configured'] = MailSettings::isConfigured();
 
         return $s;
     }

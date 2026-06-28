@@ -262,6 +262,72 @@ test('a test email is sent through the configured mailer', function () {
     Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) => $m->hasTo('admin@company.com') && $m->isTest);
 });
 
+test('backup reports fall back to the global SMTP when no backup host is set', function () {
+    login();
+
+    \App\Support\MailSettings::save([
+        'host' => 'smtp.global.test', 'port' => 2525, 'encryption' => 'ssl',
+        'username' => 'guser', 'password' => 'gpass',
+        'from_address' => 'docs@acme.test', 'from_name' => 'Acme',
+    ]);
+
+    // Backup notifications on, with a recipient but NO SMTP host of their own.
+    $settings = \App\Support\BackupSettings::get();
+    $settings['mail'] = array_replace($settings['mail'], ['enabled' => true, 'to' => 'ops@acme.test', 'host' => '']);
+    Setting::put('backup', $settings);
+
+    $cfg = \App\Support\BackupSettings::mailConfig();
+    expect($cfg['host'])->toBe('smtp.global.test')       // borrowed from the global mailer
+        ->and($cfg['port'])->toBe(2525)
+        ->and($cfg['encryption'])->toBe('ssl')
+        ->and($cfg['password'])->toBe('gpass')
+        ->and($cfg['from_address'])->toBe('docs@acme.test')
+        ->and($cfg['to'])->toBe('ops@acme.test');        // recipient stays with the backup block
+});
+
+test('a backup-specific SMTP host overrides the global one', function () {
+    login();
+
+    \App\Support\MailSettings::save([
+        'host' => 'smtp.global.test', 'port' => 2525, 'encryption' => 'ssl',
+        'username' => '', 'password' => '', 'from_address' => 'docs@acme.test', 'from_name' => 'Acme',
+    ]);
+
+    $settings = \App\Support\BackupSettings::get();
+    $settings['mail'] = array_replace($settings['mail'], [
+        'enabled' => true, 'to' => 'ops@acme.test',
+        'host' => 'smtp.backup.test', 'port' => 587, 'from_address' => 'backups@acme.test',
+    ]);
+    Setting::put('backup', $settings);
+
+    $cfg = \App\Support\BackupSettings::mailConfig();
+    expect($cfg['host'])->toBe('smtp.backup.test')
+        ->and($cfg['from_address'])->toBe('backups@acme.test');
+});
+
+test('the backup test email can use the global SMTP when no backup host is set', function () {
+    Mail::fake();
+    login();
+
+    \App\Support\MailSettings::save([
+        'host' => 'smtp.global.test', 'port' => 587, 'encryption' => 'tls',
+        'username' => '', 'password' => '', 'from_address' => 'docs@acme.test', 'from_name' => 'Acme',
+    ]);
+
+    // Only a recipient + encryption — host left blank, leaning on the global SMTP.
+    $this->post('/admin/backups/test-email', ['mail' => ['to' => 'ops@acme.test', 'encryption' => 'tls']])
+        ->assertRedirect()->assertSessionHas('success');
+
+    Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) => $m->hasTo('ops@acme.test') && $m->isTest);
+});
+
+test('the backup test email still requires a host when no global SMTP exists', function () {
+    login();
+
+    $this->post('/admin/backups/test-email', ['mail' => ['to' => 'ops@acme.test', 'encryption' => 'tls']])
+        ->assertSessionHasErrors('mail.host');
+});
+
 test('a successful backup emails a report when notifications are on', function () {
     Storage::fake('local');
     Mail::fake();

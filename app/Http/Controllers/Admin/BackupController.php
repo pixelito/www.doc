@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Services\Backup\BackupNotifier;
 use App\Services\Backup\Destinations\DestinationFactory;
 use App\Support\BackupSettings;
+use App\Support\MailSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -220,10 +221,13 @@ class BackupController extends Controller
     {
         $this->authorize('create', Backup::class);
 
+        // Host/port are required only when there's no global SMTP to fall back
+        // on — leaving them blank means "use the global Email settings".
+        $needsOwnSmtp = ! MailSettings::isConfigured();
         $request->validate([
             'mail.to'         => ['required', 'email'],
-            'mail.host'       => ['required', 'string'],
-            'mail.port'       => ['required', 'integer', 'min:1', 'max:65535'],
+            'mail.host'       => [Rule::requiredIf($needsOwnSmtp), 'nullable', 'string'],
+            'mail.port'       => [Rule::requiredIf($needsOwnSmtp), 'nullable', 'integer', 'min:1', 'max:65535'],
             'mail.encryption' => ['required', Rule::in(['tls', 'ssl', 'none'])],
         ]);
 
@@ -339,6 +343,8 @@ class BackupController extends Controller
             ? $request->input('mail.password')
             : BackupSettings::mailPassword();
 
-        return $mail;
+        // No backup-specific host → test through the global SMTP, same as a real
+        // report would (see BackupSettings::mailConfig).
+        return BackupSettings::applyGlobalMailFallback($mail);
     }
 }

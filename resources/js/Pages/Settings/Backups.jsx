@@ -163,8 +163,11 @@ export default function Backups() {
     const mailUser      = filled(form.data.mail.username);
     const mailPass      = filled(form.data.mail.password) || mailPwSet;
     const mailAuthPaired = mailUser === mailPass;
-    const mailReady = ['to', 'host', 'from_address'].every((f) => filled(form.data.mail[f]))
-        && filled(form.data.mail.port) && mailAuthPaired;
+    // A global SMTP server (setup wizard / Email tab) can stand in when the
+    // backup mail fields are left blank.
+    const globalMailConfigured = settings.global_mail_configured;
+    const mailHasOwnSmtp = ['host', 'from_address'].every((f) => filled(form.data.mail[f])) && filled(form.data.mail.port);
+    const mailReady = filled(form.data.mail.to) && (mailHasOwnSmtp || globalMailConfigured) && mailAuthPaired;
 
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
@@ -580,9 +583,15 @@ export default function Backups() {
                                         placeholder="it-admin@company.com" className="mt-1" />
                                     {form.errors['mail.to'] && <p className="mt-1 text-xs text-danger">{form.errors['mail.to']}</p>}
                                 </div>
+                                {globalMailConfigured && (
+                                    <p className="text-xs text-text-tertiary">
+                                        Leave the SMTP fields below blank to send reports through this instance's
+                                        global Email settings.
+                                    </p>
+                                )}
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <div className="sm:col-span-2">
-                                        <Label htmlFor="mail-host">SMTP host <span className="text-danger">*</span></Label>
+                                        <Label htmlFor="mail-host">SMTP host{!globalMailConfigured && <span className="text-danger"> *</span>}</Label>
                                         <Input id="mail-host" value={form.data.mail.host}
                                             onChange={(e) => setNested('mail', 'host', e.target.value)}
                                             placeholder="smtp.company.com" className="mt-1" />
