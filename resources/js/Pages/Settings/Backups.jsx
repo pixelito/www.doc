@@ -598,7 +598,11 @@ export default function Backups() {
                                     <Input id="mail-to" type="email" value={form.data.mail.to}
                                         onChange={(e) => setNested('mail', 'to', e.target.value)}
                                         placeholder="it-admin@company.com" className="mt-1" />
-                                    {form.errors['mail.to'] && <p className="mt-1 text-xs text-danger">{form.errors['mail.to']}</p>}
+                                    {form.errors['mail.to']
+                                        ? <p className="mt-1 text-xs text-danger">{form.errors['mail.to']}</p>
+                                        : filled(form.data.mail.to) && !isEmail(form.data.mail.to) && (
+                                            <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>
+                                        )}
                                 </div>
                                 {globalMailConfigured && (
                                     <div className="space-y-2">

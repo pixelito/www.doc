@@ -74,6 +74,9 @@ export default function Mail({ settings }) {
                                     {testing ? 'Sending…' : 'Send test'}
                                 </Button>
                             </div>
+                            {testTo && !isEmail(testTo) && (
+                                <p className="mt-1.5 text-xs text-danger">Enter a valid email address.</p>
+                            )}
                             {!mailReady && (
                                 <p className="mt-2 text-xs text-text-tertiary">Fill in the host, port and from address first.</p>
                             )}
