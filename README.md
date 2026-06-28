@@ -92,26 +92,49 @@ a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/n
 
 ## Production
 
-Production uses a **separate** compose file from development — code is baked into the
-images, an Nginx container serves static assets and proxies PHP-FPM, and a reverse proxy
-is expected at the edge for TLS.
+For production, we recommend using our pre-built Docker images hosted on GitHub Container Registry (GHCR). This means you don't need to compile the code yourself—just configure your environment and start the containers.
 
+First, copy the example environment file:
 ```bash
-cp .env.example .env       # then edit: APP_ENV=production, APP_DEBUG=false,
-                           # a strong APP_KEY, real DB_PASSWORD, your APP_URL
-docker compose -f docker-compose.prod.yml up -d --build
+cp .env.example .env
+```
+
+Before starting the app, you **must** configure the following required variables in your `.env` file:
+
+- `APP_ENV=production` — Tells the app it is running in production.
+- `APP_DEBUG=false` — Disables debug error screens.
+- `APP_URL=https://docs.yourdomain.com` — The absolute URL where your app is hosted. If you are hosting internally on your network, this can just be your server's IP address (e.g., `http://192.168.1.50:8080`). Laravel needs this to generate correct links in emails and PDF exports.
+- `APP_KEY=base64:...` — A 32-byte base64 string used for session encryption. You can generate one by running `openssl rand -base64 32` and prefixing it with `base64:`.
+- `DB_PASSWORD=...` — A secure password for your PostgreSQL database.
+
+Once your `.env` is configured, you can point your `docker-compose.prod.yml` to the pre-built images. Open `docker-compose.prod.yml` and replace the `build:` directives under `x-app` and `web` with the `image:` tags:
+
+```yaml
+x-app: &app-image
+  image: ghcr.io/pixelito/www.doc-app:latest
+  # ...
+
+web:
+  image: ghcr.io/pixelito/www.doc-web:latest
+  # ...
+```
+
+Then, start the stack and initialize the database schema:
+```bash
+docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 ```
 
-`migrate --force` creates the schema. Once the containers are running, simply open your `APP_URL` in a browser. You will be greeted by the **Web Setup Wizard**, which will walk you through:
+*(Note: If you are using a container manager like Komodo, Portainer, or Dockge, you can simply paste the modified compose file into your manager and add the `.env` variables in the UI).*
+
+Once the containers are running, simply open your `APP_URL` in a browser. You will be greeted by the **Web Setup Wizard**, which will walk you through:
 1. Creating your first admin account.
 2. Setting the instance name.
 3. Configuring SMTP settings for outgoing mail.
 
 *(For unattended or headless installations, you can bypass the wizard using `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`)*
 
-The `app` container caches config/routes/views on boot. Uploaded assets and the database
-live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. 
+The `app` container caches config/routes/views on boot. Uploaded assets and the database live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds safely. 
 
 ### Reverse Proxy & HTTPS
 Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080` by default) for TLS. A sample [`Caddyfile.example`](Caddyfile.example) is included to show how to get automatic HTTPS up and running in minutes.
