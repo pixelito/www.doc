@@ -163,11 +163,27 @@ export default function Backups() {
     const mailUser      = filled(form.data.mail.username);
     const mailPass      = filled(form.data.mail.password) || mailPwSet;
     const mailAuthPaired = mailUser === mailPass;
-    // A global SMTP server (setup wizard / Email tab) can stand in when the
-    // backup mail fields are left blank.
+    // A global SMTP server (setup wizard / Email tab) can stand in for a backup
+    // mail server. The choice is explicit: "use global" persists as a blank
+    // backup host (which the server falls back on), "use a different server"
+    // means the backup block carries its own SMTP.
     const globalMailConfigured = settings.global_mail_configured;
+    const [useGlobalMail, setUseGlobalMail] = useState(globalMailConfigured && !filled(form.data.mail.host));
+
+    // Switching to the global server clears the backup-specific SMTP so the save
+    // persists a blank host; switching to a custom server just reveals the fields.
+    const chooseGlobalMail = (useGlobal) => {
+        setUseGlobalMail(useGlobal);
+        if (useGlobal) {
+            form.setData('mail', {
+                ...form.data.mail,
+                host: '', username: '', password: '', from_address: '', from_name: '',
+            });
+        }
+    };
+
     const mailHasOwnSmtp = ['host', 'from_address'].every((f) => filled(form.data.mail[f])) && filled(form.data.mail.port);
-    const mailReady = filled(form.data.mail.to) && (mailHasOwnSmtp || globalMailConfigured) && mailAuthPaired;
+    const mailReady = filled(form.data.mail.to) && (useGlobalMail || mailHasOwnSmtp) && mailAuthPaired;
 
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
@@ -584,14 +600,29 @@ export default function Backups() {
                                     {form.errors['mail.to'] && <p className="mt-1 text-xs text-danger">{form.errors['mail.to']}</p>}
                                 </div>
                                 {globalMailConfigured && (
-                                    <p className="text-xs text-text-tertiary">
-                                        Leave the SMTP fields below blank to send reports through this instance's
-                                        global Email settings.
-                                    </p>
+                                    <div className="space-y-2">
+                                        <span className="text-xs font-medium text-text-secondary">Mail server</span>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button type="button" onClick={() => chooseGlobalMail(true)}
+                                                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:border-border-hover'}`}>
+                                                Use the global Email settings
+                                            </button>
+                                            <button type="button" onClick={() => chooseGlobalMail(false)}
+                                                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${!useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:border-border-hover'}`}>
+                                                Use a different mail server
+                                            </button>
+                                        </div>
+                                        {useGlobalMail && (
+                                            <p className="text-xs text-text-tertiary">
+                                                Reports are sent through this instance's global Email settings (Settings → Email).
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
+                                {!useGlobalMail && (<>
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <div className="sm:col-span-2">
-                                        <Label htmlFor="mail-host">SMTP host{!globalMailConfigured && <span className="text-danger"> *</span>}</Label>
+                                        <Label htmlFor="mail-host">SMTP host <span className="text-danger">*</span></Label>
                                         <Input id="mail-host" value={form.data.mail.host}
                                             onChange={(e) => setNested('mail', 'host', e.target.value)}
                                             placeholder="smtp.company.com" className="mt-1" />
@@ -649,6 +680,7 @@ export default function Backups() {
                                             onChange={(e) => setNested('mail', 'from_name', e.target.value)} className="mt-1" />
                                     </div>
                                 </div>
+                                </>)}
                                 <div className="flex items-center gap-2.5">
                                     <Button type="button" variant="outline" onClick={testEmail}
                                         disabled={testing === 'email' || !mailReady}>
@@ -659,7 +691,9 @@ export default function Backups() {
                                     </Button>
                                     {!mailReady && (
                                         <span className="text-xs text-text-tertiary">
-                                            Fill in the recipient, SMTP host, port and from address.
+                                            {useGlobalMail
+                                                ? 'Enter a recipient address.'
+                                                : 'Fill in the recipient, SMTP host, port and from address.'}
                                         </span>
                                     )}
                                 </div>
