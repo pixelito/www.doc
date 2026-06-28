@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import MailFields from '@/components/MailFields';
+import { isEmail } from '@/lib/utils';
 import {
     IconCheck, IconLoader2, IconMailFast, IconArrowRight, IconArrowLeft,
 } from '@tabler/icons-react';
@@ -47,10 +48,12 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
         mailForm.post('/setup/mail', { preserveState: true, preserveScroll: true, onSuccess: next });
     }
 
+    const testRecipient = adminForm.data.email || mailForm.data.from_address;
+
     function sendTest() {
         setTesting(true);
         setTestResult(null);
-        router.post('/setup/mail/test', { ...mailForm.data, to: adminForm.data.email || mailForm.data.from_address }, {
+        router.post('/setup/mail/test', { ...mailForm.data, to: testRecipient }, {
             preserveState: true,
             preserveScroll: true,
             onSuccess: () => setTestResult({ ok: true, message: props.flash?.success || 'Test email sent.' }),
@@ -63,7 +66,8 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
         router.post('/setup/complete', {}, { preserveScroll: true });
     }
 
-    const mailReady = ['host', 'port', 'from_address'].every((f) => String(mailForm.data[f] ?? '').trim() !== '');
+    const mailReady = ['host', 'port', 'from_address'].every((f) => String(mailForm.data[f] ?? '').trim() !== '')
+        && isEmail(testRecipient);
 
     return (
         <>

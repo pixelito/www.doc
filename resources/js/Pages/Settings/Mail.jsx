@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MailFields from '@/components/MailFields';
+import { isEmail } from '@/lib/utils';
 import { IconMailFast, IconLoader2 } from '@tabler/icons-react';
 
 export default function Mail({ settings }) {
@@ -21,21 +22,19 @@ export default function Mail({ settings }) {
 
     const [testTo, setTestTo] = useState('');
     const [testing, setTesting] = useState(false);
-    const [testResult, setTestResult] = useState(null);
 
     function submit(e) {
         e.preventDefault();
         form.patch('/admin/settings/mail', { preserveScroll: true });
     }
 
+    // The server flashes success/error, surfaced as a toast app-wide (DocsLayout),
+    // so there's no inline result here — just drive the spinner.
     function sendTest() {
         setTesting(true);
-        setTestResult(null);
         router.post('/admin/settings/mail/test', { ...form.data, to: testTo }, {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => setTestResult({ ok: true, message: `Test email sent to ${testTo}.` }),
-            onError: (errs) => setTestResult({ ok: false, message: errs.mail_test || 'Could not send the test email.' }),
             onFinish: () => setTesting(false),
         });
     }
@@ -68,16 +67,13 @@ export default function Mail({ settings }) {
                                     onChange={(e) => setTestTo(e.target.value)}
                                     placeholder="you@company.com" className="max-w-xs" />
                                 <Button type="button" variant="outline" onClick={sendTest}
-                                    disabled={testing || !mailReady || !testTo}>
+                                    disabled={testing || !mailReady || !isEmail(testTo)}>
                                     {testing
                                         ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
                                         : <IconMailFast className="h-3.5 w-3.5" stroke={1.5} />}
                                     {testing ? 'Sending…' : 'Send test'}
                                 </Button>
                             </div>
-                            {testResult && (
-                                <p className={`mt-2 text-xs ${testResult.ok ? 'text-sage-700' : 'text-danger'}`}>{testResult.message}</p>
-                            )}
                             {!mailReady && (
                                 <p className="mt-2 text-xs text-text-tertiary">Fill in the host, port and from address first.</p>
                             )}

@@ -17,6 +17,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { formatDateTime } from '@/lib/date';
+import { isEmail } from '@/lib/utils';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
@@ -183,7 +184,7 @@ export default function Backups() {
     };
 
     const mailHasOwnSmtp = ['host', 'from_address'].every((f) => filled(form.data.mail[f])) && filled(form.data.mail.port);
-    const mailReady = filled(form.data.mail.to) && (useGlobalMail || mailHasOwnSmtp) && mailAuthPaired;
+    const mailReady = isEmail(form.data.mail.to) && (useGlobalMail || mailHasOwnSmtp) && mailAuthPaired;
 
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
@@ -601,19 +602,19 @@ export default function Backups() {
                                 </div>
                                 {globalMailConfigured && (
                                     <div className="space-y-2">
-                                        <span className="text-xs font-medium text-text-secondary">Mail server</span>
+                                        <Label>Mail server</Label>
                                         <div className="flex flex-wrap gap-2">
                                             <button type="button" onClick={() => chooseGlobalMail(true)}
-                                                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:border-border-hover'}`}>
+                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
                                                 Use the global Email settings
                                             </button>
                                             <button type="button" onClick={() => chooseGlobalMail(false)}
-                                                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${!useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:border-border-hover'}`}>
+                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${!useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
                                                 Use a different mail server
                                             </button>
                                         </div>
                                         {useGlobalMail && (
-                                            <p className="text-xs text-text-tertiary">
+                                            <p className="pt-0.5 text-xs text-text-tertiary">
                                                 Reports are sent through this instance's global Email settings (Settings → Email).
                                             </p>
                                         )}

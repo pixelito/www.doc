@@ -8,7 +8,6 @@ use App\Support\MailSettings;
 use App\Support\MailTester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,7 +49,8 @@ class MailSettingsController extends Controller
         try {
             $tester->send(MailSettings::testConfig($validated), $validated['to']);
         } catch (\Throwable $e) {
-            throw ValidationException::withMessages(['mail_test' => $e->getMessage()]);
+            // Flash as an error toast (app-wide pattern), not a field error.
+            return back()->with('error', $e->getMessage());
         }
 
         return back()->with('success', 'Test email sent to ' . $validated['to'] . '.');
