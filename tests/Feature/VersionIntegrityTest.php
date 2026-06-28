@@ -25,7 +25,8 @@ test("each version's content_html matches its own content", function () {
         'content' => DocumentFactory::tiptap('Bravo body.'),
     ]);
 
-    $versions = $document->fresh()->versions()->orderBy('id')->get();
+    // Use reorder() instead of orderBy() to strip the relation's default latest() scope.
+    $versions = $document->fresh()->versions()->reorder('id')->get();
     expect($versions)->toHaveCount(2);
 
     // Every snapshot's cached html is a faithful render of that snapshot's content.
@@ -50,7 +51,7 @@ test('the first snapshot is not empty when a page is created with content', func
         'content' => DocumentFactory::tiptap('Real content from the start.'),
     ]);
 
-    $first = Document::firstWhere('title', 'Has Content')->versions()->orderBy('id')->first();
+    $first = Document::firstWhere('title', 'Has Content')->versions()->reorder('id')->first();
 
     expect($first)->not->toBeNull();
     expect($first->content_html)->toContain('Real content from the start.');
