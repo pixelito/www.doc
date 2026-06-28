@@ -111,9 +111,13 @@ docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 *(For unattended or headless installations, you can bypass the wizard using `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`)*
 
 The `app` container caches config/routes/views on boot. Uploaded assets and the database
-live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. Put your own
-reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service for TLS — dev and
-prod databases are always separate.
+live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. 
+
+### Reverse Proxy & HTTPS
+Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080` by default) for TLS. A sample [`Caddyfile.example`](Caddyfile.example) is included to show how to get automatic HTTPS up and running in minutes.
+
+### Log Rotation
+The `docker-compose.prod.yml` enforces JSON file log rotation (`max-size: 10m`, `max-file: 3`) across all containers out-of-the-box, ensuring your server's disk space won't fill up with endless container logs over time.
 
 ### Maintenance
 

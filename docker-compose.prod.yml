@@ -24,6 +24,11 @@ x-app: &app-image
     SESSION_DRIVER: redis
     CACHE_STORE: redis
   restart: unless-stopped
+  logging: &default-logging
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
   db:
@@ -38,10 +43,12 @@ services:
       interval: 5s
       retries: 10
     restart: unless-stopped
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
 
   app:
     <<: *app-image
@@ -87,6 +94,7 @@ services:
     ports: ["8080:80"]
     depends_on: [app]
     restart: unless-stopped
+    logging: *default-logging
 
 volumes:
   pgdata: {}
