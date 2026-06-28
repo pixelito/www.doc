@@ -19,21 +19,23 @@ plugin marketplace — just a fast, clean place for a team to write things down.
 
 - **Rich editor** — TipTap/ProseMirror with high-fidelity paste from Word and HTML,
   text colour, multicolour highlight, resizable images.
-- **Screenshot &amp; image paste** — pasted and external images are intercepted and
+- **Network Diagrams** — Create visual node-and-edge diagrams directly in the editor. They are searchable, versioned, and export crisply as vector graphics.
+- **Screenshot & image paste** — pasted and external images are intercepted and
   re-hosted as local assets (deduplicated by SHA-256).
-- **Wiki-links &amp; backlinks** — `[[Page Title]]` links are indexed on save; every page
+- **Wiki-links & backlinks** — `[[Page Title]]` links are indexed on save; every page
   shows what references it.
 - **Versioning** — every content save snapshots a version you can view and restore;
   restoring is a full revert of content, title and tags.
 - **Full-text search** — PostgreSQL FTS across pages, workspaces and tags, with
   highlighted excerpts.
-- **Import &amp; export** — DOCX/PDF import and export, run as background jobs.
-- **Workspaces &amp; nesting** — a small fixed set of top-level workspaces; pages nest
+- **Import & export** — DOCX/PDF import and export, run as background jobs.
+- **Workspaces & nesting** — a small fixed set of top-level workspaces; pages nest
   shallowly and can be re-parented by drag-and-drop.
 - **Tags** — cut across workspaces, attached polymorphically.
-- **Roles &amp; admin** — admin / editor / viewer roles, a user-management admin area, and
+- **Roles & admin** — admin / editor / viewer roles, a user-management admin area, and
   a Trash with restore/purge.
 - **Automated backups** — scheduled and manual full-system snapshots to local disk or SMB shares with optional XChaCha20-Poly1305 encryption.
+- **Web Setup Wizard** — smooth first-run configuration of admin account, instance name, and SMTP settings right from the browser.
 
 ## Stack
 
@@ -102,16 +104,14 @@ cp .env.example .env       # then edit: APP_ENV=production, APP_DEBUG=false,
                            # a strong APP_KEY, real DB_PASSWORD, your APP_URL
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
-
-# First-run setup: create the roles + your admin account, and a welcome page.
-docker compose -f docker-compose.prod.yml exec app \
-  php artisan app:install --email=you@example.com --password='a-strong-password' --name='Your Name'
 ```
 
-`migrate --force` only creates the (empty) schema; `app:install` seeds the
-`admin`/`editor`/`viewer` roles and your first admin so you can actually log in.
-It's idempotent and also accepts `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NAME` env
-vars instead of flags; pass `--no-welcome` to skip the starter page.
+`migrate --force` creates the schema. Once the containers are running, simply open your `APP_URL` in a browser. You will be greeted by the **Web Setup Wizard**, which will walk you through:
+1. Creating your first admin account.
+2. Setting the instance name.
+3. Configuring SMTP settings for outgoing mail.
+
+*(For unattended or headless installations, you can bypass the wizard using `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`)*
 
 The `app` container caches config/routes/views on boot. Uploaded assets and the database
 live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds. Put your own

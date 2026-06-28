@@ -13,7 +13,7 @@ FROM php:8.3-fpm-bookworm AS app
 ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libpq-dev libzip-dev libicu-dev libonig-dev curl ca-certificates smbclient \
+    git unzip libpq-dev libzip-dev libicu-dev libonig-dev curl ca-certificates smbclient nodejs npm \
  && docker-php-ext-install pdo pdo_pgsql pgsql zip intl bcmath opcache \
  && pecl install redis && docker-php-ext-enable redis \
  && rm -rf /var/lib/apt/lists/*
@@ -32,6 +32,9 @@ RUN composer install --no-dev --no-scripts --prefer-dist --no-autoloader
 # Application code, then the compiled assets from stage 1.
 COPY . .
 COPY --from=assets /app/public/build ./public/build
+
+# Install Node dependencies needed at runtime (e.g., for process_svg.js)
+RUN npm ci --omit=dev
 
 # storage/ and bootstrap/cache are .dockerignored — recreate the empty skeleton
 # Laravel needs at runtime, then optimise the autoloader.
