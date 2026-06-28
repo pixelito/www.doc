@@ -5,6 +5,8 @@ import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
 
@@ -147,6 +149,15 @@ export default function ProfilePage({ user }) {
     const pwMismatch = confirmPw !== '' && newPw !== confirmPw;
     const pwSavable = pwFilled && newPw.length >= 8 && newPw === confirmPw;
 
+    // Warn before leaving with unsaved profile (name/email) changes.
+    const dirtyRef = useRef(false);
+    dirtyRef.current = profileDirty;
+    const { promptOpen, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: true,
+        dirtyRef,
+        revert: () => { setName(user.name); setEmail(user.email); },
+    });
+
     return (
         <SettingsLayout>
             <Head title="Profile — Settings" />
@@ -285,6 +296,17 @@ export default function ProfilePage({ user }) {
                     <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwSavable} label="Update password" />
                 </div>
             </form>
+
+            <ConfirmDialog
+                open={promptOpen}
+                title="Discard changes?"
+                message="You have unsaved profile changes. Leaving this page will discard them."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                variant="danger"
+                onConfirm={confirmDiscard}
+                onCancel={dismissPrompt}
+            />
         </SettingsLayout>
     );
 }
