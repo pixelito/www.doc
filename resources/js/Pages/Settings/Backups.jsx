@@ -183,7 +183,7 @@ export default function Backups() {
         }
     };
 
-    const mailHasOwnSmtp = ['host', 'from_address'].every((f) => filled(form.data.mail[f])) && filled(form.data.mail.port);
+    const mailHasOwnSmtp = filled(form.data.mail.host) && filled(form.data.mail.port) && isEmail(form.data.mail.from_address);
     const mailReady = isEmail(form.data.mail.to) && (useGlobalMail || mailHasOwnSmtp) && mailAuthPaired;
 
     const setNested = (group, field, value) =>
@@ -678,6 +678,11 @@ export default function Backups() {
                                         <Input id="mail-from" type="email" value={form.data.mail.from_address}
                                             onChange={(e) => setNested('mail', 'from_address', e.target.value)}
                                             placeholder="backups@company.com" className="mt-1" />
+                                        {form.errors['mail.from_address']
+                                            ? <p className="mt-1 text-xs text-danger">{form.errors['mail.from_address']}</p>
+                                            : filled(form.data.mail.from_address) && !isEmail(form.data.mail.from_address) && (
+                                                <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>
+                                            )}
                                     </div>
                                     <div>
                                         <Label htmlFor="mail-from-name">From name</Label>

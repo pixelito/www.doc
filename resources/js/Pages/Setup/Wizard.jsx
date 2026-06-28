@@ -66,8 +66,8 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
         router.post('/setup/complete', {}, { preserveScroll: true });
     }
 
-    const mailReady = ['host', 'port', 'from_address'].every((f) => String(mailForm.data[f] ?? '').trim() !== '')
-        && isEmail(testRecipient);
+    const mailReady = ['host', 'port'].every((f) => String(mailForm.data[f] ?? '').trim() !== '')
+        && isEmail(mailForm.data.from_address) && isEmail(testRecipient);
 
     const a = adminForm.data;
     const passwordsMismatch = a.password_confirmation !== '' && a.password !== a.password_confirmation;

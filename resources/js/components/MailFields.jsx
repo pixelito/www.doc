@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { isEmail } from '@/lib/utils';
 
 const selectCls =
     'mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground disabled:cursor-not-allowed';
@@ -60,7 +61,11 @@ export default function MailFields({ data, setField, errors = {}, passwordSet = 
                     <Input id="mail-from" type="email" value={data.from_address}
                         onChange={(e) => setField('from_address', e.target.value)}
                         placeholder="docs@company.com" className="mt-1" />
-                    {errors.from_address && <p className="mt-1 text-xs text-danger">{errors.from_address}</p>}
+                    {errors.from_address
+                        ? <p className="mt-1 text-xs text-danger">{errors.from_address}</p>
+                        : data.from_address && !isEmail(data.from_address) && (
+                            <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>
+                        )}
                 </div>
                 <div>
                     <Label htmlFor="mail-from-name">From name</Label>

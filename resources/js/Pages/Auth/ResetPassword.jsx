@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { isEmail } from '@/lib/utils';
 
 export default function ResetPassword({ token, email }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -16,6 +17,9 @@ export default function ResetPassword({ token, email }) {
         e.preventDefault();
         post('/reset-password');
     }
+
+    const pwMismatch = data.password_confirmation !== '' && data.password !== data.password_confirmation;
+    const canReset = isEmail(data.email) && data.password.length >= 8 && data.password === data.password_confirmation;
 
     return (
         <>
@@ -63,8 +67,9 @@ export default function ResetPassword({ token, email }) {
                                         autoComplete="new-password"
                                         required
                                     />
+                                    {pwMismatch && <p className="mt-1.5 text-xs text-danger">Passwords don't match.</p>}
                                 </div>
-                                <Button type="submit" disabled={processing} className="w-full">
+                                <Button type="submit" disabled={processing || !canReset} className="w-full">
                                     {processing ? 'Resetting…' : 'Reset password'}
                                 </Button>
                             </form>

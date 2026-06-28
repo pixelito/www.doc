@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { avatarStyle, initials } from '@/lib/avatar';
+import { isEmail } from '@/lib/utils';
 
 function RoleSelect({ value, onChange, roles, disabled }) {
     return (
@@ -37,6 +38,12 @@ export default function Users() {
         e.preventDefault();
         form.post('/admin/users', { preserveScroll: true, onSuccess: () => form.reset() });
     }
+
+    const f = form.data;
+    const emailInvalid = f.email !== '' && !isEmail(f.email);
+    const passwordsMismatch = f.password_confirmation !== '' && f.password !== f.password_confirmation;
+    const canCreate = f.name.trim() !== '' && isEmail(f.email)
+        && f.password.length >= 8 && f.password === f.password_confirmation;
 
     function changeRole(user, role) {
         router.patch(`/admin/users/${user.id}`, { role }, { preserveScroll: true });
@@ -118,7 +125,9 @@ export default function Users() {
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                         <Input type="email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
-                        <FieldError error={form.errors.email} />
+                        {form.errors.email
+                            ? <FieldError error={form.errors.email} />
+                            : emailInvalid && <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>}
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Password</label>
@@ -128,6 +137,7 @@ export default function Users() {
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Confirm password</label>
                         <Input type="password" value={form.data.password_confirmation} onChange={(e) => form.setData('password_confirmation', e.target.value)} />
+                        {passwordsMismatch && <p className="mt-1 text-xs text-danger">Passwords don't match.</p>}
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Role</label>
@@ -137,7 +147,7 @@ export default function Users() {
             </CardContent>
                 </Card>
                 <div className="mt-4 flex items-center justify-end">
-                    <Button type="submit" disabled={form.processing}>
+                    <Button type="submit" disabled={form.processing || !canCreate}>
                         {form.processing && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
                         {form.processing ? 'Adding…' : 'Add user'}
                     </Button>

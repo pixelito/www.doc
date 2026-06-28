@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
+import { isEmail } from '@/lib/utils';
 
 function PasswordInput({ value, onChange, placeholder, id }) {
     const [show, setShow] = useState(false);
@@ -139,7 +140,12 @@ export default function ProfilePage({ user }) {
     // Gate the submit buttons: profile only when name/email actually changed;
     // password only once all three fields are filled (all are required).
     const profileDirty = name !== user.name || email !== user.email;
+    const emailInvalid = email !== '' && !isEmail(email);
+    const profileSavable = profileDirty && isEmail(email);
+
     const pwFilled = currentPw !== '' && newPw !== '' && confirmPw !== '';
+    const pwMismatch = confirmPw !== '' && newPw !== confirmPw;
+    const pwSavable = pwFilled && newPw.length >= 8 && newPw === confirmPw;
 
     return (
         <SettingsLayout>
@@ -216,12 +222,14 @@ export default function ProfilePage({ user }) {
                                 onChange={e => setEmail(e.target.value)}
                                 placeholder="you@example.com"
                             />
-                            <FieldError error={profErrors.email} />
+                            {profErrors.email
+                                ? <FieldError error={profErrors.email} />
+                                : emailInvalid && <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>}
                         </div>
                     </CardContent>
                 </Card>
                 <div className="mb-8 mt-4 flex items-center justify-end">
-                    <SaveButton saving={profSaving} success={profSuccess} disabled={!profileDirty} />
+                    <SaveButton saving={profSaving} success={profSuccess} disabled={!profileSavable} />
                 </div>
             </form>
 
@@ -267,12 +275,14 @@ export default function ProfilePage({ user }) {
                                 onChange={e => setConfirmPw(e.target.value)}
                                 placeholder="Repeat new password"
                             />
-                            <FieldError error={pwErrors.password_confirmation} />
+                            {pwErrors.password_confirmation
+                                ? <FieldError error={pwErrors.password_confirmation} />
+                                : pwMismatch && <p className="mt-1 text-xs text-danger">Passwords don't match.</p>}
                         </div>
                     </CardContent>
                 </Card>
                 <div className="mt-4 flex items-center justify-end">
-                    <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwFilled} label="Update password" />
+                    <SaveButton saving={pwSaving} success={pwSuccess} disabled={!pwSavable} label="Update password" />
                 </div>
             </form>
         </SettingsLayout>

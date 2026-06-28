@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { isEmail } from '@/lib/utils';
 
 export default function ForgotPassword({ status }) {
     const { data, setData, post, processing, errors } = useForm({ email: '' });
@@ -40,9 +41,13 @@ export default function ForgotPassword({ status }) {
                                         placeholder="admin@example.com"
                                         required
                                     />
-                                    {errors.email && <p className="mt-1.5 text-xs text-danger">{errors.email}</p>}
+                                    {errors.email
+                                        ? <p className="mt-1.5 text-xs text-danger">{errors.email}</p>
+                                        : data.email && !isEmail(data.email) && (
+                                            <p className="mt-1.5 text-xs text-danger">Enter a valid email address.</p>
+                                        )}
                                 </div>
-                                <Button type="submit" disabled={processing} className="w-full">
+                                <Button type="submit" disabled={processing || !isEmail(data.email)} className="w-full">
                                     {processing ? 'Sending…' : 'Email password reset link'}
                                 </Button>
                             </form>

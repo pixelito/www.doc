@@ -39,7 +39,8 @@ export default function Mail({ settings }) {
         });
     }
 
-    const mailReady = ['host', 'port', 'from_address'].every((f) => String(form.data[f] ?? '').trim() !== '');
+    const mailReady = ['host', 'port'].every((f) => String(form.data[f] ?? '').trim() !== '')
+        && isEmail(form.data.from_address);
 
     return (
         <SettingsLayout>
