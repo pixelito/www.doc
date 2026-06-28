@@ -231,9 +231,14 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
                                         Click finish to sign in as <span className="font-medium text-foreground">{adminName || adminForm.data.name || 'the administrator'}</span> and
                                         start using your knowledge base.
                                     </p>
-                                    <Button onClick={finish} className="w-full">
-                                        Finish setup <IconCheck className="h-4 w-4" stroke={1.5} />
-                                    </Button>
+                                    <div className="flex items-center justify-between">
+                                        <Button type="button" variant="outline" onClick={back}>
+                                            <IconArrowLeft className="h-4 w-4" stroke={1.5} /> Back
+                                        </Button>
+                                        <Button onClick={finish}>
+                                            Finish setup <IconCheck className="h-4 w-4" stroke={1.5} />
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </CardContent>
