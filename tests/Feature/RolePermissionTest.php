@@ -104,3 +104,25 @@ test('only an admin can delete a tag', function () {
     login(); // admin
     $this->delete("/tags/{$tag->id}")->assertRedirect();
 });
+
+// ── Trash ───────────────────────────────────────────────────────────────────
+
+test('only an admin can view the trash', function () {
+    login(role: 'viewer');
+    $this->get('/trash')->assertForbidden();
+
+    login(role: 'editor');
+    $this->get('/trash')->assertForbidden();
+
+    login(); // admin
+    $this->get('/trash')->assertOk();
+});
+
+test('only an admin can empty the trash', function () {
+    login(role: 'editor');
+    $this->delete('/trash')->assertForbidden();
+
+    login(); // admin
+    $this->delete('/trash')->assertRedirect();
+});
+
