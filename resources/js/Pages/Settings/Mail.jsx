@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import MailFields from '@/components/MailFields';
 import { isEmail } from '@/lib/utils';
 import { IconMailFast, IconLoader2 } from '@tabler/icons-react';
@@ -41,6 +43,15 @@ export default function Mail({ settings }) {
 
     const mailReady = ['host', 'port'].every((f) => String(form.data[f] ?? '').trim() !== '')
         && isEmail(form.data.from_address);
+
+    // Warn before leaving (in-app nav or browser close) with unsaved settings.
+    const dirtyRef = useRef(false);
+    dirtyRef.current = form.isDirty;
+    const { promptOpen, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
+        active: true,
+        dirtyRef,
+        revert: () => form.reset(),
+    });
 
     return (
         <SettingsLayout>
@@ -91,6 +102,17 @@ export default function Mail({ settings }) {
                     </Button>
                 </div>
             </form>
+
+            <ConfirmDialog
+                open={promptOpen}
+                title="Discard changes?"
+                message="You have unsaved email settings. Leaving this page will discard them."
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                variant="danger"
+                onConfirm={confirmDiscard}
+                onCancel={dismissPrompt}
+            />
         </SettingsLayout>
     );
 }
