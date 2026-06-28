@@ -92,49 +92,57 @@ a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/n
 
 ## Production
 
-For production, we recommend using our pre-built Docker images hosted on GitHub Container Registry (GHCR). This means you don't need to compile the code yourself—just configure your environment and start the containers.
+Runs on the pre-built images from GitHub Container Registry — you don't compile
+anything. You only need Docker with Compose v2 and these two files from the repo:
+`docker-compose.prod.yml` and `.env.example`.
 
-First, copy the example environment file:
+**1. Configure the environment**
+
 ```bash
 cp .env.example .env
 ```
 
-Before starting the app, you **must** configure the following required variables in your `.env` file:
+Set these five values in `.env`; the rest can stay as they are:
 
-- `APP_ENV=production` — Tells the app it is running in production.
-- `APP_DEBUG=false` — Disables debug error screens.
-- `APP_URL=https://docs.yourdomain.com` — The absolute URL where your app is hosted. If you are hosting internally on your network, this can just be your server's IP address (e.g., `http://192.168.1.50:8080`). Laravel needs this to generate correct links in emails and PDF exports.
-- `APP_KEY=base64:...` — A 32-byte base64 string used for session encryption. You can generate one by running `openssl rand -base64 32` and prefixing it with `base64:`.
-- `DB_PASSWORD=...` — A secure password for your PostgreSQL database.
+| Variable | Set it to |
+|----------|-----------|
+| `APP_ENV` | `production` |
+| `APP_DEBUG` | `false` |
+| `APP_URL` | The address users open, e.g. `https://docs.example.com` or `http://192.168.1.50:8080`. Used in emails and PDF links. |
+| `APP_KEY` | Run `openssl rand -base64 32` and prefix the result with `base64:` (e.g. `base64:abc123...`). |
+| `DB_PASSWORD` | Any strong password. |
 
-Once your `.env` is configured, you can point your `docker-compose.prod.yml` to the pre-built images. Open `docker-compose.prod.yml` and replace the `build:` directives under `x-app` and `web` with the `image:` tags:
+**2. Start it**
 
-```yaml
-x-app: &app-image
-  image: ghcr.io/pixelito/www.doc-app:latest
-  # ...
-
-web:
-  image: ghcr.io/pixelito/www.doc-web:latest
-  # ...
-```
-
-Then, start the stack and initialize the database schema:
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 ```
 
-*(Note: If you are using a container manager like Komodo, Portainer, or Dockge, you can simply paste the modified compose file into your manager and add the `.env` variables in the UI).*
+**3. Open `APP_URL` in a browser**
 
-Once the containers are running, simply open your `APP_URL` in a browser. You will be greeted by the **Web Setup Wizard**, which will walk you through:
-1. Creating your first admin account.
-2. Setting the instance name.
-3. Configuring SMTP settings for outgoing mail.
+The **Setup Wizard** walks you through the admin account, instance name, and SMTP.
+That's it.
 
-*(For unattended or headless installations, you can bypass the wizard using `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`)*
+Data lives in named volumes (`pgdata`, `app-storage`), so it survives restarts and
+image updates. The `app` container caches config/routes/views on boot.
 
-The `app` container caches config/routes/views on boot. Uploaded assets and the database live in named volumes (`app-storage`, `pgdata`) so they survive rebuilds safely. 
+**Updating to a new version:**
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+```
+
+> **Container manager (Komodo, Portainer, Dockge):** paste `docker-compose.prod.yml`
+> in and add the `.env` variables in the UI — no edits needed.
+>
+> **Headless install (skip the wizard):**
+> `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`
+>
+> **Build from source instead of pulling:** see the comments at the top of
+> `docker-compose.prod.yml`.
 
 ### Reverse Proxy & HTTPS
 Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080`) for TLS. See [Caddyfile.example](https://github.com/pixelito/www.doc/blob/master/Caddyfile.example) for a quick configuration.

@@ -1,18 +1,19 @@
-# Production stack. Code, vendor and built assets are baked into the app image
-# (docker/app/Dockerfile) — no source bind-mounts. Put your own TLS-terminating
-# reverse proxy in front of the `web` service.
+# Production stack. Uses the pre-built images from GitHub Container Registry, so
+# you don't compile anything — just configure .env and start it. Put your own
+# TLS-terminating reverse proxy in front of the `web` service.
 #
 #   cp .env.example .env   # set APP_ENV=production, APP_DEBUG=false, APP_KEY,
 #                          # a real DB_PASSWORD and your APP_URL
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml up -d
 #   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+#
+# To build from source instead of pulling, swap the `image:` lines below for the
+# commented `build:` blocks and add `--build` to the `up` command.
 name: wwwdoc
 
 x-app: &app-image
-  build:
-    context: .
-    dockerfile: docker/app/Dockerfile
-    target: app
+  image: ghcr.io/pixelito/www.doc-app:latest
+  # build: { context: ., dockerfile: docker/app/Dockerfile, target: app }
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -86,10 +87,8 @@ services:
     # nginx with the build/ assets baked in (target: web). It serves static
     # files and proxies PHP to app:9000. Only uploaded assets are shared, via
     # the storage volume reached through the public/storage symlink.
-    build:
-      context: .
-      dockerfile: docker/app/Dockerfile
-      target: web
+    image: ghcr.io/pixelito/www.doc-web:latest
+    # build: { context: ., dockerfile: docker/app/Dockerfile, target: web }
     volumes:
       - app-storage:/var/www/html/storage:ro
     ports: ["8080:80"]
