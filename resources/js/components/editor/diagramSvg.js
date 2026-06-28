@@ -119,16 +119,34 @@ function roundedPath(pts, r) {
 }
 
 function step(s, t) {
-    const midX = (s.x + t.x) / 2, midY = (s.y + t.y) / 2;
-    const vertical = s.pos === 'top' || s.pos === 'bottom';
-    const pts = vertical
-        ? [[s.x, s.y], [s.x, midY], [t.x, midY], [t.x, t.y]]
-        : [[s.x, s.y], [midX, s.y], [midX, t.y], [t.x, t.y]];
+    const [scx, scy] = control(s.pos, s.x, s.y, t.x, t.y);
+    const [tcx, tcy] = control(t.pos, t.x, t.y, s.x, s.y);
+
+    const sVert = s.pos === 'top' || s.pos === 'bottom';
+    const tVert = t.pos === 'top' || t.pos === 'bottom';
+
+    let pts = [];
+    if (sVert && tVert) {
+        const midX = (s.x + t.x) / 2;
+        pts = [[s.x, s.y], [s.x, scy], [midX, scy], [midX, tcy], [t.x, tcy], [t.x, t.y]];
+    } else if (!sVert && !tVert) {
+        const midY = (s.y + t.y) / 2;
+        pts = [[s.x, s.y], [scx, s.y], [scx, midY], [tcx, midY], [tcx, t.y], [t.x, t.y]];
+    } else if (sVert && !tVert) {
+        pts = [[s.x, s.y], [s.x, scy], [tcx, scy], [tcx, t.y], [t.x, t.y]];
+    } else {
+        pts = [[s.x, s.y], [scx, s.y], [scx, tcy], [t.x, tcy], [t.x, t.y]];
+    }
+
     const a = pts[pts.length - 2], b = pts[pts.length - 1], a2 = pts[1];
+    
+    const lx = pts[Math.floor(pts.length / 2)]?.[0] ?? (s.x + t.x) / 2;
+    const ly = pts[Math.floor(pts.length / 2)]?.[1] ?? (s.y + t.y) / 2;
+
     return {
         d: roundedPath(pts, 8),
         dx: b[0] - a[0], dy: b[1] - a[1], sdx: s.x - a2[0], sdy: s.y - a2[1],
-        lx: midX, ly: midY,
+        lx, ly,
     };
 }
 
@@ -152,15 +170,30 @@ export function buildDiagramSvg(nodes, edges) {
 
     const PAD = 28;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
     for (const n of nodes) {
         minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
         maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
     }
+    
+    const rawBox = (n) => ({ x: n.x, y: n.y, w: n.w, h: n.h });
+    for (const e of edges) {
+        const sN = byId.get(e.source), tN = byId.get(e.target);
+        if (!sN || !tN) continue;
+        const s = handle(rawBox(sN), e.sourceHandle || 'bottom');
+        const t = handle(rawBox(tN), e.targetHandle || 'top');
+        const [scx, scy] = control(s.pos, s.x, s.y, t.x, t.y);
+        const [tcx, tcy] = control(t.pos, t.x, t.y, s.x, s.y);
+        minX = Math.min(minX, scx, tcx);
+        minY = Math.min(minY, scy, tcy);
+        maxX = Math.max(maxX, scx, tcx);
+        maxY = Math.max(maxY, scy, tcy);
+    }
+
     const ox = PAD - minX, oy = PAD - minY;
     const width = Math.round(maxX - minX + PAD * 2);
     const height = Math.round(maxY - minY + PAD * 2);
     const box = (n) => ({ x: n.x + ox, y: n.y + oy, w: n.w, h: n.h });
-    const byId = new Map(nodes.map((n) => [n.id, n]));
 
     const parts = [];
 

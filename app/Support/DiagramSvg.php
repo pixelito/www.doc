@@ -258,21 +258,37 @@ class DiagramSvg
 
     private static function step(array $s, array $t): array
     {
-        $midX     = ($s['x'] + $t['x']) / 2;
-        $midY     = ($s['y'] + $t['y']) / 2;
-        $vertical = $s['pos'] === 'top' || $s['pos'] === 'bottom';
-        $pts      = $vertical
-            ? [[$s['x'], $s['y']], [$s['x'], $midY], [$t['x'], $midY], [$t['x'], $t['y']]]
-            : [[$s['x'], $s['y']], [$midX, $s['y']], [$midX, $t['y']], [$t['x'], $t['y']]];
+        [$scx, $scy] = self::control($s['pos'], $s['x'], $s['y'], $t['x'], $t['y']);
+        [$tcx, $tcy] = self::control($t['pos'], $t['x'], $t['y'], $s['x'], $s['y']);
 
-        $a  = $pts[count($pts) - 2];
-        $b  = $pts[count($pts) - 1];
+        $sVert = $s['pos'] === 'top' || $s['pos'] === 'bottom';
+        $tVert = $t['pos'] === 'top' || $t['pos'] === 'bottom';
+
+        $pts = [];
+        if ($sVert && $tVert) {
+            $midX = ($s['x'] + $t['x']) / 2;
+            $pts = [[$s['x'], $s['y']], [$s['x'], $scy], [$midX, $scy], [$midX, $tcy], [$t['x'], $tcy], [$t['x'], $t['y']]];
+        } elseif (!$sVert && !$tVert) {
+            $midY = ($s['y'] + $t['y']) / 2;
+            $pts = [[$s['x'], $s['y']], [$scx, $s['y']], [$scx, $midY], [$tcx, $midY], [$tcx, $t['y']], [$t['x'], $t['y']]];
+        } elseif ($sVert && !$tVert) {
+            $pts = [[$s['x'], $s['y']], [$s['x'], $scy], [$tcx, $scy], [$tcx, $t['y']], [$t['x'], $t['y']]];
+        } else {
+            $pts = [[$s['x'], $s['y']], [$scx, $s['y']], [$scx, $tcy], [$t['x'], $tcy], [$t['x'], $t['y']]];
+        }
+
+        $a = $pts[count($pts) - 2];
+        $b = $pts[count($pts) - 1];
         $a2 = $pts[1];
+
+        // For label positioning, we find the middle segment
+        $lx = $pts[count($pts) / 2][0] ?? ($s['x'] + $t['x']) / 2;
+        $ly = $pts[count($pts) / 2][1] ?? ($s['y'] + $t['y']) / 2;
 
         return [
             'd'  => self::roundedPath($pts, 8),
             'dx' => $b[0] - $a[0], 'dy' => $b[1] - $a[1], 'sdx' => $s['x'] - $a2[0], 'sdy' => $s['y'] - $a2[1],
-            'lx' => $midX, 'ly' => $midY,
+            'lx' => $lx, 'ly' => $ly,
         ];
     }
 
@@ -309,11 +325,32 @@ class DiagramSvg
         $minY = INF;
         $maxX = -INF;
         $maxY = -INF;
+        $byId = [];
         foreach ($nodes as $n) {
+            $byId[$n['id']] = $n;
             $minX = min($minX, $n['x']);
             $minY = min($minY, $n['y']);
             $maxX = max($maxX, $n['x'] + $n['w']);
             $maxY = max($maxY, $n['y'] + $n['h']);
+        }
+
+        $rawBox = fn (array $n) => ['x' => $n['x'], 'y' => $n['y'], 'w' => $n['w'], 'h' => $n['h']];
+        foreach ($edges as $e) {
+            $sN = $byId[$e['source'] ?? ''] ?? null;
+            $tN = $byId[$e['target'] ?? ''] ?? null;
+            if (! $sN || ! $tN) {
+                continue;
+            }
+            $s = self::handle($rawBox($sN), $e['sourceHandle'] ?? 'bottom');
+            $t = self::handle($rawBox($tN), $e['targetHandle'] ?? 'top');
+            
+            [$scx, $scy] = self::control($s['pos'], $s['x'], $s['y'], $t['x'], $t['y']);
+            [$tcx, $tcy] = self::control($t['pos'], $t['x'], $t['y'], $s['x'], $s['y']);
+
+            $minX = min($minX, $scx, $tcx);
+            $minY = min($minY, $scy, $tcy);
+            $maxX = max($maxX, $scx, $tcx);
+            $maxY = max($maxY, $scy, $tcy);
         }
 
         $ox     = $pad - $minX;
@@ -322,10 +359,6 @@ class DiagramSvg
         $height = (int) round($maxY - $minY + $pad * 2);
 
         $box  = fn (array $n) => ['x' => $n['x'] + $ox, 'y' => $n['y'] + $oy, 'w' => $n['w'], 'h' => $n['h']];
-        $byId = [];
-        foreach ($nodes as $n) {
-            $byId[$n['id']] = $n;
-        }
 
         $parts = [];
 
