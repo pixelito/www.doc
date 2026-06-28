@@ -1,0 +1,65 @@
+<?php
+
+use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
+use Inertia\Testing\AssertableInertia as Assert;
+
+test('the forgot and reset pages render', function () {
+    $this->get('/forgot-password')->assertOk()->assertInertia(
+        fn (Assert $page) => $page->component('Auth/ForgotPassword'),
+    );
+
+    $this->get('/reset-password/sometoken')->assertOk()->assertInertia(
+        fn (Assert $page) => $page->component('Auth/ResetPassword')->where('token', 'sometoken'),
+    );
+});
+
+test('a known user is emailed a reset link', function () {
+    Notification::fake();
+    $user = User::factory()->create(['email' => 'ada@example.com']);
+
+    $this->post('/forgot-password', ['email' => 'ada@example.com'])
+        ->assertRedirect()->assertSessionHas('status');
+
+    Notification::assertSentTo($user, ResetPassword::class);
+});
+
+test('an unknown email gets the same generic response and sends nothing', function () {
+    Notification::fake();
+
+    $this->post('/forgot-password', ['email' => 'nobody@example.com'])
+        ->assertRedirect()->assertSessionHas('status');
+
+    Notification::assertNothingSent();
+});
+
+test('a valid token resets the password', function () {
+    $user  = User::factory()->create(['email' => 'ada@example.com']);
+    $token = Password::createToken($user);
+
+    $this->post('/reset-password', [
+        'token'                 => $token,
+        'email'                 => 'ada@example.com',
+        'password'              => 'brandnewpass',
+        'password_confirmation' => 'brandnewpass',
+    ])->assertRedirect(route('login'))->assertSessionHas('status');
+
+    expect(Hash::check('brandnewpass', $user->fresh()->password))->toBeTrue();
+});
+
+test('an invalid token is rejected and the password is unchanged', function () {
+    $user = User::factory()->create(['email' => 'ada@example.com']);
+    $original = $user->password;
+
+    $this->post('/reset-password', [
+        'token'                 => 'not-a-real-token',
+        'email'                 => 'ada@example.com',
+        'password'              => 'brandnewpass',
+        'password_confirmation' => 'brandnewpass',
+    ])->assertSessionHasErrors('email');
+
+    expect($user->fresh()->password)->toBe($original);
+});
