@@ -57,6 +57,28 @@ test('the wizard captures the admin then creates and signs them in on finish', f
     $this->assertAuthenticatedAs($admin);
 });
 
+test('finishing setup seeds a Welcome workspace and page', function () {
+    freshInstall();
+
+    $this->post('/setup/admin', [
+        'name'                  => 'Ada Lovelace',
+        'email'                 => 'ada@example.com',
+        'password'              => 'supersecret',
+        'password_confirmation' => 'supersecret',
+    ])->assertRedirect();
+    $this->post('/setup/complete')->assertRedirect(route('workspaces.index'));
+
+    $workspace = \App\Models\Workspace::where('name', 'Welcome')->first();
+    expect($workspace)->not->toBeNull();
+
+    $page = \App\Models\Document::where('workspace_id', $workspace->id)->first();
+    $admin = User::where('email', 'ada@example.com')->first();
+    expect($page)->not->toBeNull()
+        ->and($page->title)->toContain('Welcome')
+        ->and($page->content_html)->toContain('knowledge base') // rendered from the TipTap content
+        ->and($page->created_by_id)->toBe($admin->id);          // authored as the new admin
+});
+
 test('finishing setup without an admin is rejected', function () {
     freshInstall();
 

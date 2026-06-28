@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\MailSettingsRequest;
 use App\Http\Requests\SetupAdminRequest;
+use App\Models\Document;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Support\MailSettings;
 use App\Support\MailTester;
 use App\Support\Setup;
@@ -141,7 +143,90 @@ class SetupController extends Controller
         $request->session()->forget('setup.admin');
         $request->session()->regenerate();
 
+        // Give the fresh instance a starting point: a Welcome workspace with a
+        // page that explains the app. Authored as the now-logged-in admin (the
+        // observer stamps Auth::id()). Best-effort — a failure here must not
+        // undo the completed setup.
+        $this->seedWelcomeContent();
+
         return redirect()->route('workspaces.index');
+    }
+
+    /** Create the Welcome workspace + introductory page for a brand-new instance. */
+    private function seedWelcomeContent(): void
+    {
+        try {
+            DB::transaction(function () {
+                $workspace = Workspace::create([
+                    'name'        => 'Welcome',
+                    'description' => 'Start here.',
+                    'position'    => 0,
+                ]);
+
+                Document::create([
+                    'title'        => 'Welcome to ' . config('app.name'),
+                    'workspace_id' => $workspace->id,
+                    'position'     => 0,
+                    'content'      => $this->welcomeContent(),
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** The TipTap document for the welcome page (StarterKit nodes only). */
+    private function welcomeContent(): array
+    {
+        $h = fn (string $text) => [
+            'type' => 'heading', 'attrs' => ['level' => 2],
+            'content' => [['type' => 'text', 'text' => $text]],
+        ];
+        $p = fn (string $text) => [
+            'type' => 'paragraph',
+            'content' => [['type' => 'text', 'text' => $text]],
+        ];
+        $bullets = fn (array $items) => [
+            'type' => 'bulletList',
+            'content' => array_map(fn (string $t) => [
+                'type' => 'listItem',
+                'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $t]]]],
+            ], $items),
+        ];
+
+        $app = config('app.name');
+
+        return [
+            'type' => 'doc',
+            'content' => [
+                $p("{$app} is your team's self-hosted knowledge base — a calm, wiki-style place to write things down and find them again. This page is here to get you started; edit or delete it whenever you like."),
+
+                $h('Getting started'),
+                $bullets([
+                    'Workspaces are the top-level containers in the sidebar. This "Welcome" one is your first — add more for each area of your work.',
+                    'Inside a workspace, create pages. Pages can be nested to build a shallow tree, so related notes live together.',
+                    'Turn on edit mode to change a page; every save is kept as a version you can compare and roll back to.',
+                ]),
+
+                $h('What you can do'),
+                $bullets([
+                    'Write with a rich editor — paste from Word or the web and keep the formatting, or paste a screenshot straight in.',
+                    'Link pages together by typing [[Page title]]; backlinks show you everything that points to a page.',
+                    'Find anything fast with full-text search across every page.',
+                    'Embed network diagrams to document your infrastructure, right inside a page.',
+                    'Import and export DOCX and PDF when you need to move content in or out.',
+                ]),
+
+                $h('For administrators'),
+                $bullets([
+                    'Invite teammates and set their roles (admin, editor, viewer) under Settings → Users.',
+                    'Configure the mail server under Settings → Email so password resets and notifications are delivered.',
+                    'Schedule encrypted, off-host backups under Settings → Backups to keep your knowledge base safe.',
+                ]),
+
+                $p('That\'s it — create your first real workspace from the sidebar, and start writing.'),
+            ],
+        ];
     }
 
     /** Guard the write steps: once set up, the wizard's actions are off-limits. */
