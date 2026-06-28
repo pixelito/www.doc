@@ -8,18 +8,15 @@
 
 ---
 
-**www.doc** is one focused product: a documentation app. Paste fidelity from Word/HTML,
+**www.doc** is a documentation app. Paste fidelity from Word/HTML,
 screenshot-paste with image re-hosting, wiki-links and versioning, full-text search, and
-DOCX/PDF import &amp; export — all running on your own infrastructure with Docker.
-
-It is deliberately **not** a platform. No app launcher, no module registry, no
-plugin marketplace — just a fast, clean place for a team to write things down.
+DOCX/PDF import &amp; export.
 
 ## Features
 
 - **Rich editor** — TipTap/ProseMirror with high-fidelity paste from Word and HTML,
-  text colour, multicolour highlight, resizable images.
-- **Network Diagrams** — Create visual node-and-edge diagrams directly in the editor. They are searchable, versioned, and export crisply as vector graphics.
+  text colour, multicolor highlight, resizable images.
+- **Network Diagrams** — Create visual node-and-edge diagrams directly in the editor. They are searchable, versioned, and export as vector graphics.
 - **Screenshot & image paste** — pasted and external images are intercepted and
   re-hosted as local assets (deduplicated by SHA-256).
 - **Wiki-links & backlinks** — `[[Page Title]]` links are indexed on save; every page
@@ -40,7 +37,7 @@ plugin marketplace — just a fast, clean place for a team to write things down.
 ## Stack
 
 - **Laravel 13** (PHP 8.3) + **Inertia.js** — server-driven, not a REST API.
-- **React 19** (plain JavaScript, not TypeScript) + **shadcn/ui** + **Tailwind v4**.
+- **React 19** (JavaScript) + **shadcn/ui** + **Tailwind v4**.
 - **PostgreSQL 16** (`jsonb` content, `tsvector` search) + **Redis** (sessions, cache, queue).
 - **Laravel Queues** on Redis for all conversions and heavy work (the `worker` service).
 - **TipTap** (ProseMirror) editor; **Pest** test suite.
@@ -148,11 +145,13 @@ docker compose exec app php artisan backup:decrypt /path/to/your/backup.zip.enc 
 
 ## Project layout
 
-- `app/Services/RenderDocument.php` — the one and only TipTap-JSON → HTML renderer.
+- `app/Services/RenderDocument.php` — the one and only TipTap-JSON ↔ HTML renderer and parser.
+- `resources/js/components/editor/TipTapEditor.jsx` — the frontend editor schema (must be kept in sync with `RenderDocument`'s extension list).
 - `app/Services/Importers` / `Exporters` — DOCX/PDF conversion (queued jobs).
-- `resources/js/Pages` — Inertia pages (PascalCase folders).
-- `resources/js/components/editor/TipTapEditor.jsx` — the editor schema (mirror of
-  `RenderDocument`'s extension list).
+- `app/Services/Backup` — the backup engine, snapshotting, encryption, and restoration logic.
+- `app/Support/SearchVector.php` — the single SQL definition for PostgreSQL full-text search vectors.
+- `app/Support/DiagramSvg.php` & `process_svg.js` — server-side SVG generation and Node-based processing for network diagrams.
+- `resources/js/Pages` — Inertia React pages (PascalCase folders).
 
 ## License
 
