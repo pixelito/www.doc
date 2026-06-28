@@ -230,8 +230,8 @@ class SetupController extends Controller
 
                 $this->h('Getting started'),
                 $this->bullets([
-                    'Workspaces are the top-level containers in the sidebar. This "Welcome" one is your first — add more for each area of your work.',
-                    'Inside a workspace, create pages. Pages can be nested to build a shallow tree, so related notes live together.',
+                    'Workspaces are the top-level containers for your content. This "Welcome" one is your first — add more for each area of your work.',
+                    'Open a workspace to see its pages as a tree. Pages can be nested, so related notes live together.',
                     'Turn on edit mode to change a page; every save is kept as a version you can compare and roll back to.',
                 ]),
 
@@ -241,7 +241,7 @@ class SetupController extends Controller
                     ['type' => 'wikiLink', 'attrs' => ['title' => 'Writing & formatting']],
                     ['type' => 'text', 'text' => ' and '],
                     ['type' => 'wikiLink', 'attrs' => ['title' => 'Organising your knowledge base']],
-                    ['type' => 'text', 'text' => '. They\'re nested under this page in the sidebar.'],
+                    ['type' => 'text', 'text' => '. They\'re nested under this page — open this workspace to see the page tree.'],
                 ]],
 
                 $this->h('A live example: network diagrams'),
@@ -255,7 +255,7 @@ class SetupController extends Controller
                     'Schedule encrypted, off-host backups under Settings → Backups to keep your knowledge base safe.',
                 ]),
 
-                $this->p('That\'s it — create your first real workspace from the sidebar, and start writing.'),
+                $this->p('That\'s it — create your first real workspace and start writing.'),
             ],
         ];
     }
