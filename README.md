@@ -93,63 +93,16 @@ a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/n
 ## Install (production)
 
 You don't clone the repo or compile anything — the app runs on pre-built images from
-GitHub Container Registry. You need a machine (server, VM, or NAS) with **Docker** and
-**Compose v2**, and the two files below. The whole thing is four steps.
+GitHub Container Registry. You need a machine (server, VM, or NAS) with **Docker** and **Compose v2**.
 
-**1. Download the two files**
+**[📖 Read the Full Installation Guide](docs/installation.md)**
 
-```bash
-mkdir www.doc && cd www.doc
-curl -O https://raw.githubusercontent.com/pixelito/www.doc/master/docker-compose.prod.yml
-curl -o .env https://raw.githubusercontent.com/pixelito/www.doc/master/.env.example
-```
-
-**2. Set three values in `.env`**
-
-Open `.env` in any text editor and change just these three — leave everything else as it
-is. (You do **not** need to touch `APP_ENV` or `APP_DEBUG`: the compose file already
-forces those to production.)
-
-| Variable | Set it to |
-|----------|-----------|
-| `APP_URL` | The address people will open in the browser, e.g. `https://docs.example.com` or `http://192.168.1.50:8080`. Also used in emails and PDF links. |
-| `APP_KEY` | Run `openssl rand -base64 32`, then put `base64:` in front of the result — e.g. `APP_KEY=base64:abc123...`. |
-| `DB_PASSWORD` | Any strong password you make up. You won't type it again. |
-
-**3. Start it**
-
-```bash
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
-```
-
-**4. Open `APP_URL` in a browser**
-
-The **Setup Wizard** walks you through creating the admin account, naming the instance,
-and SMTP (email) settings. That's it — you're running.
-
-Data lives in named volumes (`pgdata`, `app-storage`), so it survives restarts and
-image updates. The `app` container caches config/routes/views on boot.
-
-**Updating to a new version:**
-
-```bash
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
-```
-
-> **Container manager (Komodo, Portainer, Dockge):** paste `docker-compose.prod.yml`
-> in and add the `.env` variables in the UI — no edits needed.
->
-> **Headless install (skip the wizard):**
-> `docker compose -f docker-compose.prod.yml exec app php artisan app:install --email=you@example.com --password='...'`
->
-> **Build from source instead of pulling:** see the comments at the top of
-> `docker-compose.prod.yml`.
-
-### Reverse Proxy & HTTPS
-Put your own reverse proxy (Caddy, Traefik, Nginx) in front of the `web` service (port `8080`) for TLS. See [Caddyfile.example](https://github.com/pixelito/www.doc/blob/master/Caddyfile.example) for a quick configuration.
+The guide covers:
+- Downloading the deployment files
+- Configuring the required environment variables (`APP_URL`, `DB_PASSWORD`)
+- Setting up Internal Self-Signed TLS vs External Reverse Proxies
+- Updating to new versions
+- Deploying via GUI managers like Komodo or Portainer
 
 ### Log Rotation
 The `docker-compose.prod.yml` enforces JSON file log rotation (`max-size: 10m`, `max-file: 3`) across all containers out-of-the-box, ensuring your server's disk space won't fill up with endless container logs over time.

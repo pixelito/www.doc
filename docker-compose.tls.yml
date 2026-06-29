@@ -1,19 +1,14 @@
-# Production stack. Uses the pre-built images from GitHub Container Registry, so
-# you don't compile anything — just configure .env and start it. Put your own
-# TLS-terminating reverse proxy in front of the `web` service.
+# Production stack WITH internal self-signed TLS via Caddy.
+# Perfect for deploying on local networks (e.g., 192.168.1.10) without a reverse proxy.
+# Copy and paste this directly into Komodo or Dockge.
 #
-#   cp .env.example .env   # set DB_PASSWORD, APP_URL, and optionally APP_KEY
-#                          # (APP_ENV/APP_DEBUG are forced to production below, so
-#                          #  whatever .env says for those is ignored)
-#   docker compose -f docker-compose.prod.yml up -d
-#
-# To build from source instead of pulling, swap the `image:` lines below for the
-# commented `build:` blocks and add `--build` to the `up` command.
+#   cp .env.example .env   # set DB_PASSWORD and APP_URL (must start with https://)
+#   docker compose -f docker-compose.tls.yml up -d
+
 name: wwwdoc
 
 x-app: &app-image
   image: ghcr.io/pixelito/www.doc-app:latest
-  # build: { context: ., dockerfile: docker/app/Dockerfile, target: app }
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -33,6 +28,28 @@ x-app: &app-image
       max-file: "3"
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - APP_URL=${APP_URL:-https://localhost}
+    command: >
+      caddy reverse-proxy
+      --from ${APP_URL:-https://localhost}
+      --to web:80
+      --internal-certs
+      --header-down "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+      --header-down "X-XSS-Protection: 1; mode=block"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    logging: *default-logging
+
   db:
     image: postgres:16-alpine
     environment:
@@ -54,8 +71,6 @@ services:
 
   app:
     <<: *app-image
-    # php-fpm; reachable by the web service at app:9000. Code + built assets are
-    # baked into the image; only writable storage (uploads, caches) is a volume.
     volumes:
       - app-storage:/var/www/html/storage
     depends_on:
@@ -73,9 +88,6 @@ services:
 
   scheduler:
     <<: *app-image
-    # Runs Laravel's scheduler in-process (wakes every minute) so registered
-    # tasks actually fire — today that's the daily assets:prune. Shares the
-    # storage volume so the prune can delete the orphaned image files.
     command: php artisan schedule:work
     volumes:
       - app-storage:/var/www/html/storage
@@ -84,14 +96,10 @@ services:
       redis: { condition: service_started }
 
   web:
-    # nginx with the build/ assets baked in (target: web). It serves static
-    # files and proxies PHP to app:9000. Only uploaded assets are shared, via
-    # the storage volume reached through the public/storage symlink.
     image: ghcr.io/pixelito/www.doc-web:latest
-    # build: { context: ., dockerfile: docker/app/Dockerfile, target: web }
     volumes:
       - app-storage:/var/www/html/storage:ro
-    ports: ["8080:80"]
+    # No exposed ports here, Caddy securely proxies traffic to this container on port 80
     depends_on: [app]
     restart: unless-stopped
     logging: *default-logging
@@ -99,3 +107,5 @@ services:
 volumes:
   pgdata: {}
   app-storage: {}
+  caddy_data: {}
+  caddy_config: {}
