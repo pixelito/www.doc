@@ -38,13 +38,16 @@ services:
       - "443:443"
     environment:
       - APP_URL=${APP_URL:-https://localhost}
+    entrypoint: /bin/sh
     command: >
-      caddy reverse-proxy
-      --from ${APP_URL:-https://localhost}
-      --to web:80
-      --internal-certs
-      --header-down "X-XSS-Protection: 1; mode=block"
+      -c '
+      DOMAIN=$${APP_URL#*//}
+      DOMAIN=$${DOMAIN%/*}
+      export APP_DOMAIN=$$DOMAIN
+      caddy run --config /etc/caddy/Caddyfile
+      '
     volumes:
+      - ./docker/caddy/Caddyfile.tls:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
