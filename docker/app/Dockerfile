@@ -57,13 +57,15 @@ ENTRYPOINT ["entrypoint"]
 CMD ["php-fpm"]
 
 # ── Stage 3: nginx serving the static assets + proxying php-fpm ──────────────
-# Assets are baked in per-deploy (immutable, content-hashed) so a rebuild can
-# never serve a stale build/. nginx only needs the static files on disk: the
-# build/ assets (from this image) and uploaded /storage/* (the shared volume,
-# reached through the public/storage symlink). index.php is passed to php-fpm
-# by path, so it doesn't need to live here.
+# nginx needs the whole public/ tree on disk, not just build/. php-fpm executes
+# index.php from its OWN filesystem (passed by SCRIPT_FILENAME), but nginx still
+# needs public/index.php present so the `index` directive can resolve a request
+# for "/" — without it, "/" matches the bare directory and nginx returns 403.
+# Copying public/ from the app stage also brings favicon.ico, robots.txt and the
+# content-hashed build/ assets (immutable per-deploy, so never stale). Uploaded
+# /storage/* arrives via the shared volume through the public/storage symlink.
 FROM nginx:1.27-alpine AS web
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=assets /app/public/build /var/www/html/public/build
+COPY --from=app /var/www/html/public /var/www/html/public
 RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
 EXPOSE 80
