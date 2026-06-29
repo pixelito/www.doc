@@ -43,7 +43,6 @@ services:
       --from ${APP_URL:-https://localhost}
       --to web:80
       --internal-certs
-      --header-down "Strict-Transport-Security: max-age=31536000; includeSubDomains"
       --header-down "X-XSS-Protection: 1; mode=block"
     volumes:
       - caddy_data:/data
