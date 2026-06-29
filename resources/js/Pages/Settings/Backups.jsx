@@ -521,7 +521,7 @@ export default function Backups() {
                                 without it an encrypted backup cannot be restored or read.
                             </p>
                         ) : (
-                            <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger/30 bg-danger/5' : 'border-border bg-surface-hover/50'}`}>
+                            <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger/30 bg-danger-surface' : 'border-border bg-surface-hover/50'}`}>
                                 <div className="flex items-start gap-2.5">
                                     <IconAlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${keyPresent ? 'text-danger' : 'text-sage-600'}`} stroke={1.5} />
                                     <div className="text-[12.5px] text-text-secondary leading-relaxed">

@@ -61,6 +61,7 @@
     --color-success: var(--success);
     --color-warning: var(--warning);
     --color-danger: var(--danger);
+    --color-danger-surface: var(--danger-surface);
 
     /* Warning callout surface (amber banners) */
     --color-warning-surface: var(--warning-surface);
@@ -130,6 +131,8 @@
     /* amber callout text (AA on the surface) */
     --danger: #B5573E;
     /* warm terracotta */
+    --danger-surface: #F3E7E2;
+    /* danger callout background */
 
     /* Radii + shadows matching configuration parameters */
     --radius-sm: 8px;
