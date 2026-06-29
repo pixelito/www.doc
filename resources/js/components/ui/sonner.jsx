@@ -22,8 +22,8 @@ export function Toaster(props) {
                     toast: 'flex w-full items-center gap-2.5 rounded-lg border bg-surface px-4 py-3 font-sans text-sm shadow-sm',
                     title: 'font-medium',
                     icon: 'shrink-0',
-                    success: 'border-sage-200 bg-sage-50 text-sage-700 [&_[data-icon]]:text-sage-600',
-                    error: 'border-danger/30 bg-danger-surface text-danger [&_[data-icon]]:text-danger',
+                    success: '!border-sage-200 !bg-sage-50 text-sage-700 [&_[data-icon]]:text-sage-600',
+                    error: '!border-danger-border !bg-danger-surface text-danger [&_[data-icon]]:text-danger',
                 },
             }}
             {...props}

@@ -531,7 +531,7 @@ export default function Toolbar({ editor }) {
                             editor.chain().focus().deleteSelection().run();
                             setOpenPicker(null);
                         }}
-                            className="ml-1 rounded-sm border border-danger/30 bg-danger/10 px-2 py-0.5 text-xs text-danger transition-colors hover:bg-danger hover:text-white">
+                            className="ml-1 rounded-sm border border-danger-border bg-danger-surface px-2 py-0.5 text-xs text-danger transition-colors hover:bg-danger hover:text-text-inverse">
                             Delete
                         </button>
                     )}

@@ -56,7 +56,7 @@ function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, 
                     disabled={busy}
                     onClick={onPurge}
                     title="Delete permanently"
-                    className="text-text-tertiary hover:border-danger/20 hover:bg-danger/10 hover:text-danger"
+                    className="text-text-tertiary hover:border-danger/20 hover:bg-danger-surface hover:text-danger"
                 >
                     <IconTrashX stroke={1.5} />
                 </Button>
@@ -127,7 +127,7 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
                         size="xs"
                         variant="secondary"
                         onClick={() => setEmptyOpen(true)}
-                        className="border-danger/20 text-danger hover:bg-danger/10"
+                        className="border-danger/20 text-danger hover:bg-danger-surface"
                     >
                         <IconTrashX stroke={1.5} />
                         Empty trash

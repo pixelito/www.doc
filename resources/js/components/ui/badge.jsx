@@ -13,7 +13,7 @@ const badgeVariants = cva(
         secondary:
           "bg-surface-hover text-text-secondary",
         destructive:
-          "bg-danger/10 text-danger",
+          "bg-danger-surface text-danger",
         outline: "border border-border text-text-secondary",
         solid: "bg-sage-400 text-text-inverse",
         muted: "bg-border-subtle text-text-secondary",

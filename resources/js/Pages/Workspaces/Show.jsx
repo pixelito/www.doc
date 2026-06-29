@@ -462,7 +462,7 @@ export default function WorkspaceShow({ workspace, tree }) {
                     {perms.delete && !reordering && (
                         <Button
                             variant="outline"
-                            className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
+                            className="border-border text-danger hover:bg-danger-surface hover:border-danger/20 hover:text-danger"
                             onClick={() => setDeleteOpen(true)}
                         >
                             <IconTrash stroke={1.5} />

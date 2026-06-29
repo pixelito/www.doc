@@ -84,7 +84,7 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
                         {STEPS.map((label, i) => (
                             <div key={label} className="flex items-center gap-2">
                                 <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                                    i < step ? 'bg-sage-400 text-white'
+                                    i < step ? 'bg-sage-400 text-text-inverse'
                                         : i === step ? 'bg-sage-200 text-sage-700'
                                         : 'bg-surface-hover text-text-tertiary'
                                 }`}>

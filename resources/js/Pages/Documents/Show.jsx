@@ -679,7 +679,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                             {perms.delete && (
                                 <Button
                                     variant="outline"
-                                    className="border-border text-danger hover:bg-danger/10 hover:border-danger/20 hover:text-danger"
+                                    className="border-border text-danger hover:bg-danger-surface hover:border-danger/20 hover:text-danger"
                                     onClick={destroyDocument}
                                 >
                                     <IconTrash stroke={1.5} />

@@ -62,6 +62,7 @@
     --color-warning: var(--warning);
     --color-danger: var(--danger);
     --color-danger-surface: var(--danger-surface);
+    --color-danger-border: var(--danger-border);
 
     /* Warning callout surface (amber banners) */
     --color-warning-surface: var(--warning-surface);
@@ -133,6 +134,8 @@
     /* warm terracotta */
     --danger-surface: #F3E7E2;
     /* danger callout background */
+    --danger-border: #DDB3A6;
+    /* danger callout border */
 
     /* Radii + shadows matching configuration parameters */
     --radius-sm: 8px;

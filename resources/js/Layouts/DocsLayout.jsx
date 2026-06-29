@@ -193,7 +193,7 @@ export default function DocsLayout({ children }) {
                         key={n.id}
                         className={`flex items-start gap-2 border-b px-5 py-2.5 text-sm ${
                             isErr
-                                ? 'border-danger/30 bg-danger/5 text-danger'
+                                ? 'border-danger-border bg-danger-surface text-danger'
                                 : 'border-sage-200 bg-sage-50 text-sage-700'
                         }`}
                     >

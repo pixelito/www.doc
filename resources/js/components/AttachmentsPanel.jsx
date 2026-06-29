@@ -251,7 +251,7 @@ export default function AttachmentsPanel({
                                                 type="button"
                                                 onClick={() => onRemoveExisting(att.id)}
                                                 title="Remove"
-                                                className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-danger/10 hover:text-danger"
+                                                className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-danger-surface hover:text-danger"
                                             >
                                                 <IconX className="h-4 w-4" stroke={1.5} />
                                             </button>
@@ -275,7 +275,7 @@ export default function AttachmentsPanel({
                                 type="button"
                                 onClick={() => onRemovePending(i)}
                                 title="Remove"
-                                className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-danger/10 hover:text-danger"
+                                className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-danger-surface hover:text-danger"
                             >
                                 <IconX className="h-4 w-4" stroke={1.5} />
                             </button>

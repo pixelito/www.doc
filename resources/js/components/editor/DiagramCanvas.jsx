@@ -527,7 +527,7 @@ function EdgeIconButton({ active, danger, title, onClick, children }) {
             onClick={onClick}
             className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
                 active ? 'bg-sage-100 text-sage-700'
-                : danger ? 'text-text-secondary hover:bg-danger hover:text-white'
+                : danger ? 'text-text-secondary hover:bg-danger hover:text-text-inverse'
                 : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
             }`}
         >
@@ -1304,7 +1304,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                                 type="button"
                                 onClick={deleteSelected}
                                 title="Delete selected node or connection (Del)"
-                                className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-danger hover:text-white"
+                                className="flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-danger hover:text-text-inverse"
                             >
                                 <IconTrash className="h-3.5 w-3.5" stroke={1.5} /> Delete
                             </button>

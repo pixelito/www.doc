@@ -81,7 +81,7 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
                         type="button"
                         onClick={() => setConfirmOpen(true)}
                         title="Remove this diagram"
-                        className="flex h-6 w-6 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-danger hover:text-white"
+                        className="flex h-6 w-6 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-danger hover:text-text-inverse"
                     >
                         <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
                     </button>

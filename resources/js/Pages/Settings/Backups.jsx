@@ -521,7 +521,7 @@ export default function Backups() {
                                 without it an encrypted backup cannot be restored or read.
                             </p>
                         ) : (
-                            <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger/30 bg-danger-surface' : 'border-border bg-surface-hover/50'}`}>
+                            <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger-border bg-danger-surface' : 'border-border bg-surface-hover/50'}`}>
                                 <div className="flex items-start gap-2.5">
                                     <IconAlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${keyPresent ? 'text-danger' : 'text-sage-600'}`} stroke={1.5} />
                                     <div className="text-[12.5px] text-text-secondary leading-relaxed">
@@ -564,7 +564,7 @@ export default function Backups() {
                                             <TooltipContent 
                                                 side="right" 
                                                 sideOffset={6} 
-                                                className="bg-[#1F2520] text-[#F1F4EE] px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
+                                                className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                                             >
                                                 Encryption prevents unauthorized access to your backups if the files are ever exposed. Without the key, the archive is completely unreadable.
                                             </TooltipContent>
@@ -753,7 +753,7 @@ export default function Backups() {
                                         <TooltipContent 
                                             side="top" 
                                             sideOffset={6} 
-                                            className="bg-[#1F2520] text-[#F1F4EE] px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
+                                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                                         >
                                             Safety snapshots are lightweight, canonical-only backups taken automatically before any restore to protect your current data.
                                         </TooltipContent>
