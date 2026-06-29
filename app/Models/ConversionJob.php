@@ -5,13 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable(['document_id', 'direction', 'format', 'status', 'result_path', 'error'])]
 class ConversionJob extends Model
 {
     /** @use HasFactory<\Database\Factories\ConversionJobFactory> */
-    use HasFactory;
+    use HasFactory, Prunable;
+
+    public function prunable()
+    {
+        return static::where('created_at', '<', now()->subHours(24));
+    }
+
+    protected function pruning()
+    {
+        if ($this->result_path) {
+            Storage::disk('local')->delete($this->result_path);
+        }
+    }
 
     public function document(): BelongsTo
     {

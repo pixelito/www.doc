@@ -65,7 +65,7 @@ class ExportController extends Controller
                 Storage::disk('local')->path($job->result_path),
                 $basename,
                 ['Content-Type' => $mime]
-            )->deleteFileAfterSend(true);
+            );
         }
 
         return response()->json([

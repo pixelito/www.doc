@@ -12,6 +12,7 @@ Artisan::command('inspire', function () {
 // `scheduler` service (`php artisan schedule:work`); it's also safe to run by
 // hand: `php artisan assets:prune` (--dry-run to preview).
 Schedule::command('assets:prune')->daily();
+Schedule::command('model:prune', ['--model' => [\App\Models\ConversionJob::class]])->daily();
 
 // Run a backup if the admin-configured cadence has elapsed. Checked hourly so
 // any chosen interval (24h / 48h / weekly) fires close to on time; the command
