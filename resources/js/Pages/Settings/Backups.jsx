@@ -33,9 +33,10 @@ function formatBytes(bytes) {
 
 function StatusBadge({ status, encrypted }) {
     const map = {
-        processing: { cls: 'bg-sage-50 text-sage-600',                         icon: IconLoader2,       label: 'Running', spin: true },
-        pending:    { cls: 'bg-surface-hover text-text-secondary',             icon: IconClock,         label: 'Queued' },
-        failed:     { cls: 'bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] text-danger', icon: IconAlertTriangle, label: 'Failed' },
+        processing: { cls: 'bg-sage-50 text-sage-600',             icon: IconLoader2,       label: 'Running', spin: true },
+        pending:    { cls: 'bg-surface-hover text-text-secondary', icon: IconClock,         label: 'Queued' },
+        failed:     { cls: 'bg-danger-surface text-danger border border-danger-border', icon: IconAlertTriangle, label: 'Failed' },
+        missing:    { cls: 'bg-danger-surface text-danger border border-danger-border', icon: IconAlertTriangle, label: 'Missing' },
     };
     // A done archive carries no badge of its own — the Download/Restore controls
     // already say it's ready — except the one fact those don't show: whether it's
@@ -793,7 +794,7 @@ export default function Backups() {
                                         {b.counts && ` · ${b.counts.documents} docs, ${b.counts.assets} assets`}
                                         {b.counts?.attachments != null && `, ${b.counts.attachments} attachments`}
                                         {b.created_by && ` · by ${b.created_by}`}
-                                        {b.status === 'failed' && b.error && <span className="text-danger"> · {b.error}</span>}
+                                        {['failed', 'missing'].includes(b.status) && b.error && <span className="text-danger"> · {b.error}</span>}
                                     </div>
                                 </div>
 

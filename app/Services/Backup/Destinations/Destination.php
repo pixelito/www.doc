@@ -22,6 +22,9 @@ interface Destination
     /** Remove a stored archive (best-effort; used by retention pruning). */
     public function delete(string $path): void;
 
+    /** Check if the archive exists on the destination. */
+    public function exists(string $path): bool;
+
     /**
      * Verify the destination is reachable and writable by creating, reading back
      * and deleting a probe file. Throws \RuntimeException with a human message on

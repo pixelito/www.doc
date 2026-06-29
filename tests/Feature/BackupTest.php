@@ -991,3 +991,31 @@ test('a successful or emailed backup is excluded from notices', function () {
     login();
     $this->get('/admin/backups')->assertInertia(fn (Assert $page) => $page->has('backupNotices', 0));
 });
+
+test('restoring a missing backup flashes an error and marks it missing', function () {
+    Storage::fake('local');
+    login();
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'path' => 'backups/missing.zip']);
+
+    $this->post("/admin/backups/{$backup->id}/restore")
+        ->assertRedirect()
+        ->assertSessionHas('error');
+
+    $backup->refresh();
+    expect($backup->status)->toBe('missing');
+});
+
+test('downloading a missing backup flashes an error and marks it missing', function () {
+    Storage::fake('local');
+    login();
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'done', 'path' => 'backups/missing.zip']);
+
+    $this->get("/admin/backups/{$backup->id}/download")
+        ->assertRedirect()
+        ->assertSessionHas('error');
+
+    $backup->refresh();
+    expect($backup->status)->toBe('missing');
+});

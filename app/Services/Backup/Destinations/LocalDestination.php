@@ -30,6 +30,11 @@ class LocalDestination implements Destination
         Storage::disk(self::DISK)->delete($path);
     }
 
+    public function exists(string $path): bool
+    {
+        return Storage::disk(self::DISK)->exists($path);
+    }
+
     public function test(): void
     {
         $probe = 'backups/.probe-' . uniqid();

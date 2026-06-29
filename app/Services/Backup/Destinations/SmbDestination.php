@@ -71,6 +71,16 @@ class SmbDestination implements Destination
         }
     }
 
+    public function exists(string $path): bool
+    {
+        try {
+            $this->share()->stat($path);
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public function test(): void
     {
         $local = sys_get_temp_dir() . '/' . uniqid('wwwdoc_probe_');

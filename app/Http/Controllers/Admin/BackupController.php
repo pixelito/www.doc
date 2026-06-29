@@ -158,11 +158,16 @@ class BackupController extends Controller
         ]);
     }
 
-    public function download(Backup $backup): BinaryFileResponse
+    public function download(Backup $backup): BinaryFileResponse|RedirectResponse
     {
         $this->authorize('view', $backup);
 
         abort_unless($backup->status === 'done' && $backup->path, 404);
+
+        if (!DestinationFactory::make($backup->disk)->exists($backup->path)) {
+            $backup->update(['status' => 'missing', 'error' => 'The archive was missing from the destination.']);
+            return back()->with('error', 'The backup archive could not be found on the destination disk.');
+        }
 
         // Pull from wherever it lives (local disk or SMB share) to a temp file
         // and stream that, cleaning it up after send.
@@ -174,6 +179,11 @@ class BackupController extends Controller
     public function restore(Backup $backup): RedirectResponse
     {
         $this->authorize('restore', $backup);
+
+        if ($backup->path && !DestinationFactory::make($backup->disk)->exists($backup->path)) {
+            $backup->update(['status' => 'missing', 'error' => 'The archive was missing from the destination.']);
+            return back()->with('error', 'The backup archive could not be found on the destination disk. It may have been deleted outside the application.');
+        }
 
         // Mark restoring synchronously so the UI's progress modal shows at once;
         // the job flips it to restored/failed and the page toasts the outcome.
