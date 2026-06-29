@@ -122,8 +122,9 @@ The app features a built-in backup engine that snapshots your Postgres database 
 If you configure an encryption key, backups are encrypted at-rest using military-grade **XChaCha20-Poly1305** stream encryption (via `libsodium`) before they are written to disk.
 
 1. **Generate a key:** Go to **Settings > Backups** to generate a secure, 32-byte base64 key directly in your browser.
-2. **Add to environment:** Place this key in your `.env` file as `BACKUP_ENCRYPTION_KEY=your_base64_string`.
-3. **Enable:** Toggle the "Encrypt backups" setting in the UI.
+2. **Add to environment:** Place this key in your `.env` file (or GUI environment config) as `BACKUP_ENCRYPTION_KEY=your_base64_string`.
+3. **Restart the Stack:** Recreate the container so the variable is injected and cached. In the CLI, run `docker compose up -d`. If using a GUI (Komodo, Portainer), click **Deploy** or **Update** (a simple container restart is usually not enough).
+4. **Enable:** Toggle the "Encrypt backups" setting in the UI.
 
 The app will transparently encrypt and decrypt these archives during automated operations (like hitting "Restore" in the UI).
 

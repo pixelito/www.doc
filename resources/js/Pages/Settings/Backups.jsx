@@ -531,7 +531,7 @@ export default function Backups() {
                                             </>
                                         ) : (
                                             <>
-                                                Encryption is currently disabled. Set <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file to enable it.
+                                                Encryption is currently disabled. Set <span className="font-mono bg-surface border border-border px-1 py-0.5 rounded text-xs">BACKUP_ENCRYPTION_KEY</span> in your environment file to enable it. (You must recreate/deploy the container stack to apply environment changes).
                                             </>
                                         )}
                                     </div>
