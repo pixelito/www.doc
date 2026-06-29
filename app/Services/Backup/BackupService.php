@@ -300,6 +300,7 @@ class BackupService
             'encryption'     => [
                 'enabled' => $encrypt,
                 'cipher'  => $encrypt ? 'xchacha20poly1305-secretstream' : null,
+                'fingerprint' => $encrypt ? ArchiveCipher::currentFingerprint() : null,
             ],
             'counts'         => $counts,
             'files'          => $files,

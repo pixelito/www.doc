@@ -50,6 +50,9 @@ class BackupController extends Controller
                 'created_by'     => $b->creator?->name,
                 'counts'         => $b->manifest['counts'] ?? null,
                 'encrypted'      => $b->manifest['encryption']['enabled'] ?? false,
+                'key_mismatch'   => ($b->manifest['encryption']['enabled'] ?? false) 
+                                    && ($b->manifest['encryption']['fingerprint'] ?? null) 
+                                    && ($b->manifest['encryption']['fingerprint'] !== \App\Services\Backup\ArchiveCipher::currentFingerprint()),
                 'restore_status' => $b->restore_status,
                 'restore_error'  => $b->restore_error,
             ]);
@@ -183,6 +186,13 @@ class BackupController extends Controller
         if ($backup->path && !DestinationFactory::make($backup->disk)->exists($backup->path)) {
             $backup->update(['status' => 'missing', 'error' => 'The archive was missing from the destination.']);
             return back()->with('error', 'The backup archive could not be found on the destination disk. It may have been deleted outside the application.');
+        }
+
+        if ($backup->manifest['encryption']['enabled'] ?? false) {
+            $fingerprint = $backup->manifest['encryption']['fingerprint'] ?? null;
+            if ($fingerprint && $fingerprint !== \App\Services\Backup\ArchiveCipher::currentFingerprint()) {
+                return back()->with('error', 'The BACKUP_ENCRYPTION_KEY currently configured does not match the key used to encrypt this archive. You cannot restore it.');
+            }
         }
 
         // Mark restoring synchronously so the UI's progress modal shows at once;

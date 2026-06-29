@@ -59,10 +59,21 @@ class ArchiveCipher
         try {
             self::fromConfig();
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return false;
         }
     }
+
+    /** Return a sha256 fingerprint of the current encryption key, or null if unset/invalid. */
+    public static function currentFingerprint(): ?string
+    {
+        $b64 = config('backup.encryption_key');
+        if (! $b64) return null;
+        $key = base64_decode($b64, true);
+        if ($key === false || strlen($key) !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_KEYBYTES) return null;
+        return hash('sha256', $key);
+    }
+
 
     /** Generate a fresh base64 key for an operator to paste into their env. */
     public static function generateKey(): string

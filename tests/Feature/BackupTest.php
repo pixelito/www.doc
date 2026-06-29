@@ -1019,3 +1019,32 @@ test('downloading a missing backup flashes an error and marks it missing', funct
     $backup->refresh();
     expect($backup->status)->toBe('missing');
 });
+
+test('a backup with a changed encryption key cannot be restored via the UI', function () {
+    Storage::fake('local');
+    login();
+
+    // 1. Generate key A, run encrypted backup.
+    config(['backup.encryption_key' => \App\Services\Backup\ArchiveCipher::generateKey()]);
+    Setting::put('backup', array_replace(\App\Support\BackupSettings::get(), ['encryption' => true]));
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+    $backup->refresh();
+
+    expect($backup->manifest['encryption']['fingerprint'])->not->toBeNull();
+
+    // 2. Change the key to key B
+    config(['backup.encryption_key' => \App\Services\Backup\ArchiveCipher::generateKey()]);
+
+    // 3. The UI should pass `key_mismatch` as true
+    $this->get('/admin/backups')
+        ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->has('backups', 1)
+            ->where('backups.0.key_mismatch', true)
+        );
+
+    // 4. Attempting to restore it via the controller should fail with a redirect error
+    $this->post("/admin/backups/{$backup->id}/restore")
+        ->assertSessionHas('error', 'The BACKUP_ENCRYPTION_KEY currently configured does not match the key used to encrypt this archive. You cannot restore it.');
+});

@@ -31,7 +31,7 @@ function formatBytes(bytes) {
     return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-function StatusBadge({ status, encrypted }) {
+function StatusBadge({ status, encrypted, keyMismatch }) {
     const map = {
         processing: { cls: 'bg-sage-50 text-sage-600',             icon: IconLoader2,       label: 'Running', spin: true },
         pending:    { cls: 'bg-surface-hover text-text-secondary', icon: IconClock,         label: 'Queued' },
@@ -43,6 +43,24 @@ function StatusBadge({ status, encrypted }) {
     // encrypted (and so needs the key to restore).
     if (status === 'done') {
         if (!encrypted) return null;
+        if (keyMismatch) {
+            return (
+                <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                        <TooltipTrigger type="button" className="inline-flex items-center gap-1 rounded-full bg-danger-surface px-2 py-0.5 text-xs font-medium text-danger border border-danger-border cursor-help">
+                            <IconAlertTriangle className="h-3 w-3" stroke={1.5} />
+                            Key Mismatch
+                        </TooltipTrigger>
+                        <TooltipContent 
+                            side="top" 
+                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
+                        >
+                            The encryption key used for this backup does not match your current environment key. Restore is disabled.
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            );
+        }
         return (
             <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-600">
                 <IconLock className="h-3 w-3" stroke={1.5} />
@@ -778,7 +796,7 @@ export default function Backups() {
                                 <div key={b.id} className="flex items-center gap-3 py-3">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <StatusBadge status={b.status} encrypted={b.encrypted} />
+                                            <StatusBadge status={b.status} encrypted={b.encrypted} keyMismatch={b.key_mismatch} />
                                             {latestDoneBackup?.id === b.id && (
                                                 <span className="inline-flex items-center rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
                                                     Latest
@@ -809,9 +827,10 @@ export default function Backups() {
                                         </a>
                                         <button
                                             type="button"
+                                            disabled={b.key_mismatch}
                                             onClick={() => setConfirm({ type: 'restore', backup: b })}
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-hover hover:text-foreground"
-                                            title="Restore"
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm ${b.key_mismatch ? 'text-text-tertiary cursor-not-allowed opacity-50' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'}`}
+                                            title={b.key_mismatch ? "Cannot restore: encryption key mismatch" : "Restore"}
                                         >
                                             <IconRestore className="h-4 w-4" stroke={1.5} />
                                         </button>
