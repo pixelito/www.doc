@@ -27,6 +27,9 @@ x-app: &app-image
     QUEUE_CONNECTION: redis
     SESSION_DRIVER: redis
     CACHE_STORE: redis
+    APP_KEY: ${APP_KEY:-}
+    APP_URL: ${APP_URL:-}
+    BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
   restart: unless-stopped
   logging: &default-logging
     driver: "json-file"
