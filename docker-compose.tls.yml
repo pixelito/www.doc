@@ -39,9 +39,9 @@ services:
     entrypoint: /bin/sh
     command: >
       -c '
-      URL="${APP_URL:-https://localhost}"
-      DOMAIN=$${URL#*//}
-      DOMAIN=$${DOMAIN%/*}
+      URL="${APP_URL:-https://localhost}";
+      DOMAIN=$${URL#*//};
+      DOMAIN=$${DOMAIN%/*};
       echo "{
         default_sni $$DOMAIN
       }
