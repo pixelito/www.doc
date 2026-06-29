@@ -2,8 +2,9 @@
 # you don't compile anything — just configure .env and start it. Put your own
 # TLS-terminating reverse proxy in front of the `web` service.
 #
-#   cp .env.example .env   # set APP_ENV=production, APP_DEBUG=false, APP_KEY,
-#                          # a real DB_PASSWORD and your APP_URL
+#   cp .env.example .env   # set APP_KEY, DB_PASSWORD and APP_URL
+#                          # (APP_ENV/APP_DEBUG are forced to production below, so
+#                          #  whatever .env says for those is ignored)
 #   docker compose -f docker-compose.prod.yml up -d
 #   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 #

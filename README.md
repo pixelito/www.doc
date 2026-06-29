@@ -90,39 +90,43 @@ CI runs the same suite on every push and pull request (see `.github/workflows/ci
 The network-diagram capture path runs only in a real browser, so it's covered by
 a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/network-diagram-smoke-test.md).
 
-## Production
+## Install (production)
 
-Runs on the pre-built images from GitHub Container Registry — you don't compile
-anything. You only need Docker with Compose v2 and these two files from the repo:
-`docker-compose.prod.yml` and `.env.example`.
+You don't clone the repo or compile anything — the app runs on pre-built images from
+GitHub Container Registry. You need a machine (server, VM, or NAS) with **Docker** and
+**Compose v2**, and the two files below. The whole thing is four steps.
 
-**1. Configure the environment**
+**1. Download the two files**
 
 ```bash
-cp .env.example .env
+mkdir www.doc && cd www.doc
+curl -O https://raw.githubusercontent.com/pixelito/www.doc/master/docker-compose.prod.yml
+curl -o .env https://raw.githubusercontent.com/pixelito/www.doc/master/.env.example
 ```
 
-Set these five values in `.env`; the rest can stay as they are:
+**2. Set three values in `.env`**
+
+Open `.env` in any text editor and change just these three — leave everything else as it
+is. (You do **not** need to touch `APP_ENV` or `APP_DEBUG`: the compose file already
+forces those to production.)
 
 | Variable | Set it to |
 |----------|-----------|
-| `APP_ENV` | `production` |
-| `APP_DEBUG` | `false` |
-| `APP_URL` | The address users open, e.g. `https://docs.example.com` or `http://192.168.1.50:8080`. Used in emails and PDF links. |
-| `APP_KEY` | Run `openssl rand -base64 32` and prefix the result with `base64:` (e.g. `base64:abc123...`). |
-| `DB_PASSWORD` | Any strong password. |
+| `APP_URL` | The address people will open in the browser, e.g. `https://docs.example.com` or `http://192.168.1.50:8080`. Also used in emails and PDF links. |
+| `APP_KEY` | Run `openssl rand -base64 32`, then put `base64:` in front of the result — e.g. `APP_KEY=base64:abc123...`. |
+| `DB_PASSWORD` | Any strong password you make up. You won't type it again. |
 
-**2. Start it**
+**3. Start it**
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 ```
 
-**3. Open `APP_URL` in a browser**
+**4. Open `APP_URL` in a browser**
 
-The **Setup Wizard** walks you through the admin account, instance name, and SMTP.
-That's it.
+The **Setup Wizard** walks you through creating the admin account, naming the instance,
+and SMTP (email) settings. That's it — you're running.
 
 Data lives in named volumes (`pgdata`, `app-storage`), so it survives restarts and
 image updates. The `app` container caches config/routes/views on boot.
