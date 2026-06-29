@@ -1,9 +1,0 @@
-{
-    default_sni {$APP_DOMAIN}
-}
-
-{$APP_DOMAIN} {
-    tls internal
-    reverse_proxy web:80
-    header X-XSS-Protection "1; mode=block"
-}
