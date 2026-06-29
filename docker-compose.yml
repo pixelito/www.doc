@@ -10,8 +10,8 @@ services:
   app:
     build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
     # Run as the host user so files written to the bind mount (backups, logs,
-    # compiled views) are owned by you, not root.
-    user: &app-user "1000:1000"
+    # compiled views) are owned by you, not root. Uses dynamic UID/GID if exported.
+    user: &app-user "${UID:-1000}:${GID:-1000}"
     command: php artisan serve --host=0.0.0.0 --port=8000
     environment: &app-env
       APP_ENV: local
@@ -24,6 +24,9 @@ services:
       REDIS_HOST: redis
       QUEUE_CONNECTION: redis
       SESSION_DRIVER: redis
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
     volumes: [".:/app"]
     ports: ["8000:8000"]
     depends_on: &app-deps { db: { condition: service_healthy }, redis: { condition: service_started } }
