@@ -66,3 +66,41 @@ jobs:
 
       - name: Run tests
         run: php artisan test
+
+  e2e:
+    name: Docker E2E & Worker Permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' .env
+
+      - name: Build and start Docker stack
+        run: |
+          # Swap image pulls for local builds to test the current commit
+          sed -i 's|image: ghcr.io/pixelito/www.doc-app:latest|build: { context: ., dockerfile: docker/app/Dockerfile, target: app }|' docker-compose.prod.yml
+          sed -i 's|image: ghcr.io/pixelito/www.doc-web:latest|build: { context: ., dockerfile: docker/app/Dockerfile, target: web }|' docker-compose.prod.yml
+          
+          docker compose -f docker-compose.prod.yml build
+          docker compose -f docker-compose.prod.yml up -d
+
+      - name: Wait for services to boot
+        run: sleep 15
+
+      - name: Verify queue worker user
+        run: |
+          # Assert that the queue worker runs as www-data to prevent permission errors on exports
+          WORKER_USER=$(docker compose -f docker-compose.prod.yml exec -T worker whoami)
+          echo "Worker is running as: $WORKER_USER"
+          if [ "$WORKER_USER" != "www-data" ]; then
+            echo "Error: Worker is running as $WORKER_USER instead of www-data"
+            exit 1
+          fi
+
+      - name: Run health check
+        run: |
+          # Check that the web server is up and correctly proxies to the app container
+          curl -f http://localhost:8080/ || exit 1
