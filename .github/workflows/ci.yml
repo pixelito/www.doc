@@ -92,11 +92,10 @@ jobs:
 
       - name: Verify queue worker user
         run: |
-          # Assert that the actual PHP queue worker process runs as www-data.
-          # (Note: `exec whoami` returns root because the container's entrypoint runs as root)
-          if ! docker compose -f docker-compose.prod.yml exec -T worker sh -c "ps aux | grep -v su | grep '[p]hp' | grep -q '^www-data'"; then
-            echo "Error: Queue worker PHP process is NOT running as www-data!"
-            docker compose -f docker-compose.prod.yml exec -T worker ps aux
+          # Assert that the actual PHP queue worker process runs as www-data (UID 33).
+          # (Note: The `php` image does not have `ps` installed, so we check /proc directly)
+          if ! docker compose -f docker-compose.prod.yml exec -T worker sh -c "grep -h '^Uid:' /proc/[0-9]*/status | awk '{print \$2}' | grep -q '^33$'"; then
+            echo "Error: Queue worker process is NOT running as www-data (UID 33)!"
             exit 1
           fi
           echo "Success: Queue worker is running as www-data."
