@@ -81,10 +81,11 @@ export default function NewWorkspaceModal({ open, onClose }) {
 
                         {/* Name */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-medium text-foreground">
+                            <label htmlFor="workspace-name" className="mb-1.5 block text-xs font-medium text-foreground">
                                 Name
                             </label>
                             <input
+                                id="workspace-name"
                                 autoFocus
                                 type="text"
                                 value={name}
@@ -97,11 +98,12 @@ export default function NewWorkspaceModal({ open, onClose }) {
 
                         {/* Description */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-medium text-foreground">
+                            <label htmlFor="workspace-description" className="mb-1.5 block text-xs font-medium text-foreground">
                                 Description{' '}
                                 <span className="font-normal text-text-tertiary">(optional)</span>
                             </label>
                             <input
+                                id="workspace-description"
                                 type="text"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
