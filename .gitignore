@@ -30,3 +30,5 @@ Thumbs.db
 CLAUDE.md
 AGENTS.md
 TODO.md
+/playwright-report
+/test-results
