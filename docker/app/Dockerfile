@@ -14,7 +14,9 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git unzip libpq-dev libzip-dev libicu-dev libonig-dev curl ca-certificates smbclient \
- && docker-php-ext-install pdo pdo_pgsql pgsql zip intl bcmath opcache \
+    libpng-dev libjpeg-dev libfreetype6-dev \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install pdo pdo_pgsql pgsql zip intl bcmath opcache gd \
  && pecl install redis && docker-php-ext-enable redis \
  && rm -rf /var/lib/apt/lists/*
 
