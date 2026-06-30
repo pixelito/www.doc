@@ -27,4 +27,9 @@ php artisan view:cache
 # --isolated ensures only one container runs it, avoiding races.
 php artisan migrate --force --isolated || true
 
+# Fix permissions on storage directory. Previously the queue worker ran as root
+# and created directories with 0700 permissions, preventing the web server from
+# downloading generated exports.
+chown -R www-data:www-data storage/app/private 2>/dev/null || true
+
 exec "$@"
