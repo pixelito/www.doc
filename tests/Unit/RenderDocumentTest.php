@@ -158,3 +158,22 @@ test('a diagram node sitting next to text does not disturb the surrounding conte
         ->toContain('Notes above.')
         ->toContain('class="network-diagram"');
 });
+
+test('fromHtml parses HTML into a TipTap JSON structure', function () {
+    $html = '<h1>Main Heading</h1><p>This is <strong>bold</strong> and <em>italic</em> text.</p>';
+    
+    $doc = RenderDocument::fromHtml($html);
+    
+    expect($doc)->toBeArray()
+        ->and($doc['type'])->toBe('doc')
+        ->and($doc['content'])->toHaveCount(2)
+        ->and($doc['content'][0]['type'])->toBe('heading')
+        ->and($doc['content'][0]['attrs']['level'])->toBe(1)
+        ->and($doc['content'][1]['type'])->toBe('paragraph');
+        
+    $textNodes = $doc['content'][1]['content'];
+    expect($textNodes)->toHaveCount(5)
+        ->and($textNodes[0]['text'])->toBe('This is ')
+        ->and($textNodes[1]['marks'][0]['type'])->toBe('bold')
+        ->and($textNodes[1]['text'])->toBe('bold');
+});

@@ -98,7 +98,7 @@ class DocumentObserver
             // Read fresh (controllers sync tags *before* the snapshotting save) and
             // store names — they outlive tag id churn and rename/delete.
             'tags'          => $document->tags()->orderBy('name')->pluck('name')->all(),
-            'created_by_id' => Auth::id(),
+            'created_by_id' => Auth::id() ?? $document->updated_by_id,
         ]);
     }
 
