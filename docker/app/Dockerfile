@@ -13,9 +13,13 @@ FROM php:8.3-fpm-bookworm AS app
 ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libpq-dev libzip-dev libicu-dev libonig-dev curl ca-certificates smbclient nodejs npm \
+    git unzip libpq-dev libzip-dev libicu-dev libonig-dev curl ca-certificates smbclient \
  && docker-php-ext-install pdo pdo_pgsql pgsql zip intl bcmath opcache \
  && pecl install redis && docker-php-ext-enable redis \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
 # Production opcache + sane PHP defaults.
