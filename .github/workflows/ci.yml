@@ -85,6 +85,8 @@ jobs:
           sed -i 's|image: ghcr.io/pixelito/www.doc-web:latest|build: { context: ., dockerfile: docker/app/Dockerfile, target: web }|' docker-compose.prod.yml
           
           docker compose -f docker-compose.prod.yml build
+          # Start app container first to safely initialize the shared volume and avoid race conditions
+          docker compose -f docker-compose.prod.yml up -d app
           docker compose -f docker-compose.prod.yml up -d
 
       - name: Wait for services to boot
