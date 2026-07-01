@@ -165,9 +165,17 @@ class BackupController extends Controller
         $this->authorize('create', Backup::class);
 
         $validated = $request->validate([
-            // Up to ~2 GB; the real ceiling is PHP's upload_max_filesize/post_max_size.
-            'file' => ['required', 'file', 'max:2097152'],
+            // 1 GB ceiling — kept in step with the app/web upload limits
+            // (docker/app/php.prod.ini + docker/nginx/default.conf). Backups are
+            // the largest legitimate upload, so those limits are raised for this route.
+            'file' => ['required', 'file', 'max:1048576'],
             'key'  => ['nullable', 'string'],
+        ], [
+            'file.required' => 'Choose a backup archive to import.',
+            // Fired when PHP rejects the upload (exceeds upload_max_filesize /
+            // post_max_size) — a far more useful hint than "the file failed to upload".
+            'file.uploaded' => 'The archive could not be uploaded — it likely exceeds the server’s upload size limit. Ask an administrator to raise it, or import a smaller archive.',
+            'file.max'      => 'The archive is larger than the 1 GB import limit.',
         ]);
 
         // Stage the upload where the queue worker can read it. Worker + web share

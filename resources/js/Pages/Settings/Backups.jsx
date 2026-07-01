@@ -234,33 +234,50 @@ export default function Backups() {
     const setNested = (group, field, value) =>
         form.setData(group, { ...form.data[group], [field]: value });
 
-    // Poll while any backup is in flight so status updates without a manual refresh.
-    const inFlight = backups.some((b) => b.status === 'pending' || b.status === 'processing');
-    const backupRunning = starting || inFlight;
+    // In-flight rows drive polling. Backups get a BLOCKING progress modal (a
+    // reload mid-run is confusing); imports do NOT — they resolve as a normal
+    // Queued→Done/Failed row so a slow or failing import never traps the user
+    // behind an uncloseable "Backing up…" overlay.
+    const inFlight = (t) => (b) => (b.status === 'pending' || b.status === 'processing') && (t ? b.trigger === t : b.trigger !== 'import');
+    const backupInFlight = backups.some(inFlight());
+    const importInFlight = backups.some(inFlight('import'));
+    const anyInFlight = backupInFlight || importInFlight;
+    const backupRunning = starting || backupInFlight;
     const restoreInFlight = backups.some((b) => b.restore_status === 'restoring');
     const restoreRunning = restoring || restoreInFlight;
     useScrollLock(backupRunning || restoreRunning); // lock body scroll behind a progress modal
     // Heading reflects the real phase: queued (waiting for the worker) vs running.
-    const phaseTitle = backups.some((b) => b.status === 'processing') ? 'Backing up…' : 'Backup queued';
+    const phaseTitle = backups.some((b) => b.status === 'processing' && b.trigger !== 'import') ? 'Backing up…' : 'Backup queued';
     const timer = useRef(null);
     useEffect(() => {
-        if (!inFlight && !restoreInFlight) return;
+        if (!anyInFlight && !restoreInFlight) return;
         timer.current = setInterval(() => router.reload({ only: ['backups'] }), 2500);
         return () => clearInterval(timer.current);
-    }, [inFlight, restoreInFlight]);
+    }, [anyInFlight, restoreInFlight]);
 
-    // Toast when a real run finishes (the progress modal closes on the same
-    // edge). Keyed on inFlight — a server-confirmed run — so a POST that never
-    // queues a backup can't fire a false "ready".
-    const wasInFlight = useRef(inFlight);
+    // Toast when a run finishes (its progress indicator clears on the same edge),
+    // keyed on the server-confirmed in-flight state so a POST that never queues
+    // work can't fire a false "ready". Backups and imports resolve separately.
+    const wasBackupInFlight = useRef(backupInFlight);
     useEffect(() => {
-        if (wasInFlight.current && !inFlight) {
-            backups[0]?.status === 'failed'
+        if (wasBackupInFlight.current && !backupInFlight) {
+            backups.find((b) => b.trigger !== 'import')?.status === 'failed'
                 ? toast.error('Backup failed. See the archives list for details.')
                 : toast.success('Backup ready.');
         }
-        wasInFlight.current = inFlight;
-    }, [inFlight]); // eslint-disable-line react-hooks/exhaustive-deps
+        wasBackupInFlight.current = backupInFlight;
+    }, [backupInFlight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const wasImportInFlight = useRef(importInFlight);
+    useEffect(() => {
+        if (wasImportInFlight.current && !importInFlight) {
+            const latest = backups.find((b) => b.trigger === 'import');
+            latest?.status === 'failed'
+                ? toast.error(`Import failed${latest.error ? ': ' + latest.error : '. See the archives list for details.'}`)
+                : toast.success('Backup imported.');
+        }
+        wasImportInFlight.current = importInFlight;
+    }, [importInFlight]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Toast the restore outcome when the run we kicked off resolves (the restore
     // modal closes on the same edge). Keyed on the specific backup id.
@@ -789,11 +806,11 @@ export default function Backups() {
                     </div>
                     {/* Static — the progress modal takes over the moment it's running. */}
                     <div className="flex items-center gap-2">
-                        <Button type="button" variant="outline" onClick={() => setShowImport(true)} disabled={backupRunning}>
+                        <Button type="button" variant="outline" onClick={() => setShowImport(true)} disabled={backupRunning || importInFlight}>
                             <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
                             Import
                         </Button>
-                        <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning}>
+                        <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning || importInFlight}>
                             <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
                             Back up now
                         </Button>
@@ -922,7 +939,7 @@ export default function Backups() {
                     setConfirm(null);
                 }}
             />
-            <Dialog open={showImport} onOpenChange={(o) => { if (!o) { setShowImport(false); importForm.clearErrors(); } }}>
+            <Dialog open={showImport} onOpenChange={(o) => { if (!o && !importForm.processing) { setShowImport(false); importForm.clearErrors(); } }}>
                 <DialogContent>
                     <form onSubmit={submitImport}>
                         <DialogHeader>
@@ -965,7 +982,7 @@ export default function Backups() {
                         </div>
 
                         <DialogFooter className="gap-2">
-                            <Button type="button" variant="outline" onClick={() => setShowImport(false)}>
+                            <Button type="button" variant="outline" onClick={() => setShowImport(false)} disabled={importForm.processing}>
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={!importForm.data.file || importForm.processing}>

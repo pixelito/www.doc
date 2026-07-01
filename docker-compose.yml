@@ -30,7 +30,11 @@ services:
       APP_KEY: ${APP_KEY:-}
       APP_URL: ${APP_URL:-}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
-    volumes: [".:/app"]
+    # Mount raised upload limits into the CLI conf.d so artisan serve (and the
+    # php -S request handler it spawns) accept a full backup archive on import.
+    volumes:
+      - ".:/app"
+      - "./docker/app/php.dev.ini:/usr/local/etc/php/conf.d/zz-uploads.ini:ro"
     ports: ["8000:8000"]
     depends_on: &app-deps { db: { condition: service_healthy }, redis: { condition: service_started } }
   worker:
