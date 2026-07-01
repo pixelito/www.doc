@@ -4,7 +4,7 @@ import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
-    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle, IconKey, IconUpload
+    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle, IconKey, IconUpload, IconX
 } from '@tabler/icons-react';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -115,6 +115,7 @@ export default function Backups() {
 
     const [showImport, setShowImport] = useState(false); // import-from-file modal
     const importForm = useForm({ file: null, key: '' });
+    const importCancel = useRef(null); // aborts the in-flight upload
 
     const [showSnapshots, setShowSnapshots] = useState(false);
     const [page, setPage] = useState(1);
@@ -363,11 +364,20 @@ export default function Backups() {
         e.preventDefault();
         if (!importForm.data.file) return;
         // A File in the payload forces multipart automatically; the new row starts
-        // 'pending', so the in-flight modal + polling take over just like a backup.
+        // 'pending', so the row resolves via polling (imports are non-blocking).
         importForm.post('/admin/backups/import', {
             preserveScroll: true,
+            // Grab the cancel handle so a large upload can be aborted mid-flight.
+            onCancelToken: (token) => { importCancel.current = token; },
             onSuccess: () => { setShowImport(false); importForm.reset(); },
+            onFinish: () => { importCancel.current = null; },
         });
+    }
+
+    // Abort the in-flight upload. The request never reaches the controller, so no
+    // backup row is created; the file stays selected for a retry.
+    function cancelImport() {
+        importCancel.current?.cancel();
     }
 
     return (
@@ -972,6 +982,7 @@ export default function Backups() {
                                     placeholder="base64 key"
                                     value={importForm.data.key}
                                     onChange={(e) => importForm.setData('key', e.target.value)}
+                                    disabled={importForm.processing}
                                     className="mt-1"
                                 />
                                 <p className="mt-1 text-xs text-text-tertiary">
@@ -979,17 +990,42 @@ export default function Backups() {
                                     missing, it’s still imported but flagged as “could not decrypt” and can’t be restored.
                                 </p>
                             </div>
+
+                            {/* Upload progress — the meaningful wait for a large archive. */}
+                            {importForm.processing && (
+                                <div className="space-y-1">
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
+                                        <div
+                                            className="h-full rounded-full bg-sage-400 transition-[width] duration-150"
+                                            style={{ width: `${importForm.progress?.percentage ?? 0}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-text-tertiary">
+                                        {importForm.progress
+                                            ? `Uploading… ${importForm.progress.percentage}%`
+                                            : 'Preparing upload…'}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter className="gap-2">
-                            <Button type="button" variant="outline" onClick={() => setShowImport(false)} disabled={importForm.processing}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={!importForm.data.file || importForm.processing}>
-                                {importForm.processing && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
-                                <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
-                                Import
-                            </Button>
+                            {importForm.processing ? (
+                                <Button type="button" variant="outline" onClick={cancelImport}>
+                                    <IconX className="h-3.5 w-3.5" stroke={1.5} />
+                                    Cancel upload
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button type="button" variant="outline" onClick={() => setShowImport(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" disabled={!importForm.data.file}>
+                                        <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
+                                        Import
+                                    </Button>
+                                </>
+                            )}
                         </DialogFooter>
                     </form>
                 </DialogContent>

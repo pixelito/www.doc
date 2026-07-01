@@ -39,6 +39,33 @@ test('an admin can back up, download, and re-import the archive', async ({ page 
     await expect(page.getByTitle('Restore').first()).toBeEnabled({ timeout: 60_000 });
 });
 
+test('an import upload can be cancelled while in flight', async ({ page }) => {
+    test.setTimeout(30_000);
+
+    // Slow the import response so the uploading state is observable.
+    await page.route('**/admin/backups/import', async (route) => {
+        await new Promise((r) => setTimeout(r, 4000));
+        route.continue();
+    });
+
+    await page.goto('/admin/backups');
+    await page.getByRole('button', { name: 'Import' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator('#import-file').setInputFiles({
+        name: 'archive.zip',
+        mimeType: 'application/zip',
+        buffer: Buffer.from('PK placeholder body'),
+    });
+    await dialog.getByRole('button', { name: 'Import' }).click();
+
+    // While uploading, a Cancel upload control is shown; clicking it aborts and
+    // returns the form to its ready state (no row is created).
+    const cancel = dialog.getByRole('button', { name: 'Cancel upload' });
+    await expect(cancel).toBeVisible();
+    await cancel.click();
+    await expect(dialog.getByRole('button', { name: 'Import' })).toBeVisible();
+});
+
 test('importing a random file fails gracefully, without a stuck blocking modal', async ({ page }) => {
     test.setTimeout(60_000);
 

@@ -160,6 +160,28 @@ test('importing a non-wwwdoc zip fails cleanly without touching live data', func
     expect(Document::find($live->id))->not->toBeNull();
 });
 
+test('imported archives are exempt from retention pruning', function () {
+    Storage::fake('local');
+    login();
+
+    Setting::put('backup', array_replace(BackupSettings::get(), ['retention' => 1]));
+
+    // An imported archive we want to keep, plus content to back up.
+    $imported = Backup::create(['trigger' => 'import', 'disk' => 'local', 'status' => 'done', 'path' => 'backups/imported.zip']);
+    Storage::disk('local')->put('backups/imported.zip', 'IMPORTED');
+    Document::factory()->create(['content' => DocumentFactory::tiptap('hi')]);
+
+    // Two scheduled runs with retention 1 — normally the older would be pruned…
+    foreach (range(1, 2) as $i) {
+        $b = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+        app(BackupService::class)->run($b->fresh(), true);
+    }
+
+    // …but the import survives, row and archive intact.
+    expect(Backup::find($imported->id))->not->toBeNull();
+    expect(Storage::disk('local')->exists('backups/imported.zip'))->toBeTrue();
+});
+
 test('ArchiveCipher::fromKey accepts a valid key and rejects malformed ones', function () {
     $key = ArchiveCipher::generateKey();
     $cipher = ArchiveCipher::fromKey($key);

@@ -370,7 +370,11 @@ class BackupService
 
         $destination = DestinationFactory::make($backup->disk);
 
+        // Imported archives are exempt from rotation: someone deliberately brought
+        // one in, so it's kept until manually deleted — and doesn't consume a
+        // retention slot meant for scheduled/manual runs.
         Backup::where('status', 'done')
+            ->where('trigger', '!=', 'import')
             ->where('disk', $backup->disk)
             ->orderByDesc('id')
             ->skip($retention)
