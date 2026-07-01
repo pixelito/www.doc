@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ImportBackupJob;
 use App\Jobs\RestoreBackupJob;
 use App\Jobs\RunBackupJob;
 use App\Models\Backup;
@@ -14,6 +15,7 @@ use App\Support\MailSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -50,8 +52,11 @@ class BackupController extends Controller
                 'created_by'     => $b->creator?->name,
                 'counts'         => $b->manifest['counts'] ?? null,
                 'encrypted'      => $b->manifest['encryption']['enabled'] ?? false,
-                'key_mismatch'   => ($b->manifest['encryption']['enabled'] ?? false) 
-                                    && ($b->manifest['encryption']['fingerprint'] ?? null) 
+                // An imported archive we couldn't decrypt (wrong/absent key): listed
+                // for the record, but not restorable — the UI warns and disables it.
+                'undecryptable'  => $b->manifest['encryption']['undecryptable'] ?? false,
+                'key_mismatch'   => ($b->manifest['encryption']['enabled'] ?? false)
+                                    && ($b->manifest['encryption']['fingerprint'] ?? null)
                                     && ($b->manifest['encryption']['fingerprint'] !== \App\Services\Backup\ArchiveCipher::currentFingerprint()),
                 'restore_status' => $b->restore_status,
                 'restore_error'  => $b->restore_error,
@@ -149,6 +154,39 @@ class BackupController extends Controller
         return back();
     }
 
+    /**
+     * Register an UPLOADED archive into the list so it can be restored later. If
+     * it's encrypted, an optional key is tried; a wrong/absent key still imports
+     * it (flagged undecryptable). Heavy I/O runs in ImportBackupJob — the page
+     * polls the row, same as a normal backup.
+     */
+    public function import(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Backup::class);
+
+        $validated = $request->validate([
+            // Up to ~2 GB; the real ceiling is PHP's upload_max_filesize/post_max_size.
+            'file' => ['required', 'file', 'max:2097152'],
+            'key'  => ['nullable', 'string'],
+        ]);
+
+        // Stage the upload where the queue worker can read it. Worker + web share
+        // the app-storage volume in prod (same constraint as scheduled backups).
+        $staged = $request->file('file')->store('backups/imports', 'local');
+        $stagingPath = Storage::disk('local')->path($staged);
+
+        $backup = Backup::create([
+            'trigger'       => 'import',
+            'disk'          => BackupSettings::get()['driver'] ?? 'local',
+            'status'        => 'pending',
+            'created_by_id' => $request->user()->id,
+        ]);
+
+        ImportBackupJob::dispatch($backup->id, $stagingPath, $validated['key'] ?? null);
+
+        return back();
+    }
+
     /** Poll a single backup's status (for the in-progress spinner). */
     public function show(Backup $backup): JsonResponse
     {
@@ -186,6 +224,11 @@ class BackupController extends Controller
         if ($backup->path && !DestinationFactory::make($backup->disk)->exists($backup->path)) {
             $backup->update(['status' => 'missing', 'error' => 'The archive was missing from the destination.']);
             return back()->with('error', 'The backup archive could not be found on the destination disk. It may have been deleted outside the application.');
+        }
+
+        // An imported archive we couldn't decrypt has no readable canonical layer.
+        if ($backup->manifest['encryption']['undecryptable'] ?? false) {
+            return back()->with('error', 'This imported archive could not be decrypted (the key was wrong or missing), so it cannot be restored.');
         }
 
         if ($backup->manifest['encryption']['enabled'] ?? false) {

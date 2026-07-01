@@ -17,6 +17,7 @@ import {
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ConflictDialog from '@/components/documents/ConflictDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
 import { formatDate } from '@/lib/date';
@@ -354,6 +355,9 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
 
     const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
     const [deleteOpen, setDeleteOpen]   = useState(false);
+    // Fresh server state when an optimistic-locking save is rejected (someone else
+    // edited this page since it loaded). Non-null opens the conflict dialog.
+    const [conflict, setConflict]       = useState(null);
     const isDirtyRef = useRef(false);
 
     // Attachment changes are STAGED while editing — new files and ids marked for
@@ -455,7 +459,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
     }, [document.id, pendingRemovals, pendingUploads]);
 
     const performSave = useCallback(
-        (content) => {
+        (content, { force = false } = {}) => {
             setSaveStatus('saving');
             (async () => {
                 try {
@@ -467,11 +471,28 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 }
                 router.patch(
                     `/documents/${document.id}`,
-                    { title: editTitle, content, tags: editTags },
                     {
-                        preserveState: false,
+                        title: editTitle,
+                        content,
+                        tags: editTags,
+                        // Optimistic-locking base: the version this editor loaded. A
+                        // `force` retry (from the conflict dialog) overwrites regardless.
+                        base_version: document.version,
+                        ...(force ? { force: true } : {}),
+                    },
+                    {
+                        // Keep the in-progress draft mounted when the server reports a
+                        // conflict; otherwise reload fresh props as before.
+                        preserveState: (page) => !!page.props.flash?.saveConflict,
                         preserveScroll: true,
-                        onSuccess: () => {
+                        onSuccess: (page) => {
+                            const conflictData = page.props.flash?.saveConflict;
+                            if (conflictData) {
+                                setSaveStatus(null);
+                                setConflict(conflictData);
+                                return; // stay in edit mode; the dialog resolves it
+                            }
+                            setConflict(null);
                             setSaveStatus('saved');
                             setIsEditing(false);
                         },
@@ -483,8 +504,21 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 );
             })();
         },
-        [document.id, editTitle, editTags, commitAttachments]
+        [document.id, document.version, editTitle, editTags, commitAttachments]
     );
+
+    // Conflict resolution — overwrite the other edit with mine (force save), or
+    // discard my draft and reload their current version.
+    const overwriteWithMine = useCallback(() => {
+        setConflict(null);
+        performSave(editorContentRef.current, { force: true });
+    }, [performSave]);
+
+    const reloadTheirs = useCallback(() => {
+        setConflict(null);
+        isDirtyRef.current = false; // let the unsaved-changes guard pass
+        router.get(`/documents/${document.id}`, {}, { preserveState: false, preserveScroll: false });
+    }, [document.id]);
 
     const handleEditorUpdate = useCallback((json) => {
         editorContentRef.current = json;
@@ -841,6 +875,16 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
             variant="danger"
             onConfirm={confirmDiscard}
             onCancel={dismissPrompt}
+        />
+
+        <ConflictDialog
+            open={!!conflict}
+            theirs={conflict}
+            mine={editorContentRef.current}
+            resolvedLinks={resolvedLinks}
+            onReloadTheirs={reloadTheirs}
+            onOverwrite={overwriteWithMine}
+            onKeepEditing={() => setConflict(null)}
         />
 
         <ConfirmDialog

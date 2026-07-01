@@ -79,6 +79,7 @@ Route::middleware('auth')->group(function () {
         // they aren't read as ids (the [0-9]+ pattern already prevents that).
         Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
         Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
+        Route::post('backups/import', [AdminBackupController::class, 'import'])->name('backups.import');
         Route::patch('backups/settings', [AdminBackupController::class, 'updateSettings'])->name('backups.settings');
         Route::post('backups/test-destination', [AdminBackupController::class, 'testDestination'])->name('backups.test-destination');
         Route::post('backups/test-email', [AdminBackupController::class, 'testEmail'])->name('backups.test-email');

@@ -38,6 +38,13 @@ class DocumentObserver
         if ($userId && $document->isDirty(['content', 'title'])) {
             $document->updated_by_id = $userId;
         }
+
+        // Bump the optimistic-locking counter on the same condition (content/title
+        // edits only, never structural moves). This is the token the editor checks
+        // its `base_version` against, so every real edit invalidates stale bases.
+        if ($document->isDirty(['content', 'title'])) {
+            $document->version = ($document->version ?? 0) + 1;
+        }
     }
 
     public function saved(Document $document): void

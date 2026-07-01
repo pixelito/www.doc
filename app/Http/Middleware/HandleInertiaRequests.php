@@ -52,6 +52,9 @@ class HandleInertiaRequests extends Middleware
                 'error'            => $request->session()->get('error'),
                 'profile_success'  => $request->session()->get('profile_success'),
                 'password_success' => $request->session()->get('password_success'),
+                // Fresh server state when an optimistic-locking check rejects a save;
+                // the document editor opens a conflict dialog when this is present.
+                'saveConflict'     => $request->session()->get('saveConflict'),
             ],
             // Persistent backup notices (admin-only): UNATTENDED runs whose result
             // wasn't emailed — mail off, or the report email failed — so a
@@ -74,8 +77,9 @@ class HandleInertiaRequests extends Middleware
             ->whereNull('acknowledged_at')
             ->where('report_emailed', false)
             ->whereIn('status', ['done', 'failed'])
-            // 'pre-restore' is internal bookkeeping; 'manual' is attended (toast).
-            ->whereNotIn('trigger', ['pre-restore', 'manual'])
+            // 'pre-restore' is internal bookkeeping; 'manual' and 'import' are
+            // attended (the admin ran them and is watching — they get a toast).
+            ->whereNotIn('trigger', ['pre-restore', 'manual', 'import'])
             ->latest('id')
             ->limit(10)
             ->get(['id', 'status', 'error', 'report_error', 'created_at'])

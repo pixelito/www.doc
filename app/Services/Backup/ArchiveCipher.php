@@ -53,6 +53,22 @@ class ArchiveCipher
         return new self($key);
     }
 
+    /**
+     * Build from an explicit base64 key — used by backup IMPORT, where the archive
+     * may have been encrypted with a key other than this host's BACKUP_ENCRYPTION_KEY
+     * (e.g. a backup carried over from another instance). Never touches env/settings.
+     * Throws on malformed base64 or the wrong key length (constructor enforces 32B).
+     */
+    public static function fromKey(string $base64Key): self
+    {
+        $key = base64_decode(trim($base64Key), true);
+        if ($key === false) {
+            throw new \RuntimeException('The decryption key is not valid base64.');
+        }
+
+        return new self($key);
+    }
+
     /** Whether a VALID 32-byte key is configured (drives the UI toggle + validation). */
     public static function configured(): bool
     {

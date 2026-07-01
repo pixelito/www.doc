@@ -4,8 +4,11 @@ import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconLoader2, IconDownload, IconTrash, IconRestore, IconCheck,
-    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle, IconKey
+    IconAlertTriangle, IconClock, IconDatabaseExport, IconPlugConnected, IconMailFast, IconLock, IconInfoCircle, IconKey, IconUpload
 } from '@tabler/icons-react';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
@@ -21,7 +24,7 @@ import { isEmail } from '@/lib/utils';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
-const TRIGGER_LABELS = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Safety snapshot' };
+const TRIGGER_LABELS = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Safety snapshot', import: 'Imported' };
 
 function formatBytes(bytes) {
     if (!bytes) return '—';
@@ -31,7 +34,7 @@ function formatBytes(bytes) {
     return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-function StatusBadge({ status, encrypted, keyMismatch }) {
+function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
     const map = {
         processing: { cls: 'bg-sage-50 text-sage-600',             icon: IconLoader2,       label: 'Running', spin: true },
         pending:    { cls: 'bg-surface-hover text-text-secondary', icon: IconClock,         label: 'Queued' },
@@ -42,6 +45,26 @@ function StatusBadge({ status, encrypted, keyMismatch }) {
     // already say it's ready — except the one fact those don't show: whether it's
     // encrypted (and so needs the key to restore).
     if (status === 'done') {
+        // Imported but undecryptable (wrong/absent key): kept for the record, but
+        // there's no readable canonical layer, so restore is disabled.
+        if (undecryptable) {
+            return (
+                <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                        <TooltipTrigger type="button" className="inline-flex items-center gap-1 rounded-full bg-danger-surface px-2 py-0.5 text-xs font-medium text-danger border border-danger-border cursor-help">
+                            <IconAlertTriangle className="h-3 w-3" stroke={1.5} />
+                            Could not decrypt
+                        </TooltipTrigger>
+                        <TooltipContent
+                            side="top"
+                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
+                        >
+                            This archive is encrypted and could not be decrypted with the key provided at import (or your environment key). It cannot be restored.
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            );
+        }
         if (!encrypted) return null;
         if (keyMismatch) {
             return (
@@ -89,6 +112,9 @@ export default function Backups() {
     const [starting, setStarting] = useState(false); // manual "Back up now" in flight
     const [restoring, setRestoring] = useState(false); // restore POST in flight
     const restoringId = useRef(null);                  // which backup we kicked off a restore for
+
+    const [showImport, setShowImport] = useState(false); // import-from-file modal
+    const importForm = useForm({ file: null, key: '' });
 
     const [showSnapshots, setShowSnapshots] = useState(false);
     const [page, setPage] = useState(1);
@@ -313,6 +339,17 @@ export default function Backups() {
         router.post(`/admin/backups/${id}/restore`, {}, {
             preserveScroll: true,
             onFinish: () => setRestoring(false),
+        });
+    }
+
+    function submitImport(e) {
+        e.preventDefault();
+        if (!importForm.data.file) return;
+        // A File in the payload forces multipart automatically; the new row starts
+        // 'pending', so the in-flight modal + polling take over just like a backup.
+        importForm.post('/admin/backups/import', {
+            preserveScroll: true,
+            onSuccess: () => { setShowImport(false); importForm.reset(); },
         });
     }
 
@@ -751,10 +788,16 @@ export default function Backups() {
                         <CardDescription>Run a backup now or restore from a previous one.</CardDescription>
                     </div>
                     {/* Static — the progress modal takes over the moment it's running. */}
-                    <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning}>
-                        <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
-                        Back up now
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button type="button" variant="outline" onClick={() => setShowImport(true)} disabled={backupRunning}>
+                            <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
+                            Import
+                        </Button>
+                        <Button type="button" variant="outline" onClick={backupNow} disabled={backupRunning}>
+                            <IconDatabaseExport className="h-3.5 w-3.5" stroke={1.5} />
+                            Back up now
+                        </Button>
+                    </div>
                 </CardHeader>
 
                 <CardContent>
@@ -796,7 +839,7 @@ export default function Backups() {
                                 <div key={b.id} className="flex items-center gap-3 py-3">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <StatusBadge status={b.status} encrypted={b.encrypted} keyMismatch={b.key_mismatch} />
+                                            <StatusBadge status={b.status} encrypted={b.encrypted} keyMismatch={b.key_mismatch} undecryptable={b.undecryptable} />
                                             {latestDoneBackup?.id === b.id && (
                                                 <span className="inline-flex items-center rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
                                                     Latest
@@ -827,10 +870,10 @@ export default function Backups() {
                                         </a>
                                         <button
                                             type="button"
-                                            disabled={b.key_mismatch}
+                                            disabled={b.key_mismatch || b.undecryptable}
                                             onClick={() => setConfirm({ type: 'restore', backup: b })}
-                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm ${b.key_mismatch ? 'text-text-tertiary cursor-not-allowed opacity-50' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'}`}
-                                            title={b.key_mismatch ? "Cannot restore: encryption key mismatch" : "Restore"}
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm ${(b.key_mismatch || b.undecryptable) ? 'text-text-tertiary cursor-not-allowed opacity-50' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'}`}
+                                            title={b.undecryptable ? "Cannot restore: archive could not be decrypted" : b.key_mismatch ? "Cannot restore: encryption key mismatch" : "Restore"}
                                         >
                                             <IconRestore className="h-4 w-4" stroke={1.5} />
                                         </button>
@@ -879,6 +922,62 @@ export default function Backups() {
                     setConfirm(null);
                 }}
             />
+            <Dialog open={showImport} onOpenChange={(o) => { if (!o) { setShowImport(false); importForm.clearErrors(); } }}>
+                <DialogContent>
+                    <form onSubmit={submitImport}>
+                        <DialogHeader>
+                            <DialogTitle>Import a backup</DialogTitle>
+                            <DialogDescription>
+                                Upload a www.doc archive (<code>.zip</code> or <code>.zip.enc</code>) to add it to the list.
+                                It won’t restore anything on its own — you can restore it afterwards from the archives below.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-2">
+                            <div>
+                                <Label htmlFor="import-file">Archive file</Label>
+                                <input
+                                    id="import-file"
+                                    type="file"
+                                    accept=".zip,.enc,application/zip,application/octet-stream"
+                                    onChange={(e) => importForm.setData('file', e.target.files?.[0] ?? null)}
+                                    className="mt-1 block w-full text-sm text-text-secondary file:mr-3 file:rounded-sm file:border file:border-border file:bg-surface-hover file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-hover"
+                                />
+                                {importForm.errors.file && <p className="mt-1 text-xs text-danger">{importForm.errors.file}</p>}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="import-key">Decryption key <span className="text-text-tertiary">(only if encrypted)</span></Label>
+                                <Input
+                                    id="import-key"
+                                    type="password"
+                                    autoComplete="off"
+                                    placeholder="base64 key"
+                                    value={importForm.data.key}
+                                    onChange={(e) => importForm.setData('key', e.target.value)}
+                                    className="mt-1"
+                                />
+                                <p className="mt-1 text-xs text-text-tertiary">
+                                    Leave blank to try this server’s key. If the archive is encrypted and the key is wrong or
+                                    missing, it’s still imported but flagged as “could not decrypt” and can’t be restored.
+                                </p>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-2">
+                            <Button type="button" variant="outline" onClick={() => setShowImport(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!importForm.data.file || importForm.processing}>
+                                {importForm.processing && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
+                                <IconUpload className="h-3.5 w-3.5" stroke={1.5} />
+                                Import
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
             <ConfirmDialog
                 open={confirm?.type === 'delete'}
                 onCancel={() => setConfirm(null)}

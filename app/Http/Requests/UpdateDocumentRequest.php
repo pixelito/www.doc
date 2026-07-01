@@ -18,6 +18,12 @@ class UpdateDocumentRequest extends FormRequest
             'metadata' => ['sometimes', 'array'],
             'tags' => ['sometimes', 'array'],
             'tags.*' => ['integer', 'exists:tags,id'],
+            // Optimistic locking: the document `version` the editor loaded. When a
+            // content/title save arrives with a stale base_version (and no force),
+            // the controller rejects it with a saveConflict flash instead of
+            // overwriting a concurrent edit.
+            'base_version' => ['sometimes', 'integer'],
+            'force' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -118,6 +118,27 @@ class DocumentController extends Controller
 
         $validated = $request->validated();
 
+        // Optimistic locking: reject a content/title save whose base is stale — the
+        // page was edited by someone else since this editor loaded it. The client
+        // then resolves the conflict (reload theirs / overwrite with mine, which
+        // re-submits with force). Structural/metadata- or tags-only saves carry no
+        // base_version and skip this. Bail BEFORE mutating anything (incl. tags).
+        $editingContent = array_key_exists('content', $validated) || array_key_exists('title', $validated);
+        $baseVersion = $validated['base_version'] ?? null;
+
+        if ($editingContent && $baseVersion !== null && ! ($validated['force'] ?? false)
+            && (int) $baseVersion !== (int) $document->version) {
+            $document->loadMissing('updater');
+
+            return back()->with('saveConflict', [
+                'title'      => $document->title,
+                'content'    => $document->content,
+                'version'    => $document->version,
+                'updated_at' => $document->updated_at,
+                'updated_by' => $document->updater?->name,
+            ]);
+        }
+
         // Sync tags BEFORE the content/title save: the version snapshot the observer
         // takes on that save reads the page's current tags, so a full-revert restore
         // needs the new set already in place.
@@ -127,7 +148,7 @@ class DocumentController extends Controller
             $tagsChanged = (bool) array_filter($changes);
         }
 
-        $document->update(array_diff_key($validated, ['tags' => '']));
+        $document->update(array_diff_key($validated, ['tags' => '', 'base_version' => '', 'force' => '']));
 
         // When only tags changed, no version was snapshotted and the observer's
         // workspace touch didn't run — touch explicitly so listings refresh.
