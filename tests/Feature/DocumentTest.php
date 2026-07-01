@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Document;
+use App\Models\User;
 use App\Models\Workspace;
 use Database\Factories\DocumentFactory;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('a document can be created under a workspace', function () {
@@ -34,6 +36,31 @@ test('creating a document records authorship and an initial version', function (
     $document = Document::firstWhere('title', 'Audited Page');
     expect($document->created_by_id)->toBe($user->id);
     expect($document->versions()->count())->toBe(1);
+});
+
+test('a version snapshotted without an auth session is attributed to the importer', function () {
+    // Mirrors a DOCX/PDF import: ImportController stamps the importer on both
+    // author columns and creates a placeholder (empty => no initial version)...
+    $importer = User::factory()->create();
+
+    $document = Document::factory()->create([
+        'title'         => 'Importing document…',
+        'content'       => ['type' => 'doc', 'content' => []],
+        'created_by_id' => $importer->id,
+        'updated_by_id' => $importer->id,
+    ]);
+    expect($document->versions()->count())->toBe(0);
+
+    // ...then ImportDocumentJob writes the converted content on a queue worker,
+    // where there is no authenticated user (Auth::id() is null).
+    expect(Auth::id())->toBeNull();
+    $document->content = DocumentFactory::tiptap('Converted body text.');
+    $document->save();
+
+    // The snapshot must credit the importer via the updated_by_id fallback rather
+    // than record a null author. Guards the DocumentObserver::snapshotVersion fix.
+    $version = $document->versions()->sole();
+    expect($version->created_by_id)->toBe($importer->id);
 });
 
 test('creating an empty document records no version until content is added', function () {
