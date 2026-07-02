@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\Ssrf;
+use Illuminate\Support\Facades\Http;
 use Tiptap\Core\Node;
 use Tiptap\Editor;
 use Tiptap\Extensions\StarterKit;
@@ -19,6 +21,15 @@ use Tiptap\Extensions\TextAlign;
 class RenderDocument
 {
     public static bool $embedImages = false;
+
+    /**
+     * Neutral "Image Unavailable" SVG, as a data URI. Used as the export-time
+     * stand-in for images that can't be embedded safely (private-host URLs,
+     * fetch failures, paths escaping the public disk) and as the browser-side
+     * onerror fallback — so a bad reference degrades visibly, never into a raw
+     * URL the PDF/DOCX pipeline would fetch unguarded.
+     */
+    public const UNAVAILABLE_IMAGE = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23FBFAF5%22 stroke=%22%23E2DFD4%22 stroke-width=%222%22 stroke-dasharray=%228%22 rx=%228%22 /%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22system-ui, sans-serif%22 font-size=%2214%22 font-weight=%22500%22 fill=%22%238E938E%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E";
 
     /** Convert TipTap JSON to HTML — single canonical path for all consumers. */
     public static function toHtml(?array $doc): string
@@ -57,6 +68,18 @@ class RenderDocument
         ]);
     }
 
+    /**
+     * Resolve an image reference to a data URI for export-time embedding.
+     *
+     * Two sources are allowed: files on the public disk (via their /storage/
+     * URL, contained to that directory), and external http(s) URLs that pass
+     * the SSRF guard — public hosts only, no redirects, connection pinned to
+     * the validated IPs (CLAUDE.md rule 6; exports run content-controlled srcs
+     * on a queue worker that can reach hosts the author can't).
+     *
+     * Anything that can't be embedded safely returns UNAVAILABLE_IMAGE — never
+     * the original src, which downstream fetchers (Dompdf) would hit unguarded.
+     */
     public static function resolveImageToDataUri(string $src): string
     {
         if (str_starts_with($src, 'data:')) {
@@ -65,33 +88,43 @@ class RenderDocument
 
         try {
             $content = null;
-            $mime = 'image/jpeg';
+            $mime = null;
 
             if (str_starts_with($src, '/storage/')) {
-                $relativePath = substr($src, strlen('/storage/'));
-                $path = storage_path("app/public/{$relativePath}");
-                if (file_exists($path)) {
+                $root = realpath(storage_path('app/public'));
+                $path = realpath(storage_path('app/public/' . substr($src, strlen('/storage/'))));
+
+                // realpath resolves ../ — embed only if the target actually
+                // lives under the public disk.
+                if ($root !== false && $path !== false && str_starts_with($path, $root . DIRECTORY_SEPARATOR)) {
                     $content = file_get_contents($path);
-                    $mime = mime_content_type($path) ?: 'image/jpeg';
+                    $mime = mime_content_type($path) ?: null;
                 }
             } elseif (filter_var($src, FILTER_VALIDATE_URL)) {
-                $ctx = stream_context_create(['http' => ['timeout' => 5]]);
-                $content = @file_get_contents($src, false, $ctx);
-                
-                if ($content) {
+                $ips = Ssrf::assertPublicUrl($src);
+
+                $response = Http::timeout(5)
+                    ->withOptions(Ssrf::fetchOptions($src, $ips))
+                    ->get($src);
+
+                if ($response->successful()) {
+                    $content = $response->body();
                     $finfo = new \finfo(FILEINFO_MIME_TYPE);
-                    $mime = $finfo->buffer($content) ?: 'image/jpeg';
+                    $mime = $finfo->buffer($content) ?: null;
                 }
             }
 
-            if ($content) {
+            // Raster images only — SVG is parsed by php-svg-lib during PDF
+            // export, which is not a surface to feed attacker-supplied markup.
+            if ($content !== null && $mime !== null
+                && str_starts_with($mime, 'image/') && $mime !== 'image/svg+xml') {
                 return 'data:' . $mime . ';base64,' . base64_encode($content);
             }
-        } catch (\Exception $e) {
-            // Silently fallback to original src
+        } catch (\Throwable $e) {
+            // fall through to the placeholder
         }
 
-        return $src;
+        return self::UNAVAILABLE_IMAGE;
     }
 }
 
@@ -122,14 +155,15 @@ class ResizableImageNode extends \Tiptap\Nodes\Image
         }
 
         $alt   = $attrs->alt   ?? '';
-        $width = $attrs->width ?? null;
+        // width is user-controlled JSON — only a number may reach the style string.
+        $width = is_numeric($attrs->width ?? null) ? (int) $attrs->width : null;
         $align = $attrs->align ?? 'left';
 
         $style = 'max-width:100%;display:block;';
         if ($width)              $style .= "width:{$width}px;";
         if ($align === 'center') $style .= 'margin:0 auto;';
         elseif ($align === 'right') $style .= 'margin-left:auto;';
-        $fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23FBFAF5%22 stroke=%22%23E2DFD4%22 stroke-width=%222%22 stroke-dasharray=%228%22 rx=%228%22 /%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22system-ui, sans-serif%22 font-size=%2214%22 font-weight=%22500%22 fill=%22%238E938E%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E";
+        $fallback = \App\Services\RenderDocument::UNAVAILABLE_IMAGE;
 
         return ['img', array_merge($HTMLAttributes, [
             'src'     => $src,

@@ -194,9 +194,12 @@ class Document extends Model
      */
     public function moveSubtreeToWorkspace(int $workspaceId): void
     {
-        foreach ($this->children()->get() as $child) {
+        // withTrashed: a trashed child must follow too, or restoring it later
+        // would resurrect it in the OLD workspace — orphaned from its parent's
+        // tree. saveQuietly keeps the observer out of a structural change.
+        foreach ($this->children()->withTrashed()->get() as $child) {
             $child->workspace_id = $workspaceId;
-            self::withoutTimestamps(fn () => $child->save());
+            self::withoutTimestamps(fn () => $child->saveQuietly());
             $child->moveSubtreeToWorkspace($workspaceId);
         }
     }

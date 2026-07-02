@@ -26,7 +26,7 @@ class AssetStore
      * Store raw image bytes and return the public URL.
      * Deduplicates by SHA-256, same as the upload endpoint.
      */
-    public function store(string $content, string $mime, int $uploadedById): string
+    public function store(string $content, string $mime, ?int $uploadedById): string
     {
         $checksum = hash('sha256', $content);
 
@@ -55,7 +55,7 @@ class AssetStore
     /**
      * Decode a base64 data: URI and store it. Returns public URL or null if invalid.
      */
-    public function storeDataUri(string $dataUri, int $uploadedById): ?string
+    public function storeDataUri(string $dataUri, ?int $uploadedById): ?string
     {
         if (!preg_match('/^data:(image\/[a-z+\-]+);base64,(.+)$/i', $dataUri, $m)) {
             return null;

@@ -204,3 +204,32 @@ test('the tree endpoint rejects a cycle', function () {
     expect($a->fresh()->parent_id)->toBeNull();
     expect($b->fresh()->parent_id)->toBeNull();
 });
+
+test('a cross-workspace move carries trashed descendants too, so a later restore lands in the right workspace', function () {
+    login();
+    $from = Workspace::factory()->create();
+    $to = Workspace::factory()->create();
+
+    $parent = Document::factory()->create(['workspace_id' => $from->id]);
+    $trashedChild = Document::factory()->create(['workspace_id' => $from->id, 'parent_id' => $parent->id]);
+    $trashedChild->delete();
+
+    $this->patch("/documents/{$parent->id}/move", ['workspace_id' => $to->id])->assertRedirect();
+
+    // The trashed child followed its parent; restoring it from Trash now puts
+    // it back inside the parent's (new) workspace instead of orphaning it.
+    expect(Document::withTrashed()->find($trashedChild->id)->workspace_id)->toBe($to->id);
+});
+
+test('a page cannot be moved under a trashed parent', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $page = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $parent->delete();
+
+    $this->patch("/documents/{$page->id}/move", ['parent_id' => $parent->id])
+        ->assertSessionHasErrors('parent_id');
+
+    expect($page->fresh()->parent_id)->toBeNull();
+});

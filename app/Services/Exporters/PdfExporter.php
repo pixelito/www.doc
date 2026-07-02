@@ -50,9 +50,15 @@ class PdfExporter implements ExporterContract
 
     private function buildHtml(Document $document): string
     {
+        // finally-reset: a render exception must not leave the static flag set
+        // for the rest of this worker process, or later observer saves would
+        // embed data URIs into stored content_html.
         RenderDocument::$embedImages = true;
-        $body  = RenderDocument::toHtml($document->content);
-        RenderDocument::$embedImages = false;
+        try {
+            $body = RenderDocument::toHtml($document->content);
+        } finally {
+            RenderDocument::$embedImages = false;
+        }
         $title = e($document->title);
         $date  = now()->format('d M Y');
 
@@ -177,50 +183,4 @@ class PdfExporter implements ExporterContract
         HTML;
     }
 
-    private function buildToc(?array $doc): string
-    {
-        if (!$doc) return '';
-
-        $headings = [];
-        $this->collectHeadings($doc, $headings);
-
-        if (count($headings) < 2) return '';
-
-        $items = '';
-        foreach ($headings as $h) {
-            $indent = $h['level'] - 1;
-            $indent = min($indent, 2);
-            $class  = $indent > 0 ? "indent-{$indent}" : '';
-            $text   = e($h['text']);
-            $items .= "<li class=\"{$class}\">{$text}</li>\n";
-        }
-
-        return "<div class=\"toc\"><h2>Contents</h2><ul>{$items}</ul></div>";
-    }
-
-    private function collectHeadings(?array $node, array &$out): void
-    {
-        if (!$node) return;
-
-        if (($node['type'] ?? '') === 'heading') {
-            $level = $node['attrs']['level'] ?? 1;
-            $text  = $this->extractText($node);
-            if ($text !== '') {
-                $out[] = ['level' => $level, 'text' => $text];
-            }
-        }
-
-        foreach ($node['content'] ?? [] as $child) {
-            $this->collectHeadings($child, $out);
-        }
-    }
-
-    private function extractText(?array $node): string
-    {
-        if (!$node) return '';
-        if (($node['type'] ?? '') === 'text') {
-            return $node['text'] ?? '';
-        }
-        return implode('', array_map([$this, 'extractText'], $node['content'] ?? []));
-    }
 }

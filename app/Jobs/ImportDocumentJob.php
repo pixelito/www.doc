@@ -29,8 +29,8 @@ class ImportDocumentJob implements ShouldQueue
             $path = $job->result_path; // stores the temp upload path
 
             $result = match ($job->format) {
-                'docx' => $docx->import(Storage::disk('local')->path($path)),
-                'pdf'  => $pdf->import(Storage::disk('local')->path($path)),
+                'docx' => $docx->import(Storage::disk('local')->path($path), $job->created_by_id),
+                'pdf'  => $pdf->import(Storage::disk('local')->path($path), $job->created_by_id),
                 default => throw new \InvalidArgumentException("Unknown format: {$job->format}"),
             };
 
@@ -51,6 +51,36 @@ class ImportDocumentJob implements ShouldQueue
         } catch (Throwable $e) {
             $job->update(['status' => 'failed', 'error' => $e->getMessage()]);
             throw $e;
+        }
+    }
+
+    /**
+     * Final-failure hook — also covers deaths the catch above never sees
+     * (timeout kills the worker process, lost job payload), which would
+     * otherwise leave the row stuck in `processing` with the UI polling
+     * forever. Guarded so a failure the catch already recorded isn't redone.
+     */
+    public function failed(?Throwable $e): void
+    {
+        $job = ConversionJob::with('document')->find($this->conversionJobId);
+        if (! $job) {
+            return;
+        }
+
+        if (in_array($job->status, ['pending', 'processing'], true)) {
+            $job->update([
+                'status' => 'failed',
+                'error'  => $e?->getMessage() ?? 'The import was interrupted.',
+            ]);
+        }
+
+        // The placeholder page created at upload never got content — trash it
+        // (soft delete, recoverable) so a failed import doesn't leave an empty
+        // "Importing …" page in the tree.
+        $document = $job->document;
+        if ($document && str_starts_with($document->title, 'Importing')
+            && \App\Support\TipTap::isEmpty($document->content)) {
+            $document->delete();
         }
     }
 }

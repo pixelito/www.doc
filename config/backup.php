@@ -35,7 +35,6 @@ return [
     'defaults' => [
         'enabled'   => false,
         'interval'  => 'daily',
-        'disk'      => 'local',
         'retention' => 7, // keep this many most-recent backups, prune older
     ],
 

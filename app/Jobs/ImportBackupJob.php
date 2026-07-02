@@ -46,4 +46,25 @@ class ImportBackupJob implements ShouldQueue
             report($e);
         }
     }
+
+    /**
+     * Final-failure hook — the catch above swallows importer errors, so this
+     * only fires for deaths it never sees (the 600s timeout kills the worker).
+     * Marks the row failed instead of leaving it stuck in `processing`, and
+     * drops the staged upload the importer's finally never reached.
+     */
+    public function failed(?Throwable $e): void
+    {
+        $backup = Backup::find($this->backupId);
+
+        if ($backup && in_array($backup->status, ['pending', 'processing'], true)) {
+            $backup->update([
+                'status'      => 'failed',
+                'error'       => $e?->getMessage() ?? 'The import was interrupted.',
+                'finished_at' => now(),
+            ]);
+        }
+
+        @unlink($this->stagingPath);
+    }
 }

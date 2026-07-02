@@ -76,7 +76,15 @@ class BackupService
             ]);
 
             @unlink($zipPath);
-            $this->pruneOldBackups($backup);
+
+            // Pruning is housekeeping — the backup itself already succeeded, so
+            // a rotation hiccup (e.g. an SMB error deleting an old archive) must
+            // not flip this run's status to failed in the caller's catch.
+            try {
+                $this->pruneOldBackups($backup);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         } finally {
             File::deleteDirectory($work);
         }
@@ -368,16 +376,28 @@ class BackupService
             return;
         }
 
-        $destination = DestinationFactory::make($backup->disk);
-
         // Imported archives are exempt from rotation: someone deliberately brought
         // one in, so it's kept until manually deleted — and doesn't consume a
         // retention slot meant for scheduled/manual runs.
+        //
+        // Pre-restore safety snapshots rotate in their OWN window: they're
+        // recovery artifacts a restore creates as a side effect, so they must
+        // neither evict real backups from the retention window nor pile up
+        // forever themselves.
+        $this->pruneWindow($backup->disk, $retention, fn ($q) => $q->whereNotIn('trigger', ['import', 'pre-restore']));
+        $this->pruneWindow($backup->disk, $retention, fn ($q) => $q->where('trigger', 'pre-restore'));
+    }
+
+    /** Delete every done backup on a destination beyond the newest $keep in the scoped set. */
+    private function pruneWindow(string $disk, int $keep, callable $scope): void
+    {
+        $destination = DestinationFactory::make($disk);
+
         Backup::where('status', 'done')
-            ->where('trigger', '!=', 'import')
-            ->where('disk', $backup->disk)
+            ->where('disk', $disk)
+            ->tap(fn ($q) => $scope($q))
             ->orderByDesc('id')
-            ->skip($retention)
+            ->skip($keep)
             ->take(PHP_INT_MAX)
             ->get()
             ->each(function (Backup $old) use ($destination) {

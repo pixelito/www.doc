@@ -126,6 +126,19 @@ class RestoreService
         if ($zip->open($local) !== true) {
             throw new \RuntimeException('Could not open backup archive.');
         }
+
+        // Zip-slip guard: refuse entries that could land outside $work. Our own
+        // archives never contain such names, but imported ones are arbitrary
+        // uploads — a `../` or absolute entry must not overwrite app files.
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (str_starts_with($name, '/') || str_starts_with($name, '\\')
+                || str_contains($name, '..') || preg_match('/^[A-Za-z]:/', $name)) {
+                $zip->close();
+                throw new \RuntimeException("Archive contains an unsafe path ({$name}); refusing to extract.");
+            }
+        }
+
         $zip->extractTo($work);
         $zip->close();
         @unlink($local);

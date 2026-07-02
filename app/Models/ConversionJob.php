@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['document_id', 'direction', 'format', 'status', 'result_path', 'error'])]
+#[Fillable(['document_id', 'direction', 'format', 'status', 'result_path', 'error', 'created_by_id'])]
 class ConversionJob extends Model
 {
     /** @use HasFactory<\Database\Factories\ConversionJobFactory> */
@@ -30,5 +30,11 @@ class ConversionJob extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
+    }
+
+    /** The user who started the conversion (queue workers run unauthenticated). */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_id');
     }
 }

@@ -37,4 +37,30 @@ class RunBackupJob implements ShouldQueue
             throw $e;
         }
     }
+
+    /**
+     * Final-failure hook — covers deaths the catch never sees (the 600s timeout
+     * kills the worker, lost payload), so the row can't stay stuck in
+     * `processing` with the admin UI polling forever. The status guard keeps a
+     * failure the catch already recorded (and notified) from double-notifying.
+     */
+    public function failed(?Throwable $e): void
+    {
+        $backup = Backup::find($this->backupId);
+        if (! $backup || ! in_array($backup->status, ['pending', 'processing'], true)) {
+            return;
+        }
+
+        $backup->update([
+            'status'      => 'failed',
+            'error'       => $e?->getMessage() ?? 'The backup was interrupted.',
+            'finished_at' => now(),
+        ]);
+
+        try {
+            app(BackupNotifier::class)->notify($backup->refresh());
+        } catch (Throwable $notifyError) {
+            report($notifyError);
+        }
+    }
 }

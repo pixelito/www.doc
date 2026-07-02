@@ -16,6 +16,10 @@ class ExportController extends Controller
     /** Start an export — creates a ConversionJob and dispatches the queue job. */
     public function store(Request $request, Document $document): JsonResponse
     {
+        // Roles are global today, so 'view' can't fail for anyone who can
+        // create a ConversionJob — but exporting IS reading the document, so
+        // keep the boundary explicit for any future per-workspace scoping.
+        $this->authorize('view', $document);
         $this->authorize('create', ConversionJob::class);
 
         $data = $request->validate([

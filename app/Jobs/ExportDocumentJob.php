@@ -37,4 +37,20 @@ class ExportDocumentJob implements ShouldQueue
             throw $e;
         }
     }
+
+    /**
+     * Final-failure hook — covers deaths the catch never sees (timeout kills
+     * the worker, lost payload) so the row can't stay stuck in `processing`.
+     */
+    public function failed(?Throwable $e): void
+    {
+        $job = ConversionJob::find($this->conversionJobId);
+
+        if ($job && in_array($job->status, ['pending', 'processing'], true)) {
+            $job->update([
+                'status' => 'failed',
+                'error'  => $e?->getMessage() ?? 'The export was interrupted.',
+            ]);
+        }
+    }
 }

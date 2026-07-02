@@ -19,6 +19,10 @@ class DocumentController extends Controller
 {
     public function exportDiagram(Request $request)
     {
+        // Server-side render of a caller-supplied graph — viewer-level access,
+        // matching the app's convention that every action authorizes.
+        $this->authorize('viewAny', Document::class);
+
         $validated = $request->validate([
             'graph' => 'required|array',
             'name'  => 'nullable|string',
@@ -186,7 +190,15 @@ class DocumentController extends Controller
         $this->authorize('update', $document);
 
         $data = $request->validate([
-            'parent_id' => ['nullable', 'integer', 'exists:documents,id'],
+            // whereNull: `exists` alone counts soft-deleted rows, so a trashed
+            // parent would pass here and then Document::find() below (trashed
+            // excluded) would silently skip the workspace + cycle checks —
+            // leaving the page a live child of a trashed parent, invisible in
+            // every tree view.
+            'parent_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('documents', 'id')->whereNull('deleted_at'),
+            ],
             'workspace_id' => ['nullable', 'integer', 'exists:workspaces,id'],
             'position' => ['nullable', 'integer'],
             // Optional: the destination parent's full child order (page ids) so a
@@ -199,8 +211,15 @@ class DocumentController extends Controller
         $newWorkspaceId = $data['workspace_id'] ?? $document->workspace_id;
 
         if ($parentId !== null) {
+            // Fail rather than skip if the parent vanished between validation
+            // and here — proceeding would bypass the workspace/cycle checks.
             $parent = Document::find($parentId);
-            if ($parent && $parent->workspace_id !== (int) $newWorkspaceId) {
+            if (! $parent) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'The parent document no longer exists.',
+                ]);
+            }
+            if ($parent->workspace_id !== (int) $newWorkspaceId) {
                 throw ValidationException::withMessages([
                     'parent_id' => 'The parent document must belong to the destination workspace.',
                 ]);

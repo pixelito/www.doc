@@ -19,7 +19,7 @@ class DocxImporter implements ImporterContract
 {
     public function __construct(private readonly AssetStore $assetStore) {}
 
-    public function import(string $filePath): array
+    public function import(string $filePath, ?int $uploadedById = null): array
     {
         // PhpWord's reader checks numbering before heading style, so a *numbered*
         // heading (heading style + <w:numPr>, very common in technical docs) is
@@ -37,8 +37,11 @@ class DocxImporter implements ImporterContract
         $writer = IOFactory::createWriter($phpWord, 'HTML');
         $html   = $writer->getContent();
 
-        // Normalise inline styles + rehost embedded base64 images in one DOM pass
-        $html = $this->normalizeHtml($html, auth()->id() ?? 1);
+        // Normalise inline styles + rehost embedded base64 images in one DOM pass.
+        // The uploader rides the ConversionJob row (queue workers have no auth);
+        // a null user stores the assets unattributed rather than pinning them on
+        // an arbitrary account.
+        $html = $this->normalizeHtml($html, $uploadedById ?? auth()->id());
 
         // Strip the full HTML envelope; tiptap-php only wants the body content
         $body = $this->extractBody($html);
@@ -106,7 +109,7 @@ class DocxImporter implements ImporterContract
      * fails, silently dropping the underline mark. Trimming each declaration's
      * value fixes that for every style-based mark, not just underline.
      */
-    private function normalizeHtml(string $html, int $uploadedById): string
+    private function normalizeHtml(string $html, ?int $uploadedById): string
     {
         $dom = new DOMDocument();
         // Suppress malformed HTML warnings from PhpWord output

@@ -46,6 +46,20 @@ class RunScheduledBackup extends Command
             return self::SUCCESS;
         }
 
+        // Don't stack a second run on top of one still going. The 24h window
+        // self-heals if a row was ever stranded in-flight (the jobs' failed()
+        // hooks should prevent that, but a stuck row must not block forever).
+        $inFlight = Backup::where('trigger', 'scheduled')
+            ->whereIn('status', ['pending', 'processing'])
+            ->where('created_at', '>', now()->subDay())
+            ->exists();
+
+        if ($inFlight) {
+            $this->info('A scheduled backup is already running — skipping.');
+
+            return self::SUCCESS;
+        }
+
         $backup = Backup::create([
             'trigger' => 'scheduled',
             'disk'    => $settings['driver'] ?? 'local',

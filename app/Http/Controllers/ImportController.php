@@ -65,6 +65,9 @@ class ImportController extends Controller
             'format'      => $format,
             'status'      => 'pending',
             'result_path' => $uploadPath,
+            // The queue worker runs unauthenticated — carry the importer's id
+            // so assets extracted from the file are attributed to them.
+            'created_by_id' => Auth::id(),
         ]);
 
         ImportDocumentJob::dispatch($job->id);

@@ -319,11 +319,24 @@ class DocxExporter implements ExporterContract
             $svgFileIn = sys_get_temp_dir() . '/' . uniqid('svg_in_') . '.svg';
             $svgFileOut = sys_get_temp_dir() . '/' . uniqid('svg_out_') . '.svg';
             $pngFile = $svgFileOut . '_fallback.png';
-            
+
             file_put_contents($svgFileIn, $svg['svg']);
-            
-            shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile));
-            
+            // The out/png files must survive until $newZip->close() reads them;
+            // export() unlinks everything in $tempFiles afterwards.
+            array_push($this->tempFiles, $svgFileIn, $svgFileOut, $pngFile);
+
+            $output = shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile) . " 2>&1");
+
+            // A missing output means the Node pass died (e.g. the @resvg native
+            // binary for this platform isn't installed). Log it loudly — this
+            // used to fail silently, shipping DOCX exports with no diagram and
+            // nothing in the logs to explain why.
+            if (! file_exists($svgFileOut) || ! file_exists($pngFile)) {
+                \Illuminate\Support\Facades\Log::warning('DOCX export: process_svg.js produced no output; diagram omitted.', [
+                    'output' => trim((string) $output),
+                ]);
+            }
+
             if (file_exists($svgFileOut) && file_exists($pngFile)) {
                 $fallbackId = 'rIdFallback' . uniqid();
                 $relId = 'rIdSvg' . uniqid();
@@ -353,7 +366,10 @@ class DocxExporter implements ExporterContract
                     $width = $m[1] * 9525;
                     $height = $m[2] * 9525;
                     $uuid = $m[3];
-                    if (!isset($fallbackIds[$uuid])) return $m[0];
+                    // No rendered media for this diagram (Node pass failed) —
+                    // strip the marker rather than leave hidden junk text in
+                    // the document.
+                    if (!isset($fallbackIds[$uuid])) return '<w:t></w:t>';
                     $fallbackId = $fallbackIds[$uuid]['png'];
                     $relId = $fallbackIds[$uuid]['svg'];
                     return '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'.$width.'" cy="'.$height.'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'.rand(1000,9999).'" name="Diagram"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'.rand(1000,9999).'" name="Diagram"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'.$fallbackId.'"><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="'.$relId.'"/></a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'.$width.'" cy="'.$height.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>';

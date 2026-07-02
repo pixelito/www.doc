@@ -96,3 +96,31 @@ test('docx import preserves the underline mark', function () {
     expect($marked['bold'])->toContain('bold');
     expect($marked['italic'])->toContain('italic');
 });
+
+test('a failed import job marks the job failed and trashes the empty placeholder page', function () {
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+
+    $document = \App\Models\Document::factory()->create([
+        'workspace_id' => $workspace->id,
+        'title'        => 'Importing Broken File',
+        'content'      => ['type' => 'doc', 'content' => []],
+    ]);
+
+    $job = \App\Models\ConversionJob::create([
+        'document_id'   => $document->id,
+        'direction'     => 'import',
+        'format'        => 'docx',
+        'status'        => 'processing',
+        'result_path'   => 'imports/docx/missing.docx',
+        'created_by_id' => auth()->id(),
+    ]);
+
+    // Simulate the queue giving up (timeout / final failure).
+    (new \App\Jobs\ImportDocumentJob($job->id))->failed(new \RuntimeException('timed out'));
+
+    expect($job->fresh()->status)->toBe('failed');
+    // The empty "Importing …" placeholder is soft-deleted, not left in the tree.
+    expect(\App\Models\Document::find($document->id))->toBeNull();
+    expect(\App\Models\Document::withTrashed()->find($document->id))->not->toBeNull();
+});

@@ -78,21 +78,12 @@ class AssetController extends Controller
         // SSRF guard: only fetch public http(s) hosts. Without this an editor
         // could make the server hit internal targets it can reach but they
         // can't — cloud metadata (169.254.169.254), localhost Redis/Postgres,
-        // other services on the Docker network.
-        $ips = $this->assertPublicUrl($url);
+        // other services on the Docker network. fetchOptions() refuses
+        // redirects and pins the connection to the validated IPs (rebinding).
+        $ips = Ssrf::assertPublicUrl($url);
 
         $response = Http::timeout(10)
-            ->withOptions([
-                // Don't follow redirects: a 30x could point the fetch at an
-                // internal host that the up-front check never saw.
-                'allow_redirects' => false,
-                // Pin the connection to the IPs we just validated so the host
-                // can't re-resolve to an internal address between check and
-                // fetch (DNS rebinding). TLS still verifies the hostname.
-                'curl' => extension_loaded('curl')
-                    ? [CURLOPT_RESOLVE => Ssrf::resolvePin($url, $ips)]
-                    : [],
-            ])
+            ->withOptions(Ssrf::fetchOptions($url, $ips))
             ->get($url);
 
         abort_unless($response->successful(), 422, 'Failed to download image.');
@@ -141,41 +132,4 @@ class AssetController extends Controller
         ], 201);
     }
 
-    /**
-     * Reject a rehost URL unless it's an http(s) URL whose host resolves only
-     * to public IPs. Blocks the SSRF classics: loopback, link-local (cloud
-     * metadata), and private ranges, for both IPv4 and IPv6.
-     *
-     * Returns the validated public IPs so the caller can pin the connection to
-     * them (see Ssrf::resolvePin) and avoid a second, unchecked DNS lookup.
-     *
-     * @return string[]
-     */
-    private function assertPublicUrl(string $url): array
-    {
-        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
-        abort_unless(in_array($scheme, ['http', 'https'], true), 422, 'Only http(s) image URLs are allowed.');
-
-        $host = parse_url($url, PHP_URL_HOST);
-        abort_if($host === null || $host === '', 422, 'Invalid image URL.');
-
-        // A bracketed/raw IP host is checked directly; a name is resolved to
-        // every A/AAAA record so one private answer can't sneak through.
-        $literal = trim($host, '[]');
-        $ips = filter_var($literal, FILTER_VALIDATE_IP)
-            ? [$literal]
-            : array_merge(
-                array_column(@dns_get_record($host, DNS_A) ?: [], 'ip'),
-                array_column(@dns_get_record($host, DNS_AAAA) ?: [], 'ipv6'),
-            );
-
-        abort_if(empty($ips), 422, 'Could not resolve the image host.');
-
-        foreach ($ips as $ip) {
-            $public = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
-            abort_unless($public !== false, 422, 'That host is not allowed.');
-        }
-
-        return $ips;
-    }
 }

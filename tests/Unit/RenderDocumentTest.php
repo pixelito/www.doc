@@ -177,3 +177,31 @@ test('fromHtml parses HTML into a TipTap JSON structure', function () {
         ->and($textNodes[1]['marks'][0]['type'])->toBe('bold')
         ->and($textNodes[1]['text'])->toBe('bold');
 });
+
+test('resolveImageToDataUri embeds an image that lives on the public disk', function () {
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    $dir = storage_path('app/public/assets');
+    @mkdir($dir, 0777, true);
+    $abs = "{$dir}/embed-test.png";
+    file_put_contents($abs, $png);
+
+    try {
+        expect(RenderDocument::resolveImageToDataUri('/storage/assets/embed-test.png'))
+            ->toStartWith('data:image/');
+    } finally {
+        @unlink($abs);
+    }
+});
+
+test('resolveImageToDataUri refuses a /storage path that escapes the public disk', function () {
+    // A ../ traversal out of storage/app/public must not be read — it returns
+    // the neutral placeholder instead of the file's bytes.
+    expect(RenderDocument::resolveImageToDataUri('/storage/../private/secret.txt'))
+        ->toBe(RenderDocument::UNAVAILABLE_IMAGE);
+});
+
+test('resolveImageToDataUri refuses a private/link-local host (ssrf guard)', function () {
+    // Cloud metadata endpoint — the guard rejects it, so export never fetches it.
+    expect(RenderDocument::resolveImageToDataUri('http://169.254.169.254/latest/meta-data/'))
+        ->toBe(RenderDocument::UNAVAILABLE_IMAGE);
+});

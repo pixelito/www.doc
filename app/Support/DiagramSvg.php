@@ -36,6 +36,18 @@ class DiagramSvg
     /** @var array<string,string>|null  kind => Tabler icon inner SVG */
     private static ?array $icons = null;
 
+    /** @var array{0:string,1:string}|null  base64 Lexend regular + bold, read once per process */
+    private static ?array $fonts = null;
+
+    /** @return array{0:string,1:string} */
+    private static function fonts(): array
+    {
+        return self::$fonts ??= [
+            base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf'))),
+            base64_encode(file_get_contents(base_path('fonts/Lexend-Bold.ttf'))),
+        ];
+    }
+
     /**
      * @return array{svg:string,width:int,height:int}|null  null for an empty graph.
      */
@@ -282,8 +294,9 @@ class DiagramSvg
         $a2 = $pts[1];
 
         // For label positioning, we find the middle segment
-        $lx = $pts[count($pts) / 2][0] ?? ($s['x'] + $t['x']) / 2;
-        $ly = $pts[count($pts) / 2][1] ?? ($s['y'] + $t['y']) / 2;
+        $mid = intdiv(count($pts), 2);
+        $lx = $pts[$mid][0] ?? ($s['x'] + $t['x']) / 2;
+        $ly = $pts[$mid][1] ?? ($s['y'] + $t['y']) / 2;
 
         return [
             'd'  => self::roundedPath($pts, 8),
@@ -388,7 +401,9 @@ class DiagramSvg
                 continue;
             }
             $data  = $e['data'] ?? [];
-            $color = $data['color'] ?? '#8E938E';
+            // Edge colour is user-controlled graph JSON interpolated into SVG
+            // attributes — accept only a hex literal (mirrors nodeColor()).
+            $color = self::isHex($data['color'] ?? null) ? $data['color'] : '#8E938E';
             $s     = self::handle($box($sN), $e['sourceHandle'] ?? 'bottom');
             $t     = self::handle($box($tN), $e['targetHandle'] ?? 'top');
             $p     = self::edgePath($s, $t, $data['routing'] ?? 'curved');
@@ -445,8 +460,7 @@ class DiagramSvg
             }
         }
         
-        $lexendRegular = base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf')));
-        $lexendBold = base64_encode(file_get_contents(base_path('fonts/Lexend-Bold.ttf')));
+        [$lexendRegular, $lexendBold] = self::fonts();
 
         $styles = "<style>
             @font-face {

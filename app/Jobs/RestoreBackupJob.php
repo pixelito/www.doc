@@ -36,4 +36,20 @@ class RestoreBackupJob implements ShouldQueue
             throw $e;
         }
     }
+
+    /**
+     * Final-failure hook — covers deaths the catch never sees (the 600s timeout
+     * kills the worker), so `restore_status` can't stay stuck on `restoring`.
+     */
+    public function failed(?Throwable $e): void
+    {
+        $backup = Backup::find($this->backupId);
+
+        if ($backup && $backup->restore_status === 'restoring') {
+            $backup->update([
+                'restore_status' => 'failed',
+                'restore_error'  => $e?->getMessage() ?? 'The restore was interrupted.',
+            ]);
+        }
+    }
 }

@@ -7,7 +7,7 @@ use Smalot\PdfParser\Parser;
 
 class PdfImporter implements ImporterContract
 {
-    public function import(string $filePath): array
+    public function import(string $filePath, ?int $uploadedById = null): array
     {
         $parser = new Parser();
         $pdf    = $parser->parseFile($filePath);
