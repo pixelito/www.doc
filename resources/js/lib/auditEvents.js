@@ -1,0 +1,122 @@
+import {
+    IconDatabaseExport, IconFileText, IconFolders, IconHistory,
+    IconSettings, IconShieldLock, IconTrash, IconUsers,
+} from '@tabler/icons-react';
+
+/**
+ * Presentation layer for audit events: ONE row per event mapping the stable
+ * `subject.action` code to a human sentence, a tone, and a namespace icon.
+ *
+ * The raw code stays the contract (filters, exports, the DB) — this file only
+ * decides how it reads on the admin page. When adding an event via
+ * Audit::record(), add its row here (see .claude/rules/audit.md); unmapped
+ * events fall back to a humanized code with the neutral tone, so forgetting
+ * degrades gracefully instead of breaking.
+ *
+ * `text(context)` returns the phrase that follows the actor's name
+ * ("<Actor> edited "Runbook""). Entries with `actorless: true` are complete
+ * sentences on their own (unauthenticated or system-side events).
+ * `change(context)` yields optional from → to chips.
+ */
+
+const quoted = (s) => (s ? `“${s}”` : 'a page');
+
+function bytes(n) {
+    if (n == null) return null;
+    if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+    return `${n} B`;
+}
+
+const EVENTS = {
+    'document.created':          { tone: 'good',    text: (c) => `created ${quoted(c?.title)}` },
+    'document.updated':          { tone: 'neutral', text: (c) => `edited ${quoted(c?.title)}` },
+    'document.moved':            { tone: 'neutral', text: (c) => `moved ${quoted(c?.title)}` },
+    'document.trashed':          { tone: 'warning', text: (c) => `moved ${quoted(c?.title)} to the trash` },
+    'document.restored':         { tone: 'good',    text: (c) => `restored ${quoted(c?.title)} from the trash` },
+    'document.purged':           { tone: 'danger',  text: (c) => `permanently deleted ${quoted(c?.title)}` },
+    'document.version_restored': {
+        tone: 'good',
+        text: (c) => `restored ${quoted(c?.title)} to an earlier version${c?.version_date ? ` (${new Date(c.version_date).toLocaleDateString()})` : ''}`,
+    },
+
+    'workspace.created':       { tone: 'good',    text: (c) => `created the workspace ${quoted(c?.name)}` },
+    'workspace.renamed':       { tone: 'neutral', text: () => 'renamed a workspace', change: (c) => ({ from: c?.from, to: c?.to }) },
+    'workspace.restructured':  { tone: 'neutral', text: (c) => `reorganised the page tree in ${quoted(c?.name)}${c?.page_count ? ` (${c.page_count} pages)` : ''}` },
+    'workspace.trashed':       { tone: 'warning', text: (c) => `moved the workspace ${quoted(c?.name)} to the trash` },
+    'workspace.restored':      { tone: 'good',    text: (c) => `restored the workspace ${quoted(c?.name)}` },
+    'workspace.purged':        { tone: 'danger',  text: (c) => `permanently deleted the workspace ${quoted(c?.name)}` },
+
+    'trash.emptied': {
+        tone: 'danger',
+        text: (c) => `emptied the trash${c ? ` (${c.workspaces ?? 0} workspaces, ${c.documents ?? 0} pages)` : ''}`,
+    },
+
+    'user.created':      { tone: 'good',    text: (c) => `created the user ${c?.name ?? ''}${c?.role ? ` (${c.role})` : ''}` },
+    'user.role_changed': { tone: 'warning', text: (c) => `changed ${c?.name ?? 'a user'}’s role`, change: (c) => ({ from: c?.from, to: c?.to }) },
+    'user.deleted':      { tone: 'danger',  text: (c) => `deleted the user ${c?.name ?? ''}${c?.email ? ` (${c.email})` : ''}` },
+
+    'auth.login':            { tone: 'neutral', text: () => 'signed in' },
+    'auth.logout':           { tone: 'neutral', text: () => 'signed out' },
+    'auth.login_failed':     { tone: 'danger',  actorless: true, text: (c) => `Failed sign-in attempt for ${c?.email ?? 'an unknown email'}` },
+    'auth.password_changed': { tone: 'neutral', text: () => 'changed their password' },
+    'auth.password_reset':   { tone: 'neutral', text: () => 'reset their password via an email link' },
+
+    'settings.mail_updated':   { tone: 'warning', text: (c) => `updated the email (SMTP) settings${c?.host ? ` (${c.host})` : ''}` },
+    'settings.backup_updated': { tone: 'warning', text: () => 'updated the backup settings' },
+
+    'backup.requested':         { tone: 'neutral', text: () => 'started a manual backup' },
+    'backup.completed': {
+        tone: 'good',
+        text: (c) => `completed a ${c?.trigger === 'scheduled' ? 'scheduled ' : ''}backup${bytes(c?.size_bytes) ? ` (${bytes(c.size_bytes)})` : ''}`,
+    },
+    'backup.import_requested':  { tone: 'neutral', text: (c) => `uploaded a backup archive for import${c?.filename ? ` (${c.filename})` : ''}` },
+    'backup.imported':          { tone: 'good',    text: (c) => `imported a backup archive${c?.undecryptable ? ' (undecryptable — no key)' : ''}` },
+    'backup.restore_requested': { tone: 'warning', text: () => 'started a restore from a backup' },
+    'backup.restored':          { tone: 'warning', text: () => 'completed a backup restore' },
+    'backup.deleted':           { tone: 'danger',  text: (c) => `deleted a backup archive${c?.path ? ` (${c.path})` : ''}` },
+};
+
+const NAMESPACES = {
+    document:  { label: 'Documents',  Icon: IconFileText },
+    workspace: { label: 'Workspaces', Icon: IconFolders },
+    trash:     { label: 'Trash',      Icon: IconTrash },
+    user:      { label: 'Users',      Icon: IconUsers },
+    auth:      { label: 'Sign-ins',   Icon: IconShieldLock },
+    backup:    { label: 'Backups',    Icon: IconDatabaseExport },
+    settings:  { label: 'Settings',   Icon: IconSettings },
+};
+
+const TONE_CLASSES = {
+    danger:  'bg-danger-surface text-danger',
+    warning: 'bg-warning-surface text-warning-text',
+    good:    'bg-sage-100 text-sage-600',
+    neutral: 'bg-surface-hover text-text-secondary',
+};
+
+/** "workspace.restructured" → "Workspace restructured" (unmapped-event fallback). */
+function humanize(event) {
+    const [ns, action] = event.split('.');
+    const words = `${ns} ${(action ?? '').replaceAll('_', ' ')}`.trim();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Everything the row needs to render one event. */
+export function describeEvent(event, context) {
+    const entry = EVENTS[event];
+
+    return {
+        text: entry ? entry.text(context) : humanize(event),
+        actorless: entry?.actorless ?? !entry, // fallback sentences stand alone too
+        change: entry?.change?.(context) ?? null,
+        toneClass: TONE_CLASSES[entry?.tone] ?? TONE_CLASSES.neutral,
+    };
+}
+
+export function namespaceIcon(event) {
+    return NAMESPACES[event.split('.')[0]]?.Icon ?? IconHistory;
+}
+
+export function namespaceLabel(ns) {
+    return NAMESPACES[ns]?.label ?? ns.charAt(0).toUpperCase() + ns.slice(1);
+}

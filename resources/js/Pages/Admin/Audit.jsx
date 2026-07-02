@@ -1,33 +1,9 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { IconChevronLeft, IconChevronRight, IconHistory, IconSettings } from '@tabler/icons-react';
+import { IconArrowRight, IconChevronLeft, IconChevronRight, IconHistory } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { avatarStyle, initials } from '@/lib/avatar';
-
-// event namespace → badge tone. Everything content-ish is neutral; destructive
-// actions read as danger, auth as info-muted. Colors from the styleguide status table.
-const EVENT_TONES = {
-    danger:  ['document.purged', 'workspace.purged', 'trash.emptied', 'user.deleted', 'backup.deleted', 'auth.login_failed'],
-    warning: ['document.trashed', 'workspace.trashed', 'backup.restore_requested', 'backup.restored', 'user.role_changed'],
-    good:    ['document.restored', 'workspace.restored', 'document.version_restored', 'backup.completed', 'user.created'],
-};
-
-function eventTone(event) {
-    if (EVENT_TONES.danger.includes(event)) return 'bg-danger-surface text-danger';
-    if (EVENT_TONES.warning.includes(event)) return 'bg-warning-surface text-warning-text';
-    if (EVENT_TONES.good.includes(event)) return 'bg-sage-100 text-sage-600';
-    return 'bg-surface-hover text-text-secondary';
-}
-
-// A compact, human line out of the context blob — titles and old→new values.
-function contextLine(event, context) {
-    if (!context) return null;
-    if (context.from !== undefined && context.to !== undefined) {
-        const fmt = (v) => (typeof v === 'object' && v !== null ? `ws ${v.workspace_id ?? '—'}` : String(v ?? '—'));
-        return `${context.title ?? context.name ?? ''} · ${fmt(context.from)} → ${fmt(context.to)}`.trim();
-    }
-    return context.title ?? context.name ?? context.email ?? context.filename ?? context.path ?? null;
-}
+import { describeEvent, namespaceIcon, namespaceLabel } from '@/lib/auditEvents';
 
 function formatDate(iso) {
     const d = new Date(iso);
@@ -81,7 +57,7 @@ export default function Audit() {
 
                         <FilterSelect value={filters.event} onChange={(v) => applyFilters({ event: v })}>
                             <option value="">All events</option>
-                            {eventTypes.map((ns) => <option key={ns} value={ns} className="capitalize">{ns}</option>)}
+                            {eventTypes.map((ns) => <option key={ns} value={ns}>{namespaceLabel(ns)}</option>)}
                         </FilterSelect>
 
                         <FilterSelect value={filters.workspace} onChange={(v) => applyFilters({ workspace: v })}>
@@ -114,34 +90,50 @@ export default function Audit() {
                         </div>
                     ) : (
                         <div className="divide-y divide-border">
-                            {events.data.map((event) => (
-                                <div key={event.id} className="flex items-center gap-3 px-4 py-2.5">
-                                    <div
-                                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${event.user ? '' : 'bg-surface-hover text-text-tertiary'}`}
-                                        style={event.user ? avatarStyle(event.user.avatar_color) : undefined}
-                                        title={event.user?.name ?? 'System'}
-                                    >
-                                        {event.user
-                                            ? initials(event.user.name)
-                                            : <IconSettings className="h-3.5 w-3.5" stroke={1.5} aria-hidden="true" />}
-                                    </div>
+                            {events.data.map((event) => {
+                                const { text, actorless, change, toneClass } = describeEvent(event.event, event.context);
+                                const NsIcon = namespaceIcon(event.event);
 
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${eventTone(event.event)}`}>
-                                                {event.event}
-                                            </span>
-                                            <span className="truncate text-sm text-foreground">
-                                                {contextLine(event.event, event.context)}
-                                            </span>
+                                return (
+                                    <div key={event.id} className="flex items-center gap-3 px-4 py-2.5">
+                                        <div
+                                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${event.user ? '' : 'bg-surface-hover text-text-tertiary'}`}
+                                            style={event.user ? avatarStyle(event.user.avatar_color) : undefined}
+                                            title={event.user?.name ?? 'System'}
+                                        >
+                                            {event.user
+                                                ? initials(event.user.name)
+                                                : <NsIcon className="h-3.5 w-3.5" stroke={1.5} aria-hidden="true" />}
                                         </div>
-                                        <p className="mt-0.5 text-xs text-text-tertiary">
-                                            {event.user?.name ?? 'System'} · {formatDate(event.created_at)}
-                                            {event.ip ? ` · ${event.ip}` : ''}
-                                        </p>
+
+                                        <div className="min-w-0 flex-1">
+                                            {/* Human sentence first; the actor is bold, the phrase comes from the event map. */}
+                                            <p className="truncate text-sm text-foreground">
+                                                {!actorless && (
+                                                    <span className="font-medium">{event.user?.name ?? 'System'} </span>
+                                                )}
+                                                {text}
+                                                {change && (change.from || change.to) && (
+                                                    <span className="ml-1.5 inline-flex items-center gap-1 align-middle text-xs">
+                                                        <span className="rounded-full bg-surface-hover px-1.5 py-0.5 text-text-secondary">{change.from ?? '—'}</span>
+                                                        <IconArrowRight className="h-3 w-3 text-text-tertiary" stroke={1.5} aria-hidden="true" />
+                                                        <span className="rounded-full bg-sage-100 px-1.5 py-0.5 text-sage-600">{change.to ?? '—'}</span>
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-text-tertiary">
+                                                {formatDate(event.created_at)}
+                                                {event.ip ? ` · ${event.ip}` : ''}
+                                            </p>
+                                        </div>
+
+                                        {/* The stable machine code — the contract auditors filter and quote by. */}
+                                        <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium ${toneClass}`}>
+                                            {event.event}
+                                        </span>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </CardContent>
