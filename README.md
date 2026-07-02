@@ -9,8 +9,9 @@
 ---
 
 **www.doc** is a documentation app. Paste fidelity from Word/HTML,
-screenshot-paste with image re-hosting, wiki-links and versioning, full-text search, and
-DOCX/PDF import &amp; export.
+screenshot-paste with image re-hosting, wiki-links and versioning, embedded network
+diagrams, full-text search, DOCX/PDF import &amp; export, encrypted automated backups,
+and an immutable audit trail.
 
 ## Features
 
@@ -23,16 +24,28 @@ DOCX/PDF import &amp; export.
   shows what references it.
 - **Versioning** — every content save snapshots a version you can view and restore;
   restoring is a full revert of content, title and tags.
+- **Concurrent-edit protection** — optimistic locking rejects a save whose base is
+  stale; a conflict dialog shows both versions and lets you reload theirs or
+  overwrite with yours. No more silent last-write-wins.
 - **Full-text search** — PostgreSQL FTS across pages, workspaces and tags, with
-  highlighted excerpts.
+  highlighted excerpts (diagram node labels are indexed too).
 - **Import & export** — DOCX/PDF import and export, run as background jobs.
+- **Page attachments** — attach arbitrary files to a page, listed in a per-page
+  panel; binaries ride along in backups.
 - **Workspaces & nesting** — a small fixed set of top-level workspaces; pages nest
   shallowly and can be re-parented by drag-and-drop.
 - **Tags** — cut across workspaces, attached polymorphically.
 - **Roles & admin** — admin / editor / viewer roles, a user-management admin area, and
   a Trash with restore/purge.
-- **Automated backups** — scheduled and manual full-system snapshots to local disk or SMB shares with optional XChaCha20-Poly1305 encryption.
-- **Web Setup Wizard** — smooth first-run configuration of admin account, instance name, and SMTP settings right from the browser.
+- **Audit & activity log** — an immutable, append-only trail of who changed, restored
+  or deleted what (content, users, settings, backups, logins), browsable in the admin
+  area with filters, and included in backups. Complements the NIS2 compliance story.
+- **Automated backups** — scheduled and manual full-system snapshots to local disk or
+  SMB shares, optional XChaCha20-Poly1305 encryption, email reports, archive import,
+  and a pre-restore safety snapshot before every restore.
+- **Web Setup Wizard** — smooth first-run configuration of admin account, instance
+  name, and SMTP settings right from the browser (the same SMTP config powers
+  password-reset emails and can be changed later in the admin area).
 
 ## Stack
 
@@ -40,7 +53,7 @@ DOCX/PDF import &amp; export.
 - **React 19** (JavaScript) + **shadcn/ui** + **Tailwind v4**.
 - **PostgreSQL 16** (`jsonb` content, `tsvector` search) + **Redis** (sessions, cache, queue).
 - **Laravel Queues** on Redis for all conversions and heavy work (the `worker` service).
-- **TipTap** (ProseMirror) editor; **Pest** test suite.
+- **TipTap** (ProseMirror) editor; **Pest** (backend) + **Playwright** (browser) test suites.
 
 TipTap JSON is the single source of truth for document content — HTML, DOCX, PDF and the
 search vector are all derived from it.
@@ -65,7 +78,7 @@ set of demo users across all roles, all with the password `password` — log in 
 
 Mailpit is included in the development stack to intercept outbound emails. You can access its local web UI at **http://localhost:8025** to view any test emails sent from the app.
 
-A dummy Samba server (`docsapp-samba-1`) is also included to allow testing SMB network share backups locally. You can configure backups to use the host `docsapp-samba-1`, share `backups`, username `smbuser`, and password `smbpassword`.
+A dummy Samba server is also included to allow testing SMB network share backups locally. Configure backups to use the host `samba` (the compose service name), share `backups`, username `smbuser`, and password `smbpassword`.
 
 Common commands:
 
@@ -85,10 +98,17 @@ docker compose exec app php artisan test                       # full suite
 docker compose exec app php artisan test --filter='wiki-links' # a single test
 ```
 
-CI runs the same suite on every push and pull request (see `.github/workflows/ci.yml`).
+Browser-only flows (the live editor, the diagram canvas, the concurrent-edit
+conflict dialog, backup import) are covered by Playwright end-to-end tests in
+`tests/e2e/`. CI runs them against the freshly built production stack; locally,
+run them against the dev stack (the seeder's admin password differs from the
+CI default, hence the override):
 
-The network-diagram capture path runs only in a real browser, so it's covered by
-a manual checklist instead — see [`docs/network-diagram-smoke-test.md`](docs/network-diagram-smoke-test.md).
+```bash
+E2E_PASSWORD=password APP_URL=http://localhost:8000 npx playwright test
+```
+
+CI runs both suites on every push and pull request (see `.github/workflows/ci.yml`).
 
 ## Install (production)
 
@@ -109,14 +129,35 @@ The `docker-compose.prod.yml` enforces JSON file log rotation (`max-size: 10m`, 
 
 ### Maintenance
 
-Unreferenced image uploads (e.g. an image pasted then deleted before saving) can be swept
-with `php artisan assets:prune` (`--dry-run` to preview, `--hours=N` to tune the grace
-window). It's registered on a daily schedule that both stacks run automatically via their
-`scheduler` service, and it's safe to run by hand any time.
+The `scheduler` service runs the housekeeping commands automatically; all of them are
+also safe to run by hand:
+
+- `php artisan assets:prune` — sweeps unreferenced image uploads (e.g. an image pasted
+  then deleted before saving). `--dry-run` to preview, `--hours=N` to tune the grace
+  window. Daily.
+- `php artisan audit:prune` — drops audit events past the retention window (365 days by
+  default; `--days=N` or the `audit.retention_days` setting to change it). This is the
+  one sanctioned way audit rows are ever deleted. Daily.
+- `php artisan backup:run` — takes a backup if the admin-configured cadence has
+  elapsed. Checked hourly; the command itself is the gate, so it's a no-op when
+  backups are disabled or not yet due.
 
 ## Backups & Encryption
 
 The app features a built-in backup engine that snapshots your Postgres database and all local uploads into a single `.zip` file. You can configure scheduled or manual backups directly from the **Settings > Backups** UI, and route them to the local disk or an external SMB network share.
+
+Each archive holds two layers: a **canonical** layer (the full content model as
+JSON/NDJSON plus every asset and attachment binary — the authoritative restore source,
+integrity-checked against per-file SHA-256s) and a **readable** layer (a PDF per page,
+foldered by tree, for humans and auditors). Restores always rebuild from the canonical
+layer, take a safety snapshot of the current state first, and abort if that snapshot
+can't be written. The audit trail travels inside every archive and is *merged* on
+restore — never wiped — so restoring an old backup can't erase newer audit history.
+
+You can also **import** an archive from file (e.g. from another instance). Encrypted
+archives prompt for the key; a wrong or missing key still registers the archive, flagged
+as undecryptable. After each unattended run the app emails a success/failure report (or
+shows a persistent in-app notice when mail is off or fails).
 
 ### Encrypted Backups
 If you configure an encryption key, backups are encrypted at-rest using military-grade **XChaCha20-Poly1305** stream encryption (via `libsodium`) before they are written to disk.
@@ -141,10 +182,12 @@ docker compose exec app php artisan backup:decrypt /path/to/your/backup.zip.enc 
 - `app/Services/RenderDocument.php` — the one and only TipTap-JSON ↔ HTML renderer and parser.
 - `resources/js/components/editor/TipTapEditor.jsx` — the frontend editor schema (must be kept in sync with `RenderDocument`'s extension list).
 - `app/Services/Importers` / `Exporters` — DOCX/PDF conversion (queued jobs).
-- `app/Services/Backup` — the backup engine, snapshotting, encryption, and restoration logic.
+- `app/Services/Backup` — the backup engine, snapshotting, encryption, import, and restoration logic.
+- `app/Support/Audit.php` — the single entry point that writes the append-only audit trail.
 - `app/Support/SearchVector.php` — the single SQL definition for PostgreSQL full-text search vectors.
 - `app/Support/DiagramSvg.php` & `process_svg.js` — server-side SVG generation and Node-based processing for network diagrams.
 - `resources/js/Pages` — Inertia React pages (PascalCase folders).
+- `tests/Feature` / `tests/Unit` — the Pest suite; `tests/e2e` — Playwright browser tests.
 
 ## License
 
