@@ -1,52 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { createDoc } from './helpers';
 
 test.describe('Document and Workspace Management', () => {
-  test('user can view workspaces, create a document, type, and export', async ({ page }) => {
-    // Navigate to workspaces
-    await page.goto('/workspaces');
-    await expect(page).toHaveTitle(/www\.doc/i);
-    await expect(page.getByTitle(/Admin User/i)).toBeVisible();
-    
-    // Check if E2E Test Workspace exists. If so, click it. Otherwise, create it.
-    const existingWorkspace = page.getByText('E2E Test Workspace').first();
-    if (await existingWorkspace.isVisible()) {
-      await existingWorkspace.click();
-    } else {
-      const newWorkspaceBtn = page.getByRole('button', { name: /New workspace/i }).first();
-      await newWorkspaceBtn.click();
-      
-      const nameInput = page.locator('#workspace-name');
-      await expect(nameInput).toBeVisible();
-      await nameInput.fill('E2E Test Workspace');
-      
-      const createBtn = page.getByRole('button', { name: 'Create workspace' });
-      await createBtn.click();
-    }
-    
-    // Verify we are inside the workspace
-    await expect(page.getByRole('heading', { name: 'E2E Test Workspace' })).toBeVisible();
-
-    // Create a new document in this workspace
-    // The "New page" button or the "+" icon next to "Pages"
-    const addSubpageBtn = page.getByTitle('Add subpage').first();
-    const newPageBtn = page.getByRole('button', { name: /New page/i }).first();
-    
-    if (await addSubpageBtn.isVisible()) {
-        await addSubpageBtn.click();
-    } else {
-        await newPageBtn.click();
-    }
-
-    // Title input has placeholder "e.g. VPN setup"
-    const titleInput = page.getByPlaceholder('e.g. VPN setup');
-    await expect(titleInput).toBeVisible();
-    
-    // Give it a unique name with timestamp to avoid duplicates
+  test('user can create a document, type, save, export, and see it audited', async ({ page }) => {
     const docTitle = `My E2E Document ${Date.now()}`;
-    await titleInput.fill(docTitle);
-    await page.getByRole('button', { name: 'Create page' }).click();
+    await createDoc(page, 'E2E Docs Workspace', docTitle);
 
-    // Now inside the document view
+    // Now inside the document view (edit mode)
     await expect(page.getByText(docTitle)).toBeVisible();
 
     // Type inside the editor
@@ -54,37 +14,30 @@ test.describe('Document and Workspace Management', () => {
     await expect(editor).toBeVisible();
     await editor.click();
     await page.keyboard.type('This is some E2E test content.');
+    await expect(editor).toContainText('This is some E2E test content.');
 
-    // Wait a brief moment to ensure state is registered
-    await page.waitForTimeout(500);
-
-    // Click "Save"
+    // Save → the page returns to read mode (Edit button visible again)
     await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
 
-    // Wait for the save request to complete
-    await page.waitForLoadState('networkidle');
-    
-    // Test export functionality
-    const exportBtn = page.getByRole('button', { name: /Export/i });
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      
-      // Select PDF and click Export in the modal
-      await page.getByText('PDF').click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Export' }).click();
-      
-      // Wait for it to become ready for download
-      const downloadBtn = page.getByRole('button', { name: 'Download file' });
-      // The generation can take some time
-      await expect(downloadBtn).toBeVisible({ timeout: 15000 });
-      
-      // Download the file
-      const downloadPromise = page.waitForEvent('download');
-      await downloadBtn.click();
-      const download = await downloadPromise;
-      
-      // Assert the filename is correct
-      expect(download.suggestedFilename()).toMatch(/\.pdf$/);
-    }
+    // Export to PDF. No conditional guard: if the button disappears from the
+    // UI this test must FAIL, not silently skip half its assertions.
+    await page.getByRole('button', { name: /Export/i }).click();
+    await page.getByText('PDF').click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Export' }).click();
+
+    // Generation is queued; wait for the download to become ready.
+    const downloadBtn = page.getByRole('button', { name: 'Download PDF' });
+    await expect(downloadBtn).toBeVisible({ timeout: 15000 });
+
+    const downloadPromise = page.waitForEvent('download');
+    await downloadBtn.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+
+    // The actions above landed in the audit trail (admin-only page).
+    await page.goto('/admin/audit');
+    await expect(page.getByText('document.created').first()).toBeVisible();
+    await expect(page.getByText('document.updated').first()).toBeVisible();
   });
 });
