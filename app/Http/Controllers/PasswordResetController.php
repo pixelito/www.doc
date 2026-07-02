@@ -67,6 +67,9 @@ class PasswordResetController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
+
+                // Actor is the user themself — the reset link proved ownership.
+                \App\Support\Audit::record('auth.password_reset', $user, [], $user->id);
             },
         );
 

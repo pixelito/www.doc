@@ -40,6 +40,8 @@ class ProfileController extends Controller
 
         Auth::user()->update(['password' => $request->input('password')]);
 
+        \App\Support\Audit::record('auth.password_changed', Auth::user());
+
         return back()->with('password_success', true);
     }
 }

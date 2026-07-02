@@ -30,6 +30,14 @@ class RestoreBackupJob implements ShouldQueue
         try {
             $service->restore($backup);
             $backup->update(['restore_status' => 'restored', 'restored_at' => now(), 'restore_error' => null]);
+
+            // System event (no session on the queue); the requesting admin was
+            // captured by backup.restore_requested. Recorded AFTER the restore
+            // transaction, so it survives the wipe it describes.
+            \App\Support\Audit::record('backup.restored', $backup, [
+                'trigger' => $backup->trigger,
+                'path'    => $backup->path,
+            ]);
         } catch (Throwable $e) {
             $backup->update(['restore_status' => 'failed', 'restore_error' => $e->getMessage()]);
             report($e);

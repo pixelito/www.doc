@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\Workspace;
+use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -59,6 +60,9 @@ class TrashController extends Controller
     {
         \Illuminate\Support\Facades\Gate::authorize('emptyTrash');
 
+        $workspaceCount = Workspace::onlyTrashed()->count();
+        $documentCount  = Document::onlyTrashed()->count();
+
         Workspace::onlyTrashed()->get()->each->forceDeleteWithDocuments();
 
         Document::onlyTrashed()->get()->each(function (Document $doc) {
@@ -67,6 +71,11 @@ class TrashController extends Controller
                 $doc->forceDeleteSubtree();
             }
         });
+
+        Audit::record('trash.emptied', null, [
+            'workspaces' => $workspaceCount,
+            'documents'  => $documentCount,
+        ]);
 
         return back()->with('success', 'Trash emptied.');
     }
@@ -78,6 +87,8 @@ class TrashController extends Controller
 
         $doc->restoreSubtree();
 
+        Audit::record('document.restored', $doc, ['title' => $doc->title]);
+
         return back()->with('success', "Restored \"{$doc->title}\".");
     }
 
@@ -87,7 +98,15 @@ class TrashController extends Controller
         $this->authorize('forceDelete', $doc);
 
         $title = $doc->title;
+        $workspaceId = $doc->workspace_id;
         $doc->forceDeleteSubtree();
+
+        // Subject is gone — keep its identity in the context snapshot.
+        Audit::record('document.purged', null, [
+            'title'        => $title,
+            'document_id'  => $doc->getKey(),
+            'workspace_id' => $workspaceId,
+        ]);
 
         return back()->with('success', "Permanently deleted \"{$title}\".");
     }
@@ -99,6 +118,8 @@ class TrashController extends Controller
 
         $ws->restoreWithDocuments();
 
+        Audit::record('workspace.restored', $ws, ['name' => $ws->name]);
+
         return back()->with('success', "Restored \"{$ws->name}\".");
     }
 
@@ -109,6 +130,11 @@ class TrashController extends Controller
 
         $name = $ws->name;
         $ws->forceDeleteWithDocuments();
+
+        Audit::record('workspace.purged', null, [
+            'name'         => $name,
+            'workspace_id' => $ws->getKey(),
+        ]);
 
         return back()->with('success', "Permanently deleted \"{$name}\".");
     }

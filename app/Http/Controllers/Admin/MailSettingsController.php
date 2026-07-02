@@ -28,7 +28,14 @@ class MailSettingsController extends Controller
 
     public function update(MailSettingsRequest $request): RedirectResponse
     {
-        MailSettings::save($request->validated());
+        $validated = $request->validated();
+        MailSettings::save($validated);
+
+        // Connection endpoint only — never credentials — in the audit snapshot.
+        \App\Support\Audit::record('settings.mail_updated', null, [
+            'host' => $validated['host'] ?? null,
+            'port' => $validated['port'] ?? null,
+        ]);
 
         return back()->with('success', 'Email settings saved.');
     }

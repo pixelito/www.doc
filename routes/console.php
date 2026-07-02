@@ -14,6 +14,10 @@ Artisan::command('inspire', function () {
 Schedule::command('assets:prune')->daily();
 Schedule::command('model:prune', ['--model' => [\App\Models\ConversionJob::class]])->daily();
 
+// Audit-trail retention: drop events past the window (365 days by default,
+// `audit.retention_days` setting) — the one sanctioned delete path.
+Schedule::command('audit:prune')->daily();
+
 // Run a backup if the admin-configured cadence has elapsed. Checked hourly so
 // any chosen interval (24h / 48h / weekly) fires close to on time; the command
 // itself is the gate, so this stays cheap when backups are disabled or not due.

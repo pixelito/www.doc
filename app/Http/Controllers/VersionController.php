@@ -62,6 +62,14 @@ class VersionController extends Controller
         $document->content = $version->content;
         $document->save();
 
+        // The save above also logs document.updated; this event carries the
+        // intent (which snapshot was restored) for the audit trail.
+        \App\Support\Audit::record('document.version_restored', $document, [
+            'title'        => $document->title,
+            'version_id'   => $version->id,
+            'version_date' => $version->created_at->toIso8601String(),
+        ]);
+
         return redirect()->route('documents.show', $document)
             ->with('success', "Restored to version from {$version->created_at->diffForHumans()}.");
     }

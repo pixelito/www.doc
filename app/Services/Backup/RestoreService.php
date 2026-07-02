@@ -67,6 +67,10 @@ class RestoreService
                 // Attachments reference documents, so they go in after them.
                 $this->insert('attachments', $this->scrubUsers($this->jsonArray($work, 'attachments'), ['uploaded_by_id']));
 
+                // Audit trail is append-only even across restores: never wiped,
+                // archive rows are MERGED in (insert-missing by id).
+                $this->mergeAuditEvents($work);
+
                 $this->resyncSequences();
             });
 
@@ -250,10 +254,44 @@ class RestoreService
         }
     }
 
+    /**
+     * Merge the archive's audit trail into the live one. The live table is NOT
+     * wiped (see wipe()) — a restore must never erase audit history recorded
+     * after the backup was taken. Rows are matched by id: on the same instance
+     * ids are stable (the sequence only climbs), so a missing id means the row
+     * was recorded before this instance's trail began (e.g. an imported archive).
+     */
+    private function mergeAuditEvents(string $work): void
+    {
+        $batch = [];
+
+        $flush = function () use (&$batch) {
+            if (! $batch) {
+                return;
+            }
+            $existing = array_flip(
+                DB::table('audit_events')->whereIn('id', array_column($batch, 'id'))->pluck('id')->all(),
+            );
+            $missing = array_values(array_filter($batch, fn (array $row) => ! isset($existing[$row['id']])));
+            if ($missing) {
+                DB::table('audit_events')->insert($missing);
+            }
+            $batch = [];
+        };
+
+        foreach ($this->canonicalRows($work, 'audit_events') as $row) {
+            $batch[] = $this->encodeJsonColumns($this->nullMissingUsers($row, ['user_id']));
+            if (count($batch) >= 200) {
+                $flush();
+            }
+        }
+        $flush();
+    }
+
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments'] as $table) {
+        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'audit_events'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],

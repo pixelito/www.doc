@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Models\Asset;
 use App\Models\Attachment;
+use App\Models\AuditEvent;
 use App\Models\Backup;
 use App\Models\Document;
 use App\Models\DocumentVersion;
@@ -135,6 +136,13 @@ class BackupService
             DocumentVersion::lazyById(500)->map(fn (DocumentVersion $v) => $v->toArray()),
         );
 
+        // Compliance data rides along. Restore MERGES these (insert-missing by
+        // id) instead of wiping — the trail is append-only even across restores.
+        $auditEvents = $this->putNdjson(
+            "{$work}/canonical/audit_events.ndjson",
+            AuditEvent::lazyById(500)->map(fn (AuditEvent $e) => $e->toArray()),
+        );
+
         return [
             'workspaces' => $workspaces->count(),
             'documents'  => $documents,
@@ -144,6 +152,7 @@ class BackupService
             'users'      => $users->count(),
             'assets'     => $assets->count(),
             'attachments' => $attachments->count(),
+            'audit_events' => $auditEvents,
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Models\Backup;
 use App\Models\Setting;
 use App\Services\Backup\BackupNotifier;
 use App\Services\Backup\Destinations\DestinationFactory;
+use App\Support\Audit;
 use App\Support\BackupSettings;
 use App\Support\MailSettings;
 use Illuminate\Http\JsonResponse;
@@ -122,6 +123,15 @@ class BackupController extends Controller
 
         Setting::put('backup', $this->mergeSettings($validated));
 
+        // Operational knobs only — SMB/SMTP credentials never enter the trail.
+        Audit::record('settings.backup_updated', null, [
+            'enabled'    => (bool) $validated['enabled'],
+            'interval'   => $validated['interval'],
+            'retention'  => (int) $validated['retention'],
+            'driver'     => $validated['driver'],
+            'encryption' => (bool) $validated['encryption'],
+        ]);
+
         return back()->with('success', 'Backup settings saved.');
     }
 
@@ -148,6 +158,9 @@ class BackupController extends Controller
         ]);
 
         RunBackupJob::dispatch($backup->id);
+
+        // The human action is the request; the queued job logs the completion.
+        Audit::record('backup.requested', $backup);
 
         // No flash: the in-progress modal signals the start, and the page toasts
         // once on completion. A "started" flash here would double up.
@@ -191,6 +204,10 @@ class BackupController extends Controller
         ]);
 
         ImportBackupJob::dispatch($backup->id, $stagingPath, $validated['key'] ?? null);
+
+        Audit::record('backup.import_requested', $backup, [
+            'filename' => $request->file('file')->getClientOriginalName(),
+        ]);
 
         return back();
     }
@@ -251,6 +268,8 @@ class BackupController extends Controller
         $backup->update(['restore_status' => 'restoring', 'restore_error' => null, 'restored_at' => null]);
         RestoreBackupJob::dispatch($backup->id);
 
+        Audit::record('backup.restore_requested', $backup);
+
         return back();
     }
 
@@ -262,6 +281,12 @@ class BackupController extends Controller
             DestinationFactory::make($backup->disk)->delete($backup->path);
         }
         $backup->delete();
+
+        Audit::record('backup.deleted', null, [
+            'backup_id' => $backup->id,
+            'trigger'   => $backup->trigger,
+            'path'      => $backup->path,
+        ]);
 
         return back()->with('success', 'Backup deleted.');
     }

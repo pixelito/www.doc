@@ -37,6 +37,10 @@ class ImportBackupJob implements ShouldQueue
 
         try {
             $importer->import($backup, $this->stagingPath, $this->key);
+
+            \App\Support\Audit::record('backup.imported', $backup, [
+                'undecryptable' => (bool) ($backup->refresh()->manifest['encryption']['undecryptable'] ?? false),
+            ], $backup->created_by_id);
         } catch (Throwable $e) {
             // A bad upload (not a www.doc archive, unreadable zip) is a user-data
             // error recorded on the row for the UI — not an infra fault to retry,

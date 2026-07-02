@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditController as AdminAuditController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\MailSettingsController as AdminMailSettingsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -88,6 +89,9 @@ Route::middleware('auth')->group(function () {
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
         Route::post('backups/{backup}/acknowledge', [AdminBackupController::class, 'acknowledge'])->name('backups.acknowledge');
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
+
+        // Audit trail — read-only (events are created via App\Support\Audit only).
+        Route::get('audit', [AdminAuditController::class, 'index'])->name('audit.index');
     });
 
     // Document tree operations — declared before the resource so 'reorder'

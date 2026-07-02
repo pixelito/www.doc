@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Document;
 use App\Models\Link;
 use App\Services\RenderDocument;
+use App\Support\Audit;
 use App\Support\SearchVector;
 use App\Support\TipTap;
 use Illuminate\Support\Facades\Auth;
@@ -67,6 +68,16 @@ class DocumentObserver
         $this->syncLinks($document);
         $this->snapshotVersion($document, $html);
         $this->updateSearchVector($document);
+
+        // Observer-level so every edit path is covered (controllers, imports,
+        // restores). Structural moves bailed out above, so they never land here —
+        // they're audited as document.moved by their controllers instead.
+        Audit::record(
+            $document->wasRecentlyCreated ? 'document.created' : 'document.updated',
+            $document,
+            ['title' => $document->title],
+            Auth::id() ?? $document->updated_by_id ?? $document->created_by_id,
+        );
     }
 
     public function deleted(Document $document): void

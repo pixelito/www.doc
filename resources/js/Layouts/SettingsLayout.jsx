@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { IconUser, IconUsers, IconDatabaseExport, IconMail } from '@tabler/icons-react';
+import { IconUser, IconUsers, IconDatabaseExport, IconMail, IconHistory } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 
 // Thin wrapper over the single base layout — adds the settings tabs. Flash
@@ -11,6 +11,7 @@ const TABS = [
     { label: 'Users',   href: '/admin/users',         icon: IconUsers,          adminOnly: true },
     { label: 'Email',   href: '/admin/settings/mail', icon: IconMail,           adminOnly: true },
     { label: 'Backups', href: '/admin/backups',       icon: IconDatabaseExport, adminOnly: true },
+    { label: 'Audit',   href: '/admin/audit',         icon: IconHistory,        adminOnly: true },
 ];
 
 export default function SettingsLayout({ children }) {

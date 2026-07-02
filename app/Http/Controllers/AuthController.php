@@ -33,11 +33,17 @@ class AuthController extends Controller
             // A failed attempt counts toward the lockout; decays after 60s.
             RateLimiter::hit($throttleKey);
 
+            // Store the attempted email in context, never as the actor — the
+            // attempt is unauthenticated, whoever it claimed to be.
+            \App\Support\Audit::record('auth.login_failed', null, ['email' => $credentials['email']]);
+
             return back()->withErrors(['email' => 'These credentials do not match our records.']);
         }
 
         RateLimiter::clear($throttleKey);
         $request->session()->regenerate();
+
+        \App\Support\Audit::record('auth.login', $request->user());
 
         return redirect()->intended(route('workspaces.index'));
     }
@@ -58,6 +64,8 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        \App\Support\Audit::record('auth.logout', $request->user());
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

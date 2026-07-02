@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -54,6 +55,12 @@ class UserController extends Controller
         ]);
         $user->assignRole($validated['role']);
 
+        Audit::record('user.created', $user, [
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $validated['role'],
+        ]);
+
         return back()->with('success', 'User created.');
     }
 
@@ -68,7 +75,16 @@ class UserController extends Controller
             return back()->with('error', 'There must be at least one admin.');
         }
 
+        $previousRole = $user->getRoleNames()->first();
         $user->syncRoles([$validated['role']]);
+
+        if ($previousRole !== $validated['role']) {
+            Audit::record('user.role_changed', $user, [
+                'name' => $user->name,
+                'from' => $previousRole,
+                'to'   => $validated['role'],
+            ]);
+        }
 
         return back()->with('success', 'Role updated.');
     }
@@ -82,6 +98,14 @@ class UserController extends Controller
         if ($this->isLastAdmin($user)) {
             return back()->with('error', 'There must be at least one admin.');
         }
+
+        // Snapshot identity in context: the FK on any of their past events is
+        // about to be scrubbed to NULL by the delete cascade.
+        Audit::record('user.deleted', null, [
+            'user_id' => $user->id,
+            'name'    => $user->name,
+            'email'   => $user->email,
+        ]);
 
         $user->delete();
 

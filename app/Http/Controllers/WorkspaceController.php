@@ -6,6 +6,7 @@ use App\Http\Requests\StoreWorkspaceRequest;
 use App\Http\Requests\UpdateWorkspaceRequest;
 use App\Models\Document;
 use App\Models\Workspace;
+use App\Support\Audit;
 use App\Support\BulkReorder;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
@@ -78,6 +79,8 @@ class WorkspaceController extends Controller
 
         $workspace = Workspace::create($request->validated());
 
+        Audit::record('workspace.created', $workspace, ['name' => $workspace->name]);
+
         return redirect()->route('workspaces.show', $workspace);
     }
 
@@ -85,7 +88,12 @@ class WorkspaceController extends Controller
     {
         $this->authorize('update', $workspace);
 
+        $oldName = $workspace->name;
         $workspace->update($request->validated());
+
+        if ($workspace->wasChanged('name')) {
+            Audit::record('workspace.renamed', $workspace, ['from' => $oldName, 'to' => $workspace->name]);
+        }
 
         return back();
     }
@@ -95,6 +103,8 @@ class WorkspaceController extends Controller
         $this->authorize('delete', $workspace);
 
         $workspace->trashWithDocuments();
+
+        Audit::record('workspace.trashed', $workspace, ['name' => $workspace->name]);
 
         return redirect()->route('workspaces.index')
             ->with('success', "Moved \"{$workspace->name}\" to trash.");

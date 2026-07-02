@@ -170,6 +170,9 @@ class DocumentController extends Controller
         $workspace = $document->workspace;
         $document->trashSubtree();
 
+        // One event per user action — not one per cascaded subtree page.
+        \App\Support\Audit::record('document.trashed', $document, ['title' => $document->title]);
+
         return redirect()->route('workspaces.show', $workspace)
             ->with('success', "Moved \"{$document->title}\" to trash.");
     }
@@ -232,6 +235,8 @@ class DocumentController extends Controller
             }
         }
         $workspaceChanged = $newWorkspaceId !== $document->workspace_id;
+        $parentChanged = $parentId !== $document->parent_id;
+        $movedFrom = ['workspace_id' => $document->workspace_id, 'parent_id' => $document->parent_id];
 
         $document->parent_id = $parentId;
         $document->workspace_id = $newWorkspaceId;
@@ -243,6 +248,16 @@ class DocumentController extends Controller
         // A cross-workspace move must carry the whole subtree along.
         if ($workspaceChanged) {
             $document->moveSubtreeToWorkspace($newWorkspaceId);
+        }
+
+        // Re-parenting and cross-workspace moves are audited; pure sibling
+        // reordering (position only) is layout noise and is not.
+        if ($workspaceChanged || $parentChanged) {
+            \App\Support\Audit::record('document.moved', $document, [
+                'title' => $document->title,
+                'from'  => $movedFrom,
+                'to'    => ['workspace_id' => (int) $newWorkspaceId, 'parent_id' => $parentId],
+            ]);
         }
 
         // Normalise the destination siblings' positions to the given order.
@@ -306,6 +321,11 @@ class DocumentController extends Controller
 
         // Structural change only — one statement, and don't bump updated_at.
         BulkReorder::tree('documents', $nodes);
+
+        \App\Support\Audit::record('workspace.restructured', $workspace, [
+            'name'       => $workspace->name,
+            'page_count' => count($nodes),
+        ]);
 
         return back();
     }
