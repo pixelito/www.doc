@@ -58,6 +58,23 @@ it('rejects invalid format', function () {
         ->assertStatus(422);
 });
 
+it('renders a real PDF and builds the font cache under storage, not vendor', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    login();
+    $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->create(['workspace_id' => $workspace->id]);
+
+    $path = app(\App\Services\Exporters\PdfExporter::class)->export($document);
+
+    expect(\Illuminate\Support\Facades\Storage::disk('local')->get($path))->toStartWith('%PDF');
+
+    // Dompdf INSTALLS the @font-face fonts on first render. The install must
+    // land in the www-data-writable storage dir — its vendor/ default broke
+    // every prod export with "Permission denied" (the worker can't write
+    // vendor/), while dev, running privileged, never noticed.
+    expect(glob(storage_path('fonts/dompdf/lexend_*')))->not->toBeEmpty();
+});
+
 it('guests cannot create exports', function () {
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->create(['workspace_id' => $workspace->id]);

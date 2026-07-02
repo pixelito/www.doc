@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Services\RenderDocument;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
 class PdfExporter implements ExporterContract
@@ -20,6 +21,17 @@ class PdfExporter implements ExporterContract
         $options->setIsHtml5ParserEnabled(true);
         $options->setDefaultFont('Lexend');
         $options->setDpi(96);
+
+        // Dompdf INSTALLS the @font-face fonts (TTF + metrics) into its font
+        // dir on first render. The default is inside vendor/, which the prod
+        // worker (www-data) cannot write — every prod PDF export died with
+        // "Permission denied" on the .ufm. Cache under storage/ instead: it's
+        // www-data-owned and the shared app-storage volume, so the metrics
+        // are built once and reused across app/worker/scheduler.
+        $fontDir = storage_path('fonts/dompdf');
+        File::ensureDirectoryExists($fontDir);
+        $options->setFontDir($fontDir);
+        $options->setFontCache($fontDir);
 
         $pdf = new Dompdf($options);
         $pdf->loadHtml($html, 'UTF-8');
