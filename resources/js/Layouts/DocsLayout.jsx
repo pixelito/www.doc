@@ -29,6 +29,14 @@ const NAV_LINKS = [
     { label: 'Tags',       href: '/tags' },
 ];
 
+// Pages render DocsLayout inline (no persistent Inertia layout), so it
+// REMOUNTS on every cross-page navigation. This flag distinguishes the first
+// mount of a real browser page load (module evaluates fresh → false) from a
+// remount after an Inertia visit (module state survives → true), so the boot
+// toast effect below can't re-fire a flash the `success` listener already
+// showed — e.g. trash a workspace (Show → Index redirect) toasted twice.
+let bootFlashShown = false;
+
 // A backup notice is an error if the run failed OR its report email failed.
 function noticeIsError(n) {
     return n.status === 'failed' || !!n.report_error;
@@ -73,8 +81,11 @@ export default function DocsLayout({ children }) {
     }, []);
 
     // Cover flash present on the very first (non-Inertia) page load, which the
-    // `success` event above doesn't see.
+    // `success` event above doesn't see. Guarded so it runs once per BROWSER
+    // load, not once per layout remount (see bootFlashShown above).
     useEffect(() => {
+        if (bootFlashShown) return;
+        bootFlashShown = true;
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -216,3 +216,20 @@ test('audit:prune respects the retention_days setting', function () {
 
     expect(AuditEvent::count())->toBe(0);
 });
+
+test('audit event ip accessor normalizes mapped ipv4 and localhost addresses', function () {
+    $event1 = new AuditEvent(['ip' => '::1']);
+    expect($event1->ip)->toBe('127.0.0.1');
+
+    $event2 = new AuditEvent(['ip' => '::ffff:192.168.1.5']);
+    expect($event2->ip)->toBe('192.168.1.5');
+
+    $event3 = new AuditEvent(['ip' => '2a01:4b00:8a1a:2800:1999:1212:1222:2']);
+    expect($event3->ip)->toBe('2a01:4b00:8a1a:2800:1999:1212:1222:2');
+
+    $event4 = new AuditEvent(['ip' => '10.0.0.1']);
+    expect($event4->ip)->toBe('10.0.0.1');
+
+    $event5 = new AuditEvent(['ip' => null]);
+    expect($event5->ip)->toBeNull();
+});

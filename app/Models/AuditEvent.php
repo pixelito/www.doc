@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -24,6 +25,24 @@ class AuditEvent extends Model
             'context'    => 'array',
             'created_at' => 'datetime',
         ];
+    }
+
+    protected function ip(): Attribute
+    {
+        $normalizeIp = function (?string $value) {
+            if ($value === '::1') {
+                return '127.0.0.1';
+            }
+            if ($value !== null && str_starts_with($value, '::ffff:')) {
+                return substr($value, 7);
+            }
+            return $value;
+        };
+
+        return Attribute::make(
+            get: $normalizeIp,
+            set: $normalizeIp
+        );
     }
 
     protected static function booted(): void

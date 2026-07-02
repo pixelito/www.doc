@@ -3,7 +3,7 @@ import { IconArrowRight, IconChevronLeft, IconChevronRight, IconHistory } from '
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { avatarStyle, initials } from '@/lib/avatar';
-import { describeEvent, namespaceIcon, namespaceLabel } from '@/lib/auditEvents';
+import { describeEvent, namespaceIcon, namespaceLabel } from '@/lib/auditEvents.jsx';
 
 function formatDate(iso) {
     const d = new Date(iso);

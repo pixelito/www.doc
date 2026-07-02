@@ -19,7 +19,7 @@ import {
  * `change(context)` yields optional from → to chips.
  */
 
-const quoted = (s) => (s ? `“${s}”` : 'a page');
+const quoted = (s) => (s ? <span className="font-medium">“{s}”</span> : <span className="font-medium">a page</span>);
 
 function bytes(n) {
     if (n == null) return null;
@@ -29,52 +29,52 @@ function bytes(n) {
 }
 
 const EVENTS = {
-    'document.created':          { tone: 'good',    text: (c) => `created ${quoted(c?.title)}` },
-    'document.updated':          { tone: 'neutral', text: (c) => `edited ${quoted(c?.title)}` },
-    'document.moved':            { tone: 'neutral', text: (c) => `moved ${quoted(c?.title)}` },
-    'document.trashed':          { tone: 'warning', text: (c) => `moved ${quoted(c?.title)} to the trash` },
-    'document.restored':         { tone: 'good',    text: (c) => `restored ${quoted(c?.title)} from the trash` },
-    'document.purged':           { tone: 'danger',  text: (c) => `permanently deleted ${quoted(c?.title)}` },
+    'document.created':          { tone: 'good',    text: (c) => <>created {quoted(c?.title)}</> },
+    'document.updated':          { tone: 'neutral', text: (c) => <>edited {quoted(c?.title)}</> },
+    'document.moved':            { tone: 'neutral', text: (c) => <>moved {quoted(c?.title)}</> },
+    'document.trashed':          { tone: 'warning', text: (c) => <>moved {quoted(c?.title)} to the trash</> },
+    'document.restored':         { tone: 'good',    text: (c) => <>restored {quoted(c?.title)} from the trash</> },
+    'document.purged':           { tone: 'danger',  text: (c) => <>permanently deleted {quoted(c?.title)}</> },
     'document.version_restored': {
         tone: 'good',
-        text: (c) => `restored ${quoted(c?.title)} to an earlier version${c?.version_date ? ` (${new Date(c.version_date).toLocaleDateString()})` : ''}`,
+        text: (c) => <>restored {quoted(c?.title)} to an earlier version{c?.version_date ? ` (${new Date(c.version_date).toLocaleDateString()})` : ''}</>,
     },
 
-    'workspace.created':       { tone: 'good',    text: (c) => `created the workspace ${quoted(c?.name)}` },
+    'workspace.created':       { tone: 'good',    text: (c) => <>created the workspace {quoted(c?.name)}</> },
     'workspace.renamed':       { tone: 'neutral', text: () => 'renamed a workspace', change: (c) => ({ from: c?.from, to: c?.to }) },
-    'workspace.restructured':  { tone: 'neutral', text: (c) => `reorganised the page tree in ${quoted(c?.name)}${c?.page_count ? ` (${c.page_count} pages)` : ''}` },
-    'workspace.trashed':       { tone: 'warning', text: (c) => `moved the workspace ${quoted(c?.name)} to the trash` },
-    'workspace.restored':      { tone: 'good',    text: (c) => `restored the workspace ${quoted(c?.name)}` },
-    'workspace.purged':        { tone: 'danger',  text: (c) => `permanently deleted the workspace ${quoted(c?.name)}` },
+    'workspace.restructured':  { tone: 'neutral', text: (c) => <>reorganised the page tree in {quoted(c?.name)}{c?.page_count ? ` (${c.page_count} pages)` : ''}</> },
+    'workspace.trashed':       { tone: 'warning', text: (c) => <>moved the workspace {quoted(c?.name)} to the trash</> },
+    'workspace.restored':      { tone: 'good',    text: (c) => <>restored the workspace {quoted(c?.name)}</> },
+    'workspace.purged':        { tone: 'danger',  text: (c) => <>permanently deleted the workspace {quoted(c?.name)}</> },
 
     'trash.emptied': {
         tone: 'danger',
-        text: (c) => `emptied the trash${c ? ` (${c.workspaces ?? 0} workspaces, ${c.documents ?? 0} pages)` : ''}`,
+        text: (c) => <>emptied the trash{c ? ` (${c.workspaces ?? 0} workspaces, ${c.documents ?? 0} pages)` : ''}</>,
     },
 
-    'user.created':      { tone: 'good',    text: (c) => `created the user ${c?.name ?? ''}${c?.role ? ` (${c.role})` : ''}` },
-    'user.role_changed': { tone: 'warning', text: (c) => `changed ${c?.name ?? 'a user'}’s role`, change: (c) => ({ from: c?.from, to: c?.to }) },
-    'user.deleted':      { tone: 'danger',  text: (c) => `deleted the user ${c?.name ?? ''}${c?.email ? ` (${c.email})` : ''}` },
+    'user.created':      { tone: 'good',    text: (c) => <>created the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.role ? ` (${c.role})` : ''}</> },
+    'user.role_changed': { tone: 'warning', text: (c) => <>changed {c?.name ? <span className="font-medium">{c.name}</span> : 'a user'}’s role</>, change: (c) => ({ from: c?.from, to: c?.to }) },
+    'user.deleted':      { tone: 'danger',  text: (c) => <>deleted the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.email ? ` (${c.email})` : ''}</> },
 
     'auth.login':            { tone: 'neutral', text: () => 'signed in' },
     'auth.logout':           { tone: 'neutral', text: () => 'signed out' },
-    'auth.login_failed':     { tone: 'danger',  actorless: true, text: (c) => `Failed sign-in attempt for ${c?.email ?? 'an unknown email'}` },
+    'auth.login_failed':     { tone: 'danger',  actorless: true, text: (c) => <>Failed sign-in attempt for {c?.email ? <span className="font-medium">{c.email}</span> : 'an unknown email'}</> },
     'auth.password_changed': { tone: 'neutral', text: () => 'changed their password' },
     'auth.password_reset':   { tone: 'neutral', text: () => 'reset their password via an email link' },
 
-    'settings.mail_updated':   { tone: 'warning', text: (c) => `updated the email (SMTP) settings${c?.host ? ` (${c.host})` : ''}` },
+    'settings.mail_updated':   { tone: 'warning', text: (c) => <>updated the email (SMTP) settings{c?.host ? <> (<span className="font-medium">{c.host}</span>)</> : ''}</> },
     'settings.backup_updated': { tone: 'warning', text: () => 'updated the backup settings' },
 
     'backup.requested':         { tone: 'neutral', text: () => 'started a manual backup' },
     'backup.completed': {
         tone: 'good',
-        text: (c) => `completed a ${c?.trigger === 'scheduled' ? 'scheduled ' : ''}backup${bytes(c?.size_bytes) ? ` (${bytes(c.size_bytes)})` : ''}`,
+        text: (c) => <>completed a {c?.trigger === 'scheduled' ? 'scheduled ' : ''}backup{bytes(c?.size_bytes) ? ` (${bytes(c.size_bytes)})` : ''}</>,
     },
-    'backup.import_requested':  { tone: 'neutral', text: (c) => `uploaded a backup archive for import${c?.filename ? ` (${c.filename})` : ''}` },
-    'backup.imported':          { tone: 'good',    text: (c) => `imported a backup archive${c?.undecryptable ? ' (undecryptable — no key)' : ''}` },
+    'backup.import_requested':  { tone: 'neutral', text: (c) => <>uploaded a backup archive for import{c?.filename ? <> (<span className="font-medium">{c.filename}</span>)</> : ''}</> },
+    'backup.imported':          { tone: 'good',    text: (c) => <>imported a backup archive{c?.undecryptable ? ' (undecryptable — no key)' : ''}</> },
     'backup.restore_requested': { tone: 'warning', text: () => 'started a restore from a backup' },
     'backup.restored':          { tone: 'warning', text: () => 'completed a backup restore' },
-    'backup.deleted':           { tone: 'danger',  text: (c) => `deleted a backup archive${c?.path ? ` (${c.path})` : ''}` },
+    'backup.deleted':           { tone: 'danger',  text: (c) => <>deleted a backup archive{c?.path ? <> (<span className="font-medium">{c.path}</span>)</> : ''}</> },
 };
 
 const NAMESPACES = {
