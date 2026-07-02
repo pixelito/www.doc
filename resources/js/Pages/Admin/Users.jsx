@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
-import { IconTrash, IconLoader2 } from '@tabler/icons-react';
+import { IconTrash, IconLoader2, IconInfoCircle } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
@@ -64,7 +65,25 @@ export default function Users() {
             <Card className="mb-6">
                 <CardHeader>
                     <CardTitle className="text-sm font-semibold text-foreground">Team members</CardTitle>
-                    <CardDescription>Manage who has access to this knowledge base.</CardDescription>
+                    <CardDescription className="flex items-center gap-1.5">
+                        Manage who has access to this knowledge base.
+                        <TooltipProvider>
+                            <Tooltip delayDuration={200}>
+                                <TooltipTrigger type="button" className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary focus:outline-none cursor-help">
+                                    <IconInfoCircle className="h-4 w-4" stroke={1.5} />
+                                </TooltipTrigger>
+                                <TooltipContent 
+                                    side="right" 
+                                    sideOffset={6}
+                                    className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[260px] text-[12px] leading-[1.5] space-y-2"
+                                >
+                                    <p><strong>Admin:</strong> Full access. Can delete content, manage settings, and handle backups.</p>
+                                    <p><strong>Editor:</strong> Can write and edit content. Cannot delete anything.</p>
+                                    <p><strong>Viewer:</strong> Read-only access.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="divide-y divide-border">

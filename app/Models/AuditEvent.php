@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use LogicException;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 /**
  * One row in the append-only audit trail. Immutable by construction: updates
  * and deletes throw. Retention pruning (`audit:prune`) bypasses the model via
@@ -17,6 +19,8 @@ use LogicException;
 #[Fillable(['user_id', 'event', 'auditable_type', 'auditable_id', 'workspace_id', 'context', 'ip', 'created_at'])]
 class AuditEvent extends Model
 {
+    /** @use HasFactory<\Database\Factories\AuditEventFactory> */
+    use HasFactory;
     public const UPDATED_AT = null;
 
     protected function casts(): array
