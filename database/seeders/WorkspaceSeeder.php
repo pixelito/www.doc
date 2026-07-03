@@ -1287,6 +1287,68 @@ class WorkspaceSeeder extends Seeder
                     ],
                 ],
             ],
+            // ── Feature Demo Workspace ────────────────────────────────────────────────────────
+            [
+                'name'        => 'Feature Demo & Testing',
+                'description' => 'A workspace designed to showcase all TipTap features, tables, marks, and test version diffing and trash.',
+                'position'    => 5,
+                'pages'       => [
+                    [
+                        'title'    => 'Complete Typography & Blocks',
+                        'position' => 1,
+                        'tags'     => ['demo'],
+                        'content'  => [
+                            ['type' => 'heading', 'level' => 1, 'text' => 'Rich Text Formatting'],
+                            ['type' => 'paragraph', 'spans' => [
+                                'This is ', ['text' => 'bold', 'bold' => true], ', ',
+                                ['text' => 'italic', 'italic' => true], ', ',
+                                ['text' => 'underline', 'underline' => true], ', and ',
+                                ['text' => 'strikethrough', 'strike' => true], '. We can also have ',
+                                ['text' => 'inline code', 'code' => true], ' and ',
+                                ['text' => 'colored text', 'color' => '#ef4444'], ' with ',
+                                ['text' => 'highlighting', 'highlight' => '#fef08a'], '. ',
+                                'Here is a ', ['text' => 'link to Google', 'link' => 'https://google.com'], '. ',
+                                'And here is an inline wiki link: ', ['wikiLink' => 'Architecture Overview'], '.',
+                            ]],
+                            ['type' => 'horizontalRule'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Tables'],
+                            ['type' => 'table', 'rows' => [
+                                ['Feature', 'Status', 'Notes'],
+                                ['Rich text', 'Working', 'All marks active'],
+                                ['Tables', 'Working', 'Basic row/col rendering'],
+                            ]],
+                            ['type' => 'horizontalRule'],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Alignment'],
+                            ['type' => 'paragraph', 'align' => 'center', 'spans' => [ 'Centered text' ]],
+                            ['type' => 'paragraph', 'align' => 'right', 'spans' => [ 'Right-aligned text' ]],
+                            ['type' => 'heading', 'level' => 2, 'text' => 'Lists'],
+                            ['type' => 'bulletList', 'items' => ['Bullet 1', ['text' => 'Bullet 2', 'sublist' => ['type' => 'orderedList', 'items' => ['Sub item 1', 'Sub item 2']]]]],
+                            ['type' => 'horizontalRule'],
+                            ['type' => 'blockquote', 'text' => 'This is a blockquote to show how quotes are rendered.'],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Version History Test Page',
+                        'position' => 2,
+                        'tags'     => ['demo'],
+                        'content'  => [
+                            'This is the initial version of the content. It will be updated shortly.',
+                            ['type' => 'table', 'rows' => [
+                                ['Initial', 'Data'],
+                                ['1', '2'],
+                            ]],
+                        ],
+                    ],
+                    [
+                        'title'    => 'Trashed Page',
+                        'position' => 3,
+                        'tags'     => ['demo'],
+                        'content'  => [
+                            'This page will be moved to the trash to test the Trash UI.',
+                        ],
+                    ],
+                ],
+            ],
         ];
 
         // ── Seeding logic ─────────────────────────────────────────────────────
@@ -1312,6 +1374,38 @@ class WorkspaceSeeder extends Seeder
                     $link->update(['target_document_id' => $target->id]);
                 }
             });
+
+        // ── Post-Seeding Actions (Version Updates & Trash) ─────────────────────
+        $this->command->info('Creating version updates and trashing documents...');
+        
+        $versionPage = Document::where('title', 'Version History Test Page')->first();
+        if ($versionPage) {
+            auth()->loginUsingId($authorIds[array_rand($authorIds)]);
+            $versionPage->update([
+                'title' => 'Version History Test Page (Updated)',
+                'content' => $this->buildContent([
+                    'This is the updated version of the content.',
+                    'A new line was added here.',
+                    ['type' => 'table', 'rows' => [
+                        ['Updated', 'Data', 'Extra'],
+                        ['1', '2', '3'],
+                    ]],
+                ])
+            ]);
+        }
+
+        $trashedPage = Document::where('title', 'Trashed Page')->first();
+        if ($trashedPage) {
+            auth()->loginUsingId($authorIds[array_rand($authorIds)]);
+            $trashedPage->delete();
+        }
+        
+        $trashedWorkspace = Workspace::create([
+            'name'        => 'Deleted Workspace',
+            'description' => 'This workspace was soft-deleted.',
+            'position'    => 99,
+        ]);
+        $trashedWorkspace->delete();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

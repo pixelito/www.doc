@@ -436,12 +436,20 @@
 
 /* Atomic media tokens: a swapped image renders old (ghosted) + new (outlined). */
 .diff-content del img {
+    display: block;
+    float: none !important;
+    clear: both;
+    margin: 0.5em 0;
     outline: 2px solid var(--diff-del-text);
     outline-offset: 2px;
     opacity: 0.55;
 }
 
 .diff-content ins img {
+    display: block;
+    float: none !important;
+    clear: both;
+    margin: 0.5em 0;
     outline: 2px solid var(--diff-add-text);
     outline-offset: 2px;
 }

@@ -232,13 +232,12 @@ export default function AttachmentsPanel({
                                     </>
                                 ) : (
                                     <>
-                                        <a
-                                            href={href}
-                                            className="flex min-w-0 flex-1 items-baseline gap-2 transition-colors hover:text-sage-700"
+                                        <div
+                                            className="flex min-w-0 flex-1 items-baseline gap-2"
                                         >
                                             <span className="truncate text-sm font-medium text-foreground">{att.original_name}</span>
                                             <span className="shrink-0 text-xs text-text-tertiary">{humanSize(att.size)}</span>
-                                        </a>
+                                        </div>
                                         <a
                                             href={href}
                                             title="Download"
