@@ -36,6 +36,9 @@ function SummaryBadges({ summary }) {
                     diagram
                 </span>
             )}
+            {summary.formatting_changed && (
+                <span className="text-text-tertiary">formatting</span>
+            )}
         </span>
     );
 }

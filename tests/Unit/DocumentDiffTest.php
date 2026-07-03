@@ -43,6 +43,38 @@ test('word-level body diff wraps changes in ins and del', function () {
         ->and($diff['body']['html'])->toContain('<del')->toContain('brown');
 });
 
+test('a colour-only change is flagged formatting_only', function () {
+    $colored = fn (string $hex) => ['type' => 'doc', 'content' => [[
+        'type'    => 'paragraph',
+        'content' => [[
+            'type'  => 'text',
+            'text'  => 'important note',
+            'marks' => [['type' => 'textStyle', 'attrs' => ['color' => $hex]]],
+        ]],
+    ]]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: $colored('#b5573e')),
+        diffSide(content: $colored('#4b6840')),
+    );
+
+    // htmldiff can't mark attribute-only edits — the body counts as changed
+    // but carries zero <ins>/<del> markers, hence the flag.
+    expect($diff['identical'])->toBeFalse()
+        ->and($diff['body']['changed'])->toBeTrue()
+        ->and($diff['body']['formatting_only'])->toBeTrue()
+        ->and($diff['body']['html'])->not->toContain('<ins')
+        ->and($diff['body']['html'])->not->toContain('<del');
+
+    // A real text edit must never be labelled formatting-only.
+    $diff = DocumentDiff::compare(
+        diffSide(content: paragraphDoc('The quick brown fox.')),
+        diffSide(content: paragraphDoc('The quick red fox.')),
+    );
+
+    expect($diff['body']['formatting_only'])->toBeFalse();
+});
+
 test('identical payloads short-circuit as identical', function () {
     $side = diffSide('Same', paragraphDoc('unchanged text'), ['ops']);
     $diff = DocumentDiff::compare($side, $side);
@@ -303,7 +335,8 @@ test('summarize counts word and block deltas and flags diagram changes', functio
     expect($summary['words_added'])->toBe(1)      // delta
         ->and($summary['words_removed'])->toBe(2) // beta gamma
         ->and($summary['blocks_added'])->toBe(1)
-        ->and($summary['diagram_changed'])->toBeFalse();
+        ->and($summary['diagram_changed'])->toBeFalse()
+        ->and($summary['formatting_changed'])->toBeFalse();
 
     $dragged = diffDiagramDoc(['nodes' => [nd('a', 'A', ['position' => ['x' => 9, 'y' => 9]])], 'edges' => []]);
     $summary = DocumentDiff::summarize(
@@ -312,4 +345,33 @@ test('summarize counts word and block deltas and flags diagram changes', functio
     );
 
     expect($summary['diagram_changed'])->toBeTrue();
+});
+
+test('summarize flags formatting-only edits, and only those', function () {
+    $colored = fn (string $hex) => ['type' => 'doc', 'content' => [[
+        'type'    => 'paragraph',
+        'content' => [[
+            'type'  => 'text',
+            'text'  => 'important note',
+            'marks' => [['type' => 'textStyle', 'attrs' => ['color' => $hex]]],
+        ]],
+    ]]];
+
+    // Colour-only edit: no word/block/diagram signal, content differs.
+    $summary = DocumentDiff::summarize(
+        diffSide(content: $colored('#b5573e')),
+        diffSide(content: $colored('#4b6840')),
+    );
+
+    expect($summary['words_added'])->toBe(0)
+        ->and($summary['words_removed'])->toBe(0)
+        ->and($summary['formatting_changed'])->toBeTrue();
+
+    // Unchanged content (title-only edit) must not claim formatting changed.
+    $summary = DocumentDiff::summarize(
+        diffSide('Old title', $colored('#b5573e')),
+        diffSide('New title', $colored('#b5573e')),
+    );
+
+    expect($summary['formatting_changed'])->toBeFalse();
 });

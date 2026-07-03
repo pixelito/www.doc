@@ -125,7 +125,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                         </>
                     )}
 
-                    {diff.body.changed && !diff.body.skipped && (
+                    {diff.body.changed && !diff.body.skipped && !diff.body.formatting_only && (
                         <div className="flex items-center rounded-sm border border-border bg-surface p-0.5 text-xs">
                             {['inline', 'side-by-side'].map((v) => (
                                 <button
@@ -191,6 +191,12 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                     This page is too large to diff inline — the old and new content
                                     are shown side by side instead.
                                 </div>
+                            ) : diff.body.formatting_only ? (
+                                <div className="m-4 rounded-md border border-warning-border bg-warning-surface px-4 py-3 text-sm text-warning-text">
+                                    Only formatting changed (like text or highlight colours) — the
+                                    inline diff cannot mark those, so the old and new content are
+                                    shown side by side instead.
+                                </div>
                             ) : view === 'inline' ? (
                                 <div className="tiptap-read-area">
                                     {/* Server-side diffed HTML (php-htmldiff over RenderDocument
@@ -202,7 +208,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                 </div>
                             ) : null}
 
-                            {(diff.body.skipped || view === 'side-by-side') && (
+                            {(diff.body.skipped || diff.body.formatting_only || view === 'side-by-side') && (
                                 <div className="grid grid-cols-1 gap-0 md:grid-cols-2 md:divide-x md:divide-border">
                                     {[['Old', diff.body.leftHtml], ['New', diff.body.rightHtml]].map(([label, html]) => (
                                         <div key={label} className="min-w-0">

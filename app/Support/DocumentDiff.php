@@ -102,13 +102,21 @@ class DocumentDiff
             self::collectBlocks($right['content'] ?? null),
         );
 
+        $diagramChanged = self::collectDiagrams($left['content'] ?? null)
+                       != self::collectDiagrams($right['content'] ?? null);
+
         return [
             'words_added'     => $added,
             'words_removed'   => $removed,
             'blocks_added'    => count(array_filter($blocks, fn ($b) => $b['status'] === 'added')),
             'blocks_removed'  => count(array_filter($blocks, fn ($b) => $b['status'] === 'removed')),
-            'diagram_changed' => self::collectDiagrams($left['content'] ?? null)
-                              != self::collectDiagrams($right['content'] ?? null),
+            'diagram_changed' => $diagramChanged,
+            // Content changed but nothing above registered it — a formatting-
+            // only edit (colours, highlights). Without this the history row
+            // would imply an empty edit.
+            'formatting_changed' => $added === 0 && $removed === 0
+                && $blocks === [] && ! $diagramChanged
+                && ($left['content'] ?? []) != ($right['content'] ?? []),
         ];
     }
 
@@ -136,11 +144,13 @@ class DocumentDiff
 
         if ($oldHtml === $newHtml) {
             return ['changed' => false, 'html' => $newHtml, 'skipped' => false,
+                    'formatting_only' => false,
                     'leftHtml' => $oldHtml, 'rightHtml' => $newHtml];
         }
 
         if (strlen($oldHtml) + strlen($newHtml) > self::MAX_DIFF_BYTES) {
             return ['changed' => true, 'html' => '', 'skipped' => true,
+                    'formatting_only' => false,
                     'leftHtml' => $oldHtml, 'rightHtml' => $newHtml];
         }
 
@@ -159,10 +169,16 @@ class DocumentDiff
         unset($isolated['ol'], $isolated['ul'], $isolated['dl']);
         $config->setIsolatedDiffTags($isolated);
 
+        $html = HtmlDiff::create($oldHtml, $newHtml, $config)->build();
+
         return [
             'changed'   => true,
-            'html'      => HtmlDiff::create($oldHtml, $newHtml, $config)->build(),
+            'html'      => $html,
             'skipped'   => false,
+            // htmldiff only marks text/tag changes; attribute-only edits (text
+            // colour, highlight colour) yield a diff with zero markers. Flag
+            // that so the UI can say so instead of showing an unmarked body.
+            'formatting_only' => ! preg_match('/<(ins|del)\b/', $html),
             'leftHtml'  => $oldHtml,
             'rightHtml' => $newHtml,
         ];
