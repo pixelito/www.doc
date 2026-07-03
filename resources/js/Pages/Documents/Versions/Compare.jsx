@@ -132,7 +132,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                     key={v}
                                     type="button"
                                     onClick={() => setView(v)}
-                                    className={`rounded-[3px] px-2 py-1 capitalize transition-colors ${
+                                    className={`rounded-sm px-2 py-1 capitalize transition-colors ${
                                         view === v ? 'bg-sage-100 font-medium text-sage-600' : 'text-text-secondary hover:text-foreground'
                                     }`}
                                 >
