@@ -76,7 +76,17 @@
     --radius-xl: calc(var(--radius-lg) + 4px);
 }
 
-:root {
+/* The second selector re-applies the LIGHT tokens inside a diagram's bordered
+   canvas card (`.diagram-artifact`, set in DiagramNodeView) when the dark
+   theme is active: node fills/accents are author-chosen CONTENT colors
+   designed for a light canvas, so the embedded diagram renders as a light
+   artifact (exactly like the read-view SVG and the exports) rather than
+   half-theming into light text on light pastel fills. The scope is the card,
+   not the whole block, so the caption under it follows the page theme.
+   Higher specificity than the [data-theme='dark'] block, so order doesn't
+   matter. */
+:root,
+[data-theme='dark'] .diagram-artifact {
     color-scheme: light;
 
     /* Surfaces — warm cream foundation */

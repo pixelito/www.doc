@@ -45,7 +45,7 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
                         {/* Render the real React Flow graph (read-only), not the
                             rasterised PNG — the PNG is only for no-JS consumers
                             (PDF/DOCX/search/version snapshots). */}
-                        <div className="overflow-hidden rounded-md border border-border bg-canvas" style={{ height: 420 }}>
+                        <div className="diagram-artifact overflow-hidden rounded-md border border-border bg-canvas" style={{ height: 420 }}>
                             <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
                                 <Canvas graph={graph} editable={false} name={name} />
                             </Suspense>
@@ -64,7 +64,7 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
 
     return (
         <NodeViewWrapper className="network-diagram-block my-4" contentEditable={false} data-network-diagram="true">
-            <div className="overflow-hidden rounded-md border border-border bg-canvas">
+            <div className="diagram-artifact overflow-hidden rounded-md border border-border bg-canvas">
                 <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
                     <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-text-secondary">
                         <IconTopologyStar3 className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
