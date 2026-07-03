@@ -111,7 +111,7 @@ test('a document result carries its tags', function () {
     );
 });
 
-test('a body match returns a highlighted excerpt with other tags stripped', function () {
+test('a body match returns an excerpt with HTML stripped for frontend highlighting', function () {
     login();
     Document::factory()->create([
         'title'   => 'Networking',
@@ -121,9 +121,8 @@ test('a body match returns a highlighted excerpt with other tags stripped', func
     $this->get('/search?q=Cormorant')->assertInertia(function (Assert $page) {
         $excerpt = $page->toArray()['props']['results'][0]['excerpt'];
 
-        expect($excerpt)->toContain('<mark>')
+        expect($excerpt)->not->toContain('<mark>')
             ->and(strtolower($excerpt))->toContain('cormorant')
-            // The HTML wrapper tags ts_headline emits are stripped; only <mark> survives.
             ->and($excerpt)->not->toContain('<p>');
     });
 });

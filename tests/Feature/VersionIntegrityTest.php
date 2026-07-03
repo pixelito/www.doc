@@ -56,3 +56,33 @@ test('the first snapshot is not empty when a page is created with content', func
     expect($first)->not->toBeNull();
     expect($first->content_html)->toContain('Real content from the start.');
 });
+
+test('a version snapshot records the page attachments as they were at save time', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+
+    $this->post('/documents', [
+        'title' => 'Doc with Attachments',
+        'workspace_id' => $workspace->id,
+        'content' => DocumentFactory::tiptap('Initial'),
+    ]);
+    
+    $document = Document::firstWhere('title', 'Doc with Attachments');
+
+    \App\Models\Attachment::create([
+        'document_id' => $document->id,
+        'disk' => 'local',
+        'path' => 'dummy.pdf',
+        'original_name' => 'Q1_Report.pdf',
+        'mime' => 'application/pdf',
+        'size' => 1024,
+    ]);
+
+    // Trigger a save so the DocumentObserver creates a snapshot
+    $document->update(['title' => 'Doc with Attachments updated']);
+
+    $snapshot = $document->versions()->latest('id')->first();
+    
+    expect($snapshot->attachments)->toHaveCount(1)
+        ->and($snapshot->attachments[0]['original_name'])->toBe('Q1_Report.pdf');
+});
