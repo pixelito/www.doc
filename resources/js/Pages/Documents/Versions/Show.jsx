@@ -91,6 +91,26 @@ export default function VersionShow({ document: doc, workspace, version }) {
                             ))}
                         </div>
                     )}
+
+                    {/* Attachments at this snapshot */}
+                    {version.attachments?.length > 0 && (
+                        <div className="mt-4 border-t border-border pt-4">
+                            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                                Attachments at this time
+                            </h3>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                {version.attachments.map((att) => (
+                                    <div key={att.id} className="flex items-center gap-1.5 text-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                        <span className="font-medium text-text-secondary">{att.original_name}</span>
+                                        <span className="text-[11px] text-text-tertiary">
+                                            {att.size ? (att.size < 1048576 ? Math.round(att.size/1024) + ' KB' : (att.size/1048576).toFixed(1) + ' MB') : '0 KB'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Body — rendered through the same read-only TipTap path as the

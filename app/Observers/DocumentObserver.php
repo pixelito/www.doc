@@ -113,6 +113,13 @@ class DocumentObserver
         // store names — they outlive tag id churn and rename/delete.
         $tags = $document->tags()->orderBy('name')->pluck('name')->all();
 
+        // Snapshot attachments so we have a historical record of what was attached.
+        $attachments = $document->attachments()
+            ->orderBy('position')
+            ->orderBy('id')
+            ->get(['id', 'original_name', 'size', 'mime', 'checksum'])
+            ->toArray();
+
         // The previous snapshot is the baseline for this version's change
         // summary (fetched BEFORE creating the new row). First version → null.
         $previous = $document->versions()->latest('id')->first();
@@ -122,6 +129,7 @@ class DocumentObserver
             'content'       => $document->content ?? [],
             'content_html'  => $html,
             'tags'          => $tags,
+            'attachments'   => $attachments,
             'summary'       => $previous ? \App\Support\DocumentDiff::summarize(
                 ['title' => $previous->title, 'content' => $previous->content, 'tags' => $previous->tags ?? []],
                 ['title' => $document->title, 'content' => $document->content ?? [], 'tags' => $tags],
