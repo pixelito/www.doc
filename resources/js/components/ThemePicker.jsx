@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
 import { IconSun, IconMoon, IconDeviceDesktop, IconPalette } from '@tabler/icons-react';
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-} from '@/components/ui/dropdown-menu';
 import { THEMES, SYSTEM, getPreference, setPreference, onPreferenceChange } from '@/lib/theme';
 
 // Options render from the theme registry so a future theme only needs its
@@ -24,43 +17,7 @@ function useThemePreference() {
     return [pref, setPreference];
 }
 
-/** Compact icon button + menu for the app header. */
-export function ThemeMenu() {
-    const [pref, setPref] = useThemePreference();
-    const Current = iconFor(pref);
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button
-                    type="button"
-                    title="Theme"
-                    aria-label="Theme"
-                    className="flex h-8 w-8 items-center justify-center rounded-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
-                >
-                    <Current className="h-4 w-4" stroke={1.5} />
-                </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-32">
-                <DropdownMenuRadioGroup value={pref} onValueChange={setPref}>
-                    {OPTIONS.map((opt) => {
-                        const Icon = iconFor(opt.id);
-                        return (
-                            <DropdownMenuRadioItem key={opt.id} value={opt.id}>
-                                <span className="flex items-center gap-2">
-                                    <Icon className="h-3.5 w-3.5 text-text-tertiary" stroke={1.5} aria-hidden="true" />
-                                    {opt.label}
-                                </span>
-                            </DropdownMenuRadioItem>
-                        );
-                    })}
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
-
-/** Segmented control for the Settings/Profile page. */
+/** Segmented theme control — lives in Settings › Profile ("Appearance"). */
 export function ThemeSegments() {
     const [pref, setPref] = useThemePreference();
 
