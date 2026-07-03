@@ -92,3 +92,17 @@ If you use a container GUI manager:
 - Add your `.env` variables (like `APP_URL` and `DB_PASSWORD`) in the environment variables section of your manager.
 
 If you are pasting raw text and want the **Internal TLS** option (Option B), simply copy and paste the entire contents of `docker-compose.tls.yml` into your manager instead of the standard compose file. It has everything you need pre-configured.
+
+---
+
+## Building from source (optional)
+
+The standard install pulls pre-built images. If you want to compile the images yourself instead, clone the full repository and add the `docker-compose.build.yml` override:
+
+```bash
+git clone https://github.com/pixelito/www.doc.git && cd www.doc
+cp .env.example .env   # configure as in step 2
+docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
+```
+
+The override adds `build:` blocks for the `app` and `web` images; `worker` and `scheduler` reuse the locally built `app` image automatically. It combines with the TLS variant the same way (`-f docker-compose.tls.yml -f docker-compose.build.yml`). To update, `git pull` and re-run the `up -d --build` command.

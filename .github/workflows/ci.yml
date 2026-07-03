@@ -80,11 +80,10 @@ jobs:
 
       - name: Build and start Docker stack
         run: |
-          # Swap image pulls for local builds to test the current commit
-          sed -i 's|image: ghcr.io/pixelito/www.doc-app:latest|build: { context: ., dockerfile: docker/app/Dockerfile, target: app }|' docker-compose.prod.yml
-          sed -i 's|image: ghcr.io/pixelito/www.doc-web:latest|build: { context: ., dockerfile: docker/app/Dockerfile, target: web }|' docker-compose.prod.yml
-          
-          docker compose -f docker-compose.prod.yml build
+          # The build override compiles the images from the current commit; the
+          # built images are tagged with the ghcr names, so the plain prod file
+          # picks them up in the `up` commands below.
+          docker compose -f docker-compose.prod.yml -f docker-compose.build.yml build
           # Start app container first to safely initialize the shared volume and avoid race conditions
           docker compose -f docker-compose.prod.yml up -d app
           docker compose -f docker-compose.prod.yml up -d

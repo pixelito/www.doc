@@ -7,13 +7,12 @@
 #                          #  whatever .env says for those is ignored)
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# To build from source instead of pulling, swap the `image:` lines below for the
-# commented `build:` blocks and add `--build` to the `up` command.
+# To build from source instead of pulling, add the docker-compose.build.yml
+# override:  docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
 name: wwwdoc
 
 x-app: &app-image
   image: ghcr.io/pixelito/www.doc-app:latest
-  # build: { context: ., dockerfile: docker/app/Dockerfile, target: app }
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -93,7 +92,6 @@ services:
     # files and proxies PHP to app:9000. Only uploaded assets are shared, via
     # the storage volume reached through the public/storage symlink.
     image: ghcr.io/pixelito/www.doc-web:latest
-    # build: { context: ., dockerfile: docker/app/Dockerfile, target: web }
     volumes:
       - app-storage:/var/www/html/storage:ro
     ports: ["8080:80"]
