@@ -42,6 +42,12 @@ class SearchController extends Controller
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
         $lang = config('database.search_language', 'english');
 
+        $terms = array_filter(preg_split('/[\s\p{P}]+/u', $q));
+        $tsQueryString = implode(' & ', array_map(fn($t) => $t . ':*', $terms));
+        if ($tsQueryString === '') {
+            $tsQueryString = ' ';
+        }
+
         // FTS for indexed documents, ILIKE title fallback for unindexed ones.
         // ts_headline runs over the tag-STRIPPED text (the same derivation the
         // search vector indexes — see SearchVector) so highlights can't land
@@ -68,17 +74,17 @@ class SearchController extends Controller
                 ) AS tags,
                 CASE
                     WHEN d.search_vector IS NOT NULL
-                         AND d.search_vector @@ plainto_tsquery(?, ?)
-                    THEN ts_rank(d.search_vector, plainto_tsquery(?, ?))
+                         AND d.search_vector @@ to_tsquery(?, ?)
+                    THEN ts_rank(d.search_vector, to_tsquery(?, ?))
                     ELSE 0.05
                 END AS rank,
                 CASE
                     WHEN d.search_vector IS NOT NULL
-                         AND d.search_vector @@ plainto_tsquery(?, ?)
+                         AND d.search_vector @@ to_tsquery(?, ?)
                     THEN ts_headline(
                         ?,
                         regexp_replace(COALESCE(d.content_html, ''), '<[^>]+>', ' ', 'g'),
-                        plainto_tsquery(?, ?),
+                        to_tsquery(?, ?),
                         'MaxWords=30, MinWords=15, StartSel=<mark>, StopSel=</mark>, HighlightAll=false'
                     )
                     ELSE NULL
@@ -90,19 +96,19 @@ class SearchController extends Controller
                 d.deleted_at IS NULL
                 AND w.deleted_at IS NULL
                 AND (
-                    (d.search_vector IS NOT NULL AND d.search_vector @@ plainto_tsquery(?, ?))
+                    (d.search_vector IS NOT NULL AND d.search_vector @@ to_tsquery(?, ?))
                     OR d.title ILIKE ?
                 )
             ORDER BY rank DESC
             LIMIT 20
-        ", [$lang, $q, $lang, $q, $lang, $q, $lang, $lang, $q, $lang, $q, $like]);
+        ", [$lang, $tsQueryString, $lang, $tsQueryString, $lang, $tsQueryString, $lang, $lang, $tsQueryString, $lang, $tsQueryString, $like]);
 
         return array_map(function ($row) {
             $row = (array) $row;
             $row['type'] = 'document';
             $row['tags'] = json_decode($row['tags'] ?? '[]', true) ?? [];
             if ($row['excerpt']) {
-                $row['excerpt'] = preg_replace('/<(?!\/?mark[\s>])[^>]+>/i', '', $row['excerpt']);
+                $row['excerpt'] = html_entity_decode(strip_tags($row['excerpt']), ENT_QUOTES | ENT_HTML5);
             }
             return $row;
         }, $rows);

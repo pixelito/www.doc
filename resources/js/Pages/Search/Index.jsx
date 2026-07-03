@@ -16,6 +16,43 @@ function timeAgo(dateStr) {
     return formatDate(dateStr);
 }
 
+function HighlightText({ text, query }) {
+    if (!query || !text) return text;
+    const terms = query.trim().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return text;
+    
+    const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sortedTerms = [...terms].sort((a, b) => b.length - a.length);
+    const regex = new RegExp(`(${sortedTerms.map(escapeRegExp).join('|')})`, 'gi');
+    const parts = text.split(regex);
+    
+    return (
+        <>
+            {parts.map((part, i) => {
+                if (i % 2 !== 0) {
+                    const prevPart = parts[i - 1] || '';
+                    const nextPart = parts[i + 1] || '';
+                    
+                    const charBefore = prevPart.length > 0 ? prevPart[prevPart.length - 1] : ' ';
+                    const charAfter = nextPart.length > 0 ? nextPart[0] : ' ';
+                    
+                    const isWordBefore = /[\p{L}\p{N}]/u.test(charBefore);
+                    const isWordAfter = /[\p{L}\p{N}]/u.test(charAfter);
+                    
+                    const isFullWord = !isWordBefore && !isWordAfter;
+                    
+                    if (isFullWord) {
+                        return <mark key={i} className="rounded-sm bg-sage-100 px-1 py-0.5 box-decoration-clone text-sage-700">{part}</mark>;
+                    } else {
+                        return <mark key={i} className="bg-transparent text-sage-600 font-semibold">{part}</mark>;
+                    }
+                }
+                return part;
+            })}
+        </>
+    );
+}
+
 function Chip({ active, onClick, children }) {
     return (
         <button
@@ -32,7 +69,7 @@ function Chip({ active, onClick, children }) {
     );
 }
 
-function DocRow({ r }) {
+function DocRow({ r, q }) {
     const ago     = timeAgo(r.updated_at);
     const updater = r.updated_by_name;
     const meta    = ago && updater ? `Updated ${ago} by ${updater}` : ago ? `Updated ${ago}` : updater ? `By ${updater}` : null;
@@ -44,7 +81,9 @@ function DocRow({ r }) {
         >
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <IconFileText className="mt-px h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                <span className="text-sm font-medium text-foreground">{r.title}</span>
+                <span className="text-sm font-medium text-foreground">
+                    <HighlightText text={r.title} query={q} />
+                </span>
                 {r.workspace_name && (
                     <>
                         <span className="text-[11px] text-text-tertiary">·</span>
@@ -58,10 +97,9 @@ function DocRow({ r }) {
                 ))}
             </div>
             {r.excerpt && (
-                <p
-                    className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary [&_mark]:rounded-sm [&_mark]:bg-sage-100 [&_mark]:px-1 [&_mark]:py-0.5 [&_mark]:box-decoration-clone [&_mark]:text-sage-700"
-                    dangerouslySetInnerHTML={{ __html: r.excerpt }}
-                />
+                <p className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary">
+                    <HighlightText text={r.excerpt} query={q} />
+                </p>
             )}
             {meta && (
                 <p className="mt-1.5 text-[11px] text-text-tertiary">{meta}</p>
@@ -70,7 +108,7 @@ function DocRow({ r }) {
     );
 }
 
-function OtherRow({ r }) {
+function OtherRow({ r, q }) {
     const href  = r.type === 'workspace' ? `/workspaces/${r.id}` : `/tags/${r.id}`;
     const Icon  = r.type === 'workspace' ? IconFolder : IconTag;
     const count = r.documents_count != null
@@ -84,7 +122,9 @@ function OtherRow({ r }) {
         >
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <Icon className="mt-px h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
-                <span className="text-sm font-medium text-foreground">{r.name}</span>
+                <span className="text-sm font-medium text-foreground">
+                    <HighlightText text={r.name} query={q} />
+                </span>
                 {count && (
                     <>
                         <span className="text-[11px] text-text-tertiary">·</span>
@@ -96,7 +136,9 @@ function OtherRow({ r }) {
                 </span>
             </div>
             {r.excerpt && (
-                <p className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary">{r.excerpt}</p>
+                <p className="mt-1.5 text-[12.5px] leading-[1.55] text-text-secondary">
+                    <HighlightText text={r.excerpt} query={q} />
+                </p>
             )}
         </Link>
     );
@@ -247,8 +289,8 @@ export default function SearchIndex({ q, results }) {
                                 <div className="overflow-hidden rounded-[10px] border border-border bg-surface">
                                     {displayed.map((r, i) =>
                                         r.type === 'document'
-                                            ? <DocRow key={`doc-${r.id}`} r={r} />
-                                            : <OtherRow key={`${r.type}-${r.id}`} r={r} />
+                                            ? <DocRow key={`doc-${r.id}`} r={r} q={q} />
+                                            : <OtherRow key={`${r.type}-${r.id}`} r={r} q={q} />
                                     )}
                                 </div>
 
