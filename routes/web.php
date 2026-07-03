@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CompareController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
@@ -94,6 +95,11 @@ Route::middleware('auth')->group(function () {
         Route::get('audit', [AdminAuditController::class, 'index'])->name('audit.index');
     });
 
+    // Page-to-page comparison. Declared before the resource so 'compare' isn't
+    // read as a {document} id (the [0-9]+ pattern already prevents that, but
+    // the ordering keeps intent obvious).
+    Route::get('documents/compare', [CompareController::class, 'documents'])->name('documents.compare');
+
     // Document tree operations — declared before the resource so 'reorder'
     // isn't swallowed by the documents/{document} update route.
     Route::patch('documents/reorder', [DocumentController::class, 'reorder'])->name('documents.reorder');
@@ -125,6 +131,9 @@ Route::middleware('auth')->group(function () {
 
     // Version history
     Route::get('documents/{document}/versions', [VersionController::class, 'index'])->name('versions.index');
+    // 'compare' before {version} so it isn't read as a version id (the digit
+    // pattern already prevents that; ordering keeps intent obvious).
+    Route::get('documents/{document}/versions/compare', [CompareController::class, 'versions'])->name('versions.compare');
     Route::get('documents/{document}/versions/{version}', [VersionController::class, 'show'])->name('versions.show');
     Route::post('documents/{document}/versions/{version}/restore', [VersionController::class, 'restore'])->name('versions.restore');
 

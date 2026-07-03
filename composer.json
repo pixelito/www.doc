@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "caxy/php-htmldiff": "^0.1.17",
         "dompdf/dompdf": "^3.1",
         "icewind/smb": "^3.6",
         "inertiajs/inertia-laravel": "^3.1",

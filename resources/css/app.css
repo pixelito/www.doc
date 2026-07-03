@@ -137,6 +137,12 @@
     --danger-border: #DDB3A6;
     /* danger callout border */
 
+    /* Diff view (styleguide §2) */
+    --diff-add-text: #3C5A2E;
+    --diff-add-bg: #E6EFDF;
+    --diff-del-text: #8A4A38;
+    --diff-del-bg: #F6E4DE;
+
     /* Radii + shadows matching configuration parameters */
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -407,6 +413,37 @@
     pointer-events: none;
     float: left;
     height: 0;
+}
+
+/* ── Server-side diff markup (php-htmldiff output on the Compare page) ─────
+   Scoped under .diff-content, which sits INSIDE .tiptap-read-area .tiptap so
+   the regular prose styles above keep applying to the diffed HTML. */
+.diff-content ins {
+    background: var(--diff-add-bg);
+    color: var(--diff-add-text);
+    text-decoration: none;
+    border-radius: 4px;
+    padding: 0 0.12em;
+}
+
+.diff-content del {
+    background: var(--diff-del-bg);
+    color: var(--diff-del-text);
+    text-decoration: line-through;
+    border-radius: 4px;
+    padding: 0 0.12em;
+}
+
+/* Atomic media tokens: a swapped image renders old (ghosted) + new (outlined). */
+.diff-content del img {
+    outline: 2px solid var(--diff-del-text);
+    outline-offset: 2px;
+    opacity: 0.55;
+}
+
+.diff-content ins img {
+    outline: 2px solid var(--diff-add-text);
+    outline-offset: 2px;
 }
 
 /* Focus ring on the editable shell */

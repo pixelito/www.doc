@@ -18,7 +18,7 @@ class VersionController extends Controller
 
         $versions = $document->versions()
             ->with('creator:id,name')
-            ->select(['id', 'document_id', 'title', 'created_by_id', 'created_at'])
+            ->select(['id', 'document_id', 'title', 'summary', 'created_by_id', 'created_at'])
             ->get();
 
         return Inertia::render('Documents/Versions/Index', [

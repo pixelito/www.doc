@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { IconChevronRight, IconHistory, IconArrowBack, IconTag } from '@tabler/icons-react';
+import { IconChevronRight, IconHistory, IconArrowBack, IconGitCompare, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,12 @@ export default function VersionShow({ document: doc, workspace, version }) {
                         <Link href={`/documents/${doc.id}/versions`}>
                             <IconHistory className="h-3.5 w-3.5" stroke={1.5} />
                             All versions
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/documents/${doc.id}/versions/compare?from=${version.id}&to=current`}>
+                            <IconGitCompare className="h-3.5 w-3.5" stroke={1.5} />
+                            Compare with current
                         </Link>
                     </Button>
                     <Button size="sm" onClick={() => setRestoreOpen(true)}>

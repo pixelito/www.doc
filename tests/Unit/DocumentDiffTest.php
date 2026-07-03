@@ -1,0 +1,272 @@
+<?php
+
+use App\Support\DocumentDiff;
+
+/** Shorthand: a doc payload for DocumentDiff::compare. */
+function diffSide(string $title = 'Page', ?array $content = null, array $tags = []): array
+{
+    return ['title' => $title, 'content' => $content, 'tags' => $tags];
+}
+
+function paragraphDoc(string ...$sentences): array
+{
+    return ['type' => 'doc', 'content' => array_map(
+        fn ($s) => ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $s]]],
+        $sentences,
+    )];
+}
+
+function diffDiagramDoc(array $graph, string $name = 'Net'): array
+{
+    return ['type' => 'doc', 'content' => [
+        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'intro']]],
+        ['type' => 'networkDiagram', 'attrs' => ['name' => $name, 'graph' => $graph]],
+    ]];
+}
+
+function nd(string $id, string $label, array $extra = []): array
+{
+    return array_merge(['id' => $id, 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => $label]], $extra);
+}
+
+// ── Body / title / tags ─────────────────────────────────────────────────────
+
+test('word-level body diff wraps changes in ins and del', function () {
+    $diff = DocumentDiff::compare(
+        diffSide(content: paragraphDoc('The quick brown fox jumps.')),
+        diffSide(content: paragraphDoc('The quick red fox leaps.')),
+    );
+
+    expect($diff['body']['changed'])->toBeTrue()
+        ->and($diff['body']['skipped'])->toBeFalse()
+        ->and($diff['body']['html'])->toContain('<ins')->toContain('red')
+        ->and($diff['body']['html'])->toContain('<del')->toContain('brown');
+});
+
+test('identical payloads short-circuit as identical', function () {
+    $side = diffSide('Same', paragraphDoc('unchanged text'), ['ops']);
+    $diff = DocumentDiff::compare($side, $side);
+
+    expect($diff['identical'])->toBeTrue()
+        ->and($diff['body']['changed'])->toBeFalse()
+        ->and($diff['title']['changed'])->toBeFalse()
+        ->and($diff['tags'])->toBe(['added' => [], 'removed' => []])
+        ->and($diff['blocks'])->toBe([])
+        ->and($diff['diagrams'])->toBe([]);
+});
+
+test('null content on one side reports a full insertion without throwing', function () {
+    $diff = DocumentDiff::compare(
+        diffSide(content: null),
+        diffSide(content: paragraphDoc('brand new body')),
+    );
+
+    expect($diff['body']['changed'])->toBeTrue()
+        ->and($diff['body']['html'])->toContain('<ins')->toContain('brand new body');
+});
+
+test('title and tag diffs report old/new and added/removed sets', function () {
+    $diff = DocumentDiff::compare(
+        diffSide('Old Title', null, ['a', 'b']),
+        diffSide('New Title', null, ['b', 'c']),
+    );
+
+    expect($diff['title'])->toBe(['changed' => true, 'old' => 'Old Title', 'new' => 'New Title'])
+        ->and($diff['tags'])->toBe(['added' => ['c'], 'removed' => ['a']]);
+});
+
+// ── Blocks ──────────────────────────────────────────────────────────────────
+
+test('an image src swap is one modified block and a clean atomic img diff', function () {
+    $img = fn (string $src) => ['type' => 'doc', 'content' => [
+        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'before']]],
+        ['type' => 'image', 'attrs' => ['src' => $src, 'alt' => 'screenshot']],
+    ]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: $img('/storage/assets/old.png')),
+        diffSide(content: $img('/storage/assets/new.png')),
+    );
+
+    expect($diff['blocks'])->toHaveCount(1)
+        ->and($diff['blocks'][0])->toMatchArray(['type' => 'image', 'status' => 'modified'])
+        // Canary for caxy's <img> token handling: the swap must appear as one
+        // whole-tag del + one whole-tag ins, never spliced attributes.
+        ->and(substr_count($diff['body']['html'], '<img'))->toBe(2)
+        ->and($diff['body']['html'])->toContain('old.png')->toContain('new.png');
+});
+
+test('table add and cell-change are reported as coarse block entries', function () {
+    $table = fn (string $cell) => ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
+        ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $cell]]]]],
+    ]]]];
+
+    $added = DocumentDiff::compare(
+        diffSide(content: paragraphDoc('x')),
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Cell')]]),
+    );
+    expect($added['blocks'])->toHaveCount(1)
+        ->and($added['blocks'][0])->toMatchArray(['type' => 'table', 'status' => 'added']);
+
+    $modified = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Old cell')]]),
+        diffSide(content: ['type' => 'doc', 'content' => [$table('New cell')]]),
+    );
+    expect($modified['blocks'][0])->toMatchArray(['type' => 'table', 'status' => 'modified']);
+});
+
+// ── Diagrams ────────────────────────────────────────────────────────────────
+
+test('diagram node changes are detected per kind', function () {
+    $old = ['nodes' => [
+        nd('a', 'router'),
+        nd('b', 'switch', ['width' => 150]),
+        nd('c', 'firewall', ['data' => ['label' => 'firewall', 'color' => 'sage', 'kind' => 'server']]),
+    ], 'edges' => []];
+
+    $new = ['nodes' => [
+        nd('a', 'core-router'),                                                            // renamed
+        nd('b', 'switch', ['width' => 220]),                                               // resized
+        nd('c', 'firewall', ['data' => ['label' => 'firewall', 'color' => 'blue', 'kind' => 'router']]), // recolored + retyped
+        nd('d', 'new-node'),                                                               // added
+    ], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($old)),
+        diffSide(content: diffDiagramDoc($new)),
+    );
+
+    $kinds = array_column($diff['diagrams'][0]['changes'], 'kind');
+    expect($diff['diagrams'][0]['status'])->toBe('modified')
+        ->and($kinds)->toContain('node-renamed', 'node-resized', 'node-recolored', 'node-retyped', 'node-added');
+});
+
+test('edges are keyed by id with endpoint fallback, and reroutes are detected', function () {
+    $nodes = [nd('a', 'A'), nd('b', 'B'), nd('c', 'C')];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc(['nodes' => $nodes, 'edges' => [
+            ['id' => 'e1', 'source' => 'a', 'target' => 'b'],
+            ['source' => 'b', 'target' => 'c'], // id-less: keyed by endpoints
+        ]])),
+        diffSide(content: diffDiagramDoc(['nodes' => $nodes, 'edges' => [
+            ['id' => 'e1', 'source' => 'a', 'target' => 'c'], // rerouted
+            // b→c edge gone → removed
+        ]])),
+    );
+
+    $kinds = array_column($diff['diagrams'][0]['changes'], 'kind');
+    expect($kinds)->toContain('edge-rerouted', 'edge-removed');
+});
+
+test('position-only moves are bucketed, never listed as changes', function () {
+    $old = ['nodes' => [nd('a', 'A'), nd('b', 'B'), nd('c', 'C')], 'edges' => []];
+    $new = $old;
+    foreach ($new['nodes'] as $i => $node) {
+        $new['nodes'][$i]['position'] = ['x' => 100 + $i, 'y' => 50];
+    }
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($old)),
+        diffSide(content: diffDiagramDoc($new)),
+    );
+
+    expect($diff['diagrams'][0]['changes'])->toBe([])
+        ->and($diff['diagrams'][0]['repositioned'])->toBe(3)
+        ->and($diff['diagrams'][0]['status'])->toBe('unchanged');
+});
+
+test('the merged overlay graph carries status colors and dashed removed edges', function () {
+    $old = ['nodes' => [nd('a', 'A'), nd('b', 'B')], 'edges' => [['id' => 'e1', 'source' => 'a', 'target' => 'b']]];
+    $new = ['nodes' => [nd('a', 'A-renamed'), nd('c', 'C')], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($old)),
+        diffSide(content: diffDiagramDoc($new)),
+    );
+
+    $overlay = $diff['diagrams'][0]['overlay_graph'];
+    $colorOf = fn (string $id) => collect($overlay['nodes'])->firstWhere('id', $id)['data']['color'] ?? null;
+
+    expect($colorOf('a'))->toBe('#C99650')   // modified (renamed)
+        ->and($colorOf('c'))->toBe('#4B6840') // added
+        ->and($colorOf('b'))->toBe('#B5573E') // removed ghost at old position
+        ->and($overlay['edges'][0]['data'])->toMatchArray(['color' => '#B5573E', 'lineStyle' => 'dashed']);
+
+    // The whole overlay renders through the EXISTING DiagramSvg untouched.
+    $svg = \App\Support\DiagramSvg::render($overlay);
+    expect($svg['svg'])->toContain('stroke-dasharray');
+});
+
+test('a whole added or removed diagram becomes a tinted entry', function () {
+    $graph = ['nodes' => [nd('a', 'A')], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: paragraphDoc('no diagram')),
+        diffSide(content: diffDiagramDoc($graph, 'New Net')),
+    );
+
+    expect($diff['diagrams'])->toHaveCount(1)
+        ->and($diff['diagrams'][0]['status'])->toBe('added')
+        ->and($diff['diagrams'][0]['overlay_graph']['nodes'][0]['data']['color'])->toBe('#4B6840');
+});
+
+test('diagrams are stripped from the body diff', function () {
+    $graph = ['nodes' => [nd('a', 'router-x')], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($graph)),
+        diffSide(content: array_replace(diffDiagramDoc($graph), ['content' => [
+            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'intro edited']]],
+            ['type' => 'networkDiagram', 'attrs' => ['name' => 'Net', 'graph' => $graph]],
+        ]])),
+    );
+
+    expect($diff['body']['html'])->not->toContain('network-diagram')
+        ->and($diff['body']['html'])->not->toContain('data:image');
+});
+
+// ── Schema parity + fail-loud guard ─────────────────────────────────────────
+
+test('the differ understands every node in the schema fixture', function () {
+    $edited = fixtureDoc();
+    $edited['content'][1]['content'][0]['text'] = 'bolder '; // small text edit
+
+    $diff = DocumentDiff::compare(
+        diffSide('T', fixtureDoc(), []),
+        diffSide('T', $edited, []),
+    );
+
+    expect($diff['body']['changed'])->toBeTrue();
+});
+
+test('an unknown node type fails loudly', function () {
+    $doc = ['type' => 'doc', 'content' => [['type' => 'someFutureNode']]];
+
+    DocumentDiff::compare(diffSide(content: $doc), diffSide(content: $doc));
+})->throws(RuntimeException::class, 'someFutureNode');
+
+// ── summarize() ─────────────────────────────────────────────────────────────
+
+test('summarize counts word and block deltas and flags diagram changes', function () {
+    $summary = DocumentDiff::summarize(
+        diffSide(content: paragraphDoc('alpha beta gamma')),
+        diffSide(content: ['type' => 'doc', 'content' => [
+            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'alpha delta']]],
+            ['type' => 'image', 'attrs' => ['src' => '/storage/assets/pic.png']],
+        ]]),
+    );
+
+    expect($summary['words_added'])->toBe(1)      // delta
+        ->and($summary['words_removed'])->toBe(2) // beta gamma
+        ->and($summary['blocks_added'])->toBe(1)
+        ->and($summary['diagram_changed'])->toBeFalse();
+
+    $dragged = diffDiagramDoc(['nodes' => [nd('a', 'A', ['position' => ['x' => 9, 'y' => 9]])], 'edges' => []]);
+    $summary = DocumentDiff::summarize(
+        diffSide(content: diffDiagramDoc(['nodes' => [nd('a', 'A')], 'edges' => []])),
+        diffSide(content: $dragged),
+    );
+
+    expect($summary['diagram_changed'])->toBeTrue();
+});

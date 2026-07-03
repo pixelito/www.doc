@@ -108,14 +108,24 @@ class DocumentObserver
             return;
         }
 
+        // Capture the tag set so a restore is a full revert, not content-only.
+        // Read fresh (controllers sync tags *before* the snapshotting save) and
+        // store names — they outlive tag id churn and rename/delete.
+        $tags = $document->tags()->orderBy('name')->pluck('name')->all();
+
+        // The previous snapshot is the baseline for this version's change
+        // summary (fetched BEFORE creating the new row). First version → null.
+        $previous = $document->versions()->latest('id')->first();
+
         $document->versions()->create([
             'title'         => $document->title,
             'content'       => $document->content ?? [],
             'content_html'  => $html,
-            // Capture the tag set so a restore is a full revert, not content-only.
-            // Read fresh (controllers sync tags *before* the snapshotting save) and
-            // store names — they outlive tag id churn and rename/delete.
-            'tags'          => $document->tags()->orderBy('name')->pluck('name')->all(),
+            'tags'          => $tags,
+            'summary'       => $previous ? \App\Support\DocumentDiff::summarize(
+                ['title' => $previous->title, 'content' => $previous->content, 'tags' => $previous->tags ?? []],
+                ['title' => $document->title, 'content' => $document->content ?? [], 'tags' => $tags],
+            ) : null,
             'created_by_id' => Auth::id() ?? $document->updated_by_id,
         ]);
     }

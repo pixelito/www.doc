@@ -14,54 +14,14 @@ use App\Services\RenderDocument;
  * This test renders ONE fixture document containing every persisted custom
  * node and mark, then asserts each one's signature survives the JSON -> HTML
  * pass. If you teach the editor a new node/mark, add it to `fixtureDoc()`
- * below and assert it here — and the test fails loudly the day RenderDocument
- * forgets its half. (Editor-only extensions that persist no content —
- * Placeholder, SlashCommands, ImageUpload — have no server counterpart and
- * deliberately aren't covered.)
+ * (now in tests/Pest.php — DocumentDiffTest shares it) and assert it here —
+ * and the test fails loudly the day RenderDocument forgets its half.
+ * (Editor-only extensions that persist no content — Placeholder,
+ * SlashCommands, ImageUpload — have no server counterpart and deliberately
+ * aren't covered.)
  *
  * Signatures below were captured from real RenderDocument output, not guessed.
  */
-
-/** Every persisted node/mark in the schema, in a single document. */
-function fixtureDoc(): array
-{
-    return ['type' => 'doc', 'content' => [
-        ['type' => 'heading', 'attrs' => ['level' => 2, 'textAlign' => 'center'], 'content' => [
-            ['type' => 'text', 'text' => 'Heading Centered'],
-        ]],
-        ['type' => 'paragraph', 'content' => [
-            ['type' => 'text', 'marks' => [['type' => 'bold']], 'text' => 'bold '],
-            ['type' => 'text', 'marks' => [['type' => 'italic']], 'text' => 'italic '],
-            ['type' => 'text', 'marks' => [['type' => 'strike']], 'text' => 'strike '],
-            ['type' => 'text', 'marks' => [['type' => 'code']], 'text' => 'code '],
-            ['type' => 'text', 'marks' => [['type' => 'underline']], 'text' => 'under '],
-            ['type' => 'text', 'marks' => [['type' => 'textStyle', 'attrs' => ['color' => '#ff0000']]], 'text' => 'red '],
-            ['type' => 'text', 'marks' => [['type' => 'highlight', 'attrs' => ['color' => '#ffff00']]], 'text' => 'hl '],
-            ['type' => 'text', 'marks' => [['type' => 'link', 'attrs' => ['href' => 'https://example.com']]], 'text' => 'link'],
-        ]],
-        ['type' => 'bulletList', 'content' => [['type' => 'listItem', 'content' => [
-            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'bullet']]],
-        ]]]],
-        ['type' => 'orderedList', 'content' => [['type' => 'listItem', 'content' => [
-            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'numbered']]],
-        ]]]],
-        ['type' => 'blockquote', 'content' => [['type' => 'paragraph', 'content' => [
-            ['type' => 'text', 'text' => 'quoted'],
-        ]]]],
-        ['type' => 'codeBlock', 'content' => [['type' => 'text', 'text' => 'echo 1;']]],
-        ['type' => 'horizontalRule'],
-        ['type' => 'image', 'attrs' => ['src' => '/storage/assets/x.png', 'alt' => 'pic', 'width' => 200, 'align' => 'center']],
-        ['type' => 'wikiLink', 'attrs' => ['title' => 'Other Page', 'target_id' => 7]],
-        ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
-            ['type' => 'tableHeader', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Head']]]]],
-            ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Cell']]]]],
-        ]]]],
-        ['type' => 'networkDiagram', 'attrs' => ['name' => 'My Net', 'graph' => [
-            'nodes' => [['id' => 'n1', 'position' => ['x' => 0, 'y' => 0], 'data' => ['label' => 'router']]],
-            'edges' => [],
-        ]]],
-    ]];
-}
 
 beforeEach(function () {
     $this->html = RenderDocument::toHtml(fixtureDoc());

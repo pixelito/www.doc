@@ -62,7 +62,10 @@ class Document extends Model
 
     public function versions(): HasMany
     {
-        return $this->hasMany(DocumentVersion::class)->latest();
+        // By id, not created_at: rapid saves can land in the same second, and
+        // an unstable tie order would scramble "newest" in the history list
+        // and the compare picker defaults.
+        return $this->hasMany(DocumentVersion::class)->latest('id');
     }
 
     /** Files attached to this page, in display order. Not part of version snapshots. */
