@@ -18,10 +18,25 @@ const MSO_HEADING = {
     MsoHeading6: 'h6',
 };
 
+// Attributes that carry SCHEMA information for specific tags — the signatures
+// our own RenderDocument/TipTap emit. Kept so copy/paste round-trips task
+// lists, callouts, and code-block languages instead of flattening them.
+function isSchemaAttr(tag, name, value) {
+    if ((tag === 'ul' || tag === 'li') && name === 'data-type') {
+        return value === 'taskList' || value === 'taskItem';
+    }
+    if (tag === 'li' && name === 'data-checked') return true;
+    if (tag === 'div' && name === 'data-callout') return true;
+    if (tag === 'code' && name === 'class') return /^language-[\w+#-]+$/.test(value);
+    return false;
+}
+
 function stripAttributes(el, isBlock) {
+    const tag = el.tagName.toLowerCase();
     const toRemove = [];
     for (const attr of el.attributes) {
         const name = attr.name;
+        if (isSchemaAttr(tag, name, attr.value)) continue;
         if (isBlock) {
             // Keep only safe inline attributes on block elements
             if (!KEEP_ATTRS_ON_INLINE.has(name)) toRemove.push(name);

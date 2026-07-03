@@ -36,6 +36,12 @@ const ALL_COMMANDS = [
             editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
     },
     {
+        title: 'Task List',
+        group: 'Lists',
+        command: ({ editor, range }) =>
+            editor.chain().focus().deleteRange(range).toggleTaskList().run(),
+    },
+    {
         title: 'Blockquote',
         group: 'Blocks',
         command: ({ editor, range }) =>
@@ -65,6 +71,12 @@ const ALL_COMMANDS = [
         command: ({ editor, range }) =>
             editor.chain().focus().deleteRange(range).insertDiagram().run(),
     },
+    ...['info', 'success', 'warning', 'danger'].map((kind) => ({
+        title: `Callout: ${kind.charAt(0).toUpperCase()}${kind.slice(1)}`,
+        group: 'Callouts',
+        command: ({ editor, range }) =>
+            editor.chain().focus().deleteRange(range).toggleCallout({ kind }).run(),
+    })),
 ];
 
 export const SlashCommands = Extension.create({

@@ -3,7 +3,7 @@ import {
     IconBold, IconItalic, IconUnderline, IconStrikethrough, IconCode, IconBraces,
     IconPalette, IconHighlight, IconBan, IconX,
     IconH1, IconH2, IconH3,
-    IconList, IconListNumbers, IconBlockquote, IconMinus,
+    IconList, IconListNumbers, IconListCheck, IconBlockquote, IconMinus, IconInfoSquareRounded,
     IconLink, IconLinkOff, IconPhoto, IconTable, IconTableOff, IconTopologyStar3,
     IconRowInsertBottom, IconRowInsertTop, IconRowRemove,
     IconColumnInsertLeft, IconColumnInsertRight, IconColumnRemove,
@@ -27,6 +27,28 @@ const HIGHLIGHT_COLORS = [
     { name: 'Blue',   value: '#D7E3EC' },
     { name: 'Rose',   value: '#F0D6CD' },
     { name: 'Amber',  value: '#F3E2BE' },
+];
+
+// Language picker options for code blocks — a curated subset of lowlight's
+// `common` registry (every value here must exist there, or highlighting
+// silently no-ops for that block). Empty value = plain text (no language attr).
+const CODE_LANGUAGES = [
+    ['', 'Plain text'],
+    ['bash', 'Bash'], ['c', 'C'], ['cpp', 'C++'], ['csharp', 'C#'], ['css', 'CSS'],
+    ['diff', 'Diff'], ['go', 'Go'], ['ini', 'INI'], ['java', 'Java'],
+    ['javascript', 'JavaScript'], ['json', 'JSON'], ['kotlin', 'Kotlin'],
+    ['lua', 'Lua'], ['makefile', 'Makefile'], ['markdown', 'Markdown'],
+    ['perl', 'Perl'], ['php', 'PHP'], ['python', 'Python'], ['ruby', 'Ruby'],
+    ['rust', 'Rust'], ['shell', 'Shell'], ['sql', 'SQL'], ['swift', 'Swift'],
+    ['typescript', 'TypeScript'], ['xml', 'HTML/XML'], ['yaml', 'YAML'],
+];
+
+// Callout kind chips (token triads from the status recipe in the styleguide).
+const CALLOUT_OPTIONS = [
+    { kind: 'info',    label: 'Info',    chip: 'bg-sage-50 text-sage-700 border-sage-200' },
+    { kind: 'success', label: 'Success', chip: 'bg-sage-100 text-sage-600 border-sage-200' },
+    { kind: 'warning', label: 'Warning', chip: 'bg-warning-surface text-warning-text border-warning-border' },
+    { kind: 'danger',  label: 'Danger',  chip: 'bg-danger-surface text-danger border-danger-border' },
 ];
 
 // Normalise to a 6-digit #rrggbb hex (expands #rgb); returns null if invalid.
@@ -327,6 +349,10 @@ export default function Toolbar({ editor }) {
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}>
                 <IconListNumbers className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
+            <ToolbarButton title="Task list" active={editor.isActive('taskList')}
+                onClick={() => editor.chain().focus().toggleTaskList().run()}>
+                <IconListCheck className="h-3.5 w-3.5" stroke={1.5} />
+            </ToolbarButton>
             <ToolbarButton title="Blockquote" active={editor.isActive('blockquote')}
                 onClick={() => editor.chain().focus().toggleBlockquote().run()}>
                 <IconBlockquote className="h-3.5 w-3.5" stroke={1.5} />
@@ -335,6 +361,53 @@ export default function Toolbar({ editor }) {
                 onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
                 <IconBraces className="h-3.5 w-3.5" stroke={1.5} />
             </ToolbarButton>
+            <ToolbarButton title="Callout" active={editor.isActive('callout')}
+                onClick={() => editor.chain().focus().toggleCallout().run()}>
+                <IconInfoSquareRounded className="h-3.5 w-3.5" stroke={1.5} />
+            </ToolbarButton>
+
+            {/* Code block context — language picker, visible inside a code block */}
+            {editor.isActive('codeBlock') && (
+                <select
+                    value={editor.getAttributes('codeBlock').language ?? ''}
+                    onChange={(e) =>
+                        editor.chain().focus()
+                            .updateAttributes('codeBlock', { language: e.target.value || null })
+                            .run()
+                    }
+                    className="ui-select ml-1 h-6 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                    title="Code language"
+                >
+                    {CODE_LANGUAGES.map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                    ))}
+                </select>
+            )}
+
+            {/* Callout context — kind switcher, visible inside a callout */}
+            {editor.isActive('callout') && (
+                <div className="ml-1 flex items-center gap-1">
+                    {CALLOUT_OPTIONS.map(({ kind, label, chip }) => {
+                        const current = editor.getAttributes('callout').kind === kind;
+                        return (
+                            <button
+                                key={kind}
+                                type="button"
+                                title={`${label} callout`}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    editor.chain().focus().setCalloutKind(kind).run();
+                                }}
+                                className={`rounded-full border px-2 py-0.5 text-[11px] transition-transform hover:scale-105 ${chip} ${
+                                    current ? 'ring-1 ring-foreground' : ''
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
 
             <Divider />
 

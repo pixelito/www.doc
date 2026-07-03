@@ -330,6 +330,93 @@
     font-style: italic;
 }
 
+/* ── Task lists ──────────────────────────────────────────────────────────── */
+
+/* Scope on the ul, not li[data-type]: the LIVE editor DOM renders task items
+   as plain `li[data-checked]` (TipTap v3 omits data-type in-editor), while
+   static RenderDocument HTML includes it — the ul carries data-type in both. */
+.tiptap ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0.25em;
+}
+.tiptap ul[data-type='taskList'] > li {
+    display: flex;
+    gap: 0.5em;
+    align-items: flex-start;
+    margin: 0.25em 0;
+}
+.tiptap ul[data-type='taskList'] > li > label {
+    flex-shrink: 0;
+    padding-top: 0.22em; /* optical alignment with the first text line */
+}
+.tiptap ul[data-type='taskList'] > li > label input {
+    width: 0.95em;
+    height: 0.95em;
+    cursor: pointer;
+    accent-color: var(--sage-400);
+}
+.tiptap-read-area ul[data-type='taskList'] > li > label input {
+    cursor: default;
+}
+.tiptap ul[data-type='taskList'] > li > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tiptap ul[data-type='taskList'] > li[data-checked='true'] > div {
+    color: var(--text-tertiary);
+}
+/* Nested task lists indent inside the item's content column. */
+.tiptap ul[data-type='taskList'] ul[data-type='taskList'] {
+    padding-left: 1.25em;
+    margin: 0.25em 0 0;
+}
+
+/* ── Callouts ────────────────────────────────────────────────────────────── */
+
+.tiptap .callout {
+    border: 1px solid;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0.875em 0;
+}
+.tiptap .callout p { margin-bottom: 0.5em; }
+.tiptap .callout p:last-child { margin-bottom: 0; }
+.tiptap .callout-info    { background: var(--sage-50);        border-color: var(--sage-200);      color: var(--sage-700); }
+.tiptap .callout-success { background: var(--sage-100);       border-color: var(--sage-200);      color: var(--sage-600); }
+.tiptap .callout-warning { background: var(--warning-surface); border-color: var(--warning-border); color: var(--warning-text); }
+.tiptap .callout-danger  { background: var(--danger-surface);  border-color: var(--danger-border);  color: var(--danger); }
+
+/* ── Code block syntax highlighting (lowlight/highlight.js classes) ───────
+   Client-side presentation only — the stored HTML stays a plain
+   pre > code.language-*. Colors ride the palette vars so dark mode flips
+   without a second theme. */
+.tiptap pre .hljs-comment,
+.tiptap pre .hljs-quote { color: var(--text-tertiary); font-style: italic; }
+.tiptap pre .hljs-keyword,
+.tiptap pre .hljs-selector-tag,
+.tiptap pre .hljs-doctag,
+.tiptap pre .hljs-meta { color: var(--sage-600); font-weight: 500; }
+.tiptap pre .hljs-string,
+.tiptap pre .hljs-regexp,
+.tiptap pre .hljs-template-tag { color: var(--warning-text); }
+.tiptap pre .hljs-number,
+.tiptap pre .hljs-literal,
+.tiptap pre .hljs-symbol,
+.tiptap pre .hljs-bullet { color: var(--info); }
+.tiptap pre .hljs-title,
+.tiptap pre .hljs-section,
+.tiptap pre .hljs-name { color: var(--sage-700); font-weight: 500; }
+.tiptap pre .hljs-attr,
+.tiptap pre .hljs-attribute,
+.tiptap pre .hljs-variable,
+.tiptap pre .hljs-template-variable,
+.tiptap pre .hljs-type,
+.tiptap pre .hljs-built_in { color: var(--info); }
+.tiptap pre .hljs-deletion { color: var(--diff-del-text); background: var(--diff-del-bg); }
+.tiptap pre .hljs-addition { color: var(--diff-add-text); background: var(--diff-add-bg); }
+.tiptap pre .hljs-emphasis { font-style: italic; }
+.tiptap pre .hljs-strong { font-weight: 600; }
+
 .tiptap hr {
     border: none;
     border-top: 1px solid var(--border);

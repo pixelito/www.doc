@@ -44,6 +44,10 @@ class DocumentDiff
         'horizontalRule', 'image', 'wikiLink',
         'table', 'tableRow', 'tableHeader', 'tableCell',
         'networkDiagram',
+        // v1.3 editor nodes. All three are text-bearing containers: their
+        // content flows through the rendered-HTML body diff like lists and
+        // quotes do, so no dedicated block strategy is needed.
+        'taskList', 'taskItem', 'callout',
     ];
 
     // Overlay status colors (styleguide: accent/text, danger, warning).

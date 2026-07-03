@@ -6,8 +6,12 @@ import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
+import { TaskList, TaskItem } from '@tiptap/extension-list';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
 
 import { ResizableImage } from '@/extensions/ResizableImage';
+import { Callout } from '@/extensions/Callout';
 import { WikiLink } from '@/extensions/WikiLink';
 import { Diagram } from '@/extensions/Diagram';
 import { SlashCommands } from '@/extensions/SlashCommands';
@@ -16,6 +20,10 @@ import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
 import WikiLinkPreview from './WikiLinkPreview';
+
+// Module-level: the grammar registry is stateless and shared by every editor
+// instance (edit + read views highlight identically).
+const lowlight = createLowlight(common);
 
 /**
  * Recursively drop invalid empty text nodes. ProseMirror requires every text
@@ -102,7 +110,14 @@ export default function TipTapEditor({
                     HTMLAttributes: { rel: 'noopener noreferrer' },
                 },
                 underline: {},
+                // Replaced by CodeBlockLowlight below (same node name, plus
+                // a language attr and client-side syntax highlighting).
+                codeBlock: false,
             }),
+            CodeBlockLowlight.configure({ lowlight }),
+            TaskList,
+            TaskItem.configure({ nested: true }),
+            Callout,
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             TextStyle,
             Color.configure({ types: ['textStyle'] }),

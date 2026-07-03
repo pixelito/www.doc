@@ -120,7 +120,9 @@ class DocxExporter implements ExporterContract
             'paragraph'    => $this->addParagraph($node),
             'bulletList'   => $this->addList($node, 'bullet'),
             'orderedList'  => $this->addList($node, 'ordered'),
+            'taskList'     => $this->addTaskList($node),
             'blockquote'   => $this->addBlockquote($node),
+            'callout'      => $this->addCallout($node),
             'codeBlock'    => $this->addCodeBlock($node),
             'table'        => $this->addTable($node),
             'horizontalRule' => $this->addHr(),
@@ -184,6 +186,61 @@ class DocxExporter implements ExporterContract
                 $this->addInline($run, $child);
             }
         }
+    }
+
+    /**
+     * Task lists render as indented paragraphs with ☐/☑ glyph prefixes —
+     * PhpWord has no native checkbox list, and Word's own checkbox lists are
+     * content controls we don't want to hand-build. Nested task lists deepen
+     * the indent like addList() does.
+     */
+    private function addTaskList(array $node, int $depth = 0): void
+    {
+        foreach ($node['content'] ?? [] as $item) {
+            $checked = (bool) ($item['attrs']['checked'] ?? false);
+            $glyph   = $checked ? '☑' : '☐';
+
+            foreach ($item['content'] ?? [] as $child) {
+                $childType = $child['type'] ?? '';
+                if ($childType === 'taskList') {
+                    $this->addTaskList($child, $depth + 1);
+                } elseif ($childType === 'paragraph') {
+                    $run = $this->section->addTextRun([
+                        'indentation' => ['left' => 240 + $depth * 360],
+                        'spaceAfter'  => 60,
+                    ]);
+                    $run->addText($glyph . ' ', ['size' => 11, 'color' => $checked ? '648354' : '5C625C']);
+                    $this->addInline($run, $child);
+                }
+            }
+        }
+    }
+
+    /** Callouts render as a single shaded table cell, tinted by kind. */
+    private function addCallout(array $node): void
+    {
+        // Word wants bgColor without '#'. Values mirror the app's light-theme
+        // callout token triads.
+        [$bg, $color] = match ($node['attrs']['kind'] ?? 'info') {
+            'success' => ['DAE6D4', '4B6840'],
+            'warning' => ['FAF1E2', '7A5520'],
+            'danger'  => ['F3E7E2', 'B5573E'],
+            default   => ['EDF2EA', '364E2E'],
+        };
+
+        $table = $this->section->addTable(['borderColor' => $bg, 'borderSize' => 6, 'cellMargin' => 120]);
+        $cell  = $table->addRow()->addCell(null, ['bgColor' => $bg]);
+
+        foreach ($node['content'] ?? [] as $child) {
+            $text = $this->extractText($child);
+            $cell->addText(
+                htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'),
+                ['color' => $color, 'size' => 10],
+                ['spaceAfter' => 60]
+            );
+        }
+
+        $this->section->addTextBreak(1);
     }
 
     private function addBlockquote(array $node): void

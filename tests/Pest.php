@@ -72,6 +72,18 @@ function fixtureDoc(): array
             ['type' => 'text', 'text' => 'quoted'],
         ]]]],
         ['type' => 'codeBlock', 'content' => [['type' => 'text', 'text' => 'echo 1;']]],
+        ['type' => 'codeBlock', 'attrs' => ['language' => 'php'], 'content' => [['type' => 'text', 'text' => 'echo 2;']]],
+        ['type' => 'taskList', 'content' => [
+            ['type' => 'taskItem', 'attrs' => ['checked' => true], 'content' => [
+                ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'done task']]],
+            ]],
+            ['type' => 'taskItem', 'attrs' => ['checked' => false], 'content' => [
+                ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'open task']]],
+            ]],
+        ]],
+        ['type' => 'callout', 'attrs' => ['kind' => 'warning'], 'content' => [
+            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'callout body']]],
+        ]],
         ['type' => 'horizontalRule'],
         ['type' => 'image', 'attrs' => ['src' => '/storage/assets/x.png', 'alt' => 'pic', 'width' => 200, 'align' => 'center']],
         ['type' => 'wikiLink', 'attrs' => ['title' => 'Other Page', 'target_id' => 7]],

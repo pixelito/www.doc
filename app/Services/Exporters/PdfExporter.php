@@ -170,6 +170,34 @@ class PdfExporter implements ExporterContract
                     border: none; border-top: 0.5pt solid #E2DFD4;
                     margin: 1.2em 0;
                 }
+                /* Task lists: hide the HTML checkbox (Dompdf draws form
+                   widgets unreliably) and prefix a glyph instead. DejaVu Sans
+                   ships with Dompdf and has U+2610/U+2611. */
+                ul[data-type="taskList"] { list-style: none; padding-left: 0.4em; }
+                li[data-type="taskItem"] input,
+                li[data-type="taskItem"] label span { display: none; }
+                li[data-type="taskItem"]::before {
+                    content: "\\2610  ";
+                    font-family: "DejaVu Sans", sans-serif;
+                    color: #5C625C;
+                }
+                li[data-type="taskItem"][data-checked="true"]::before {
+                    content: "\\2611  ";
+                    color: #648354;
+                }
+                li[data-type="taskItem"] div, li[data-type="taskItem"] label { display: inline; }
+                li[data-type="taskItem"] div p { display: inline; margin: 0; }
+                /* Callouts: light-theme token triads (Dompdf has no CSS vars). */
+                .callout {
+                    padding: 0.6em 0.8em; margin: 0 0 0.7em;
+                    border: 0.5pt solid; border-radius: 4pt;
+                    page-break-inside: avoid;
+                }
+                .callout p { margin: 0 0 0.35em; }
+                .callout-info    { background: #EDF2EA; border-color: #BFD2B5; color: #364E2E; }
+                .callout-success { background: #DAE6D4; border-color: #BFD2B5; color: #4B6840; }
+                .callout-warning { background: #FAF1E2; border-color: #E8C58E; color: #7A5520; }
+                .callout-danger  { background: #F3E7E2; border-color: #DDB3A6; color: #B5573E; }
                 img { max-width: 100%; height: auto; }
                 a { color: #4A6741; text-decoration: none; }
                 /* Match the live read view: sage-600 text, sage-300 underline. */

@@ -64,6 +64,9 @@ class RenderDocument
                 new TableCell,
                 new WikiLinkNode,
                 new TextAlign(['types' => ['heading', 'paragraph']]),
+                new \Tiptap\Nodes\TaskList,
+                new TaskItemNode,
+                new CalloutNode,
             ],
         ]);
     }
@@ -319,6 +322,105 @@ class WikiLinkNode extends Node
         $title = $node->attrs->title ?? '';
 
         return htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/**
+ * tiptap-php's TaskItem, adjusted for parity with the JS editor:
+ * - `checked` PARSES from the data-checked attribute (the vendor class only
+ *   renders it, so a fromHtml round-trip silently lost the state), and always
+ *   renders as "true"/"false" — the JS TaskItem and the PDF stylesheet key on
+ *   those exact strings.
+ * - the checkbox input renders `disabled`: this HTML surfaces in version
+ *   snapshots and the compare view, where a click must not pretend to work.
+ */
+class TaskItemNode extends \Tiptap\Nodes\TaskItem
+{
+    public function addAttributes()
+    {
+        return [
+            'checked' => [
+                'default' => false,
+                'parseHTML' => fn ($DOMNode) => $DOMNode->getAttribute('data-checked') === 'true',
+                'renderHTML' => fn ($attributes) => [
+                    'data-checked' => ($attributes->checked ?? false) ? 'true' : 'false',
+                ],
+            ],
+        ];
+    }
+
+    public function renderHTML($node, $HTMLAttributes = [])
+    {
+        return [
+            'li',
+            \Tiptap\Utils\HTML::mergeAttributes(
+                $this->options['HTMLAttributes'],
+                $HTMLAttributes,
+                ['data-type' => self::$name],
+            ),
+            [
+                'label',
+                [
+                    'input',
+                    [
+                        'type' => 'checkbox',
+                        'disabled' => 'disabled',
+                        'checked' => ($node->attrs->checked ?? false) ? 'checked' : null,
+                    ],
+                ],
+                ['span'],
+            ],
+            [
+                'div',
+                0,
+            ],
+        ];
+    }
+}
+
+/**
+ * Server half of the callout node (resources/js/extensions/Callout.js).
+ * Same `<div data-callout="kind" class="callout callout-kind">` signature in
+ * both directions; unknown kinds normalise to "info" rather than leaking
+ * arbitrary strings into a class name.
+ */
+class CalloutNode extends Node
+{
+    public static $name = 'callout';
+
+    public const KINDS = ['info', 'success', 'warning', 'danger'];
+
+    public function addAttributes()
+    {
+        return [
+            'kind' => [
+                'default' => 'info',
+                'parseHTML' => function ($DOMNode) {
+                    $kind = $DOMNode->getAttribute('data-callout');
+
+                    return in_array($kind, self::KINDS, true) ? $kind : 'info';
+                },
+                'rendered' => false,
+            ],
+        ];
+    }
+
+    public function parseHTML()
+    {
+        return [['tag' => 'div[data-callout]']];
+    }
+
+    public function renderHTML($node, $HTMLAttributes = [])
+    {
+        $kind = $node->attrs->kind ?? 'info';
+        if (! in_array($kind, self::KINDS, true)) {
+            $kind = 'info';
+        }
+
+        return ['div', [
+            'data-callout' => $kind,
+            'class'        => "callout callout-{$kind}",
+        ], 0];
     }
 }
 

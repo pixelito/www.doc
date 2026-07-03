@@ -64,6 +64,28 @@ test('block nodes (lists, quote, code block, rule) survive rendering', function 
         ->toContain('<hr>');
 });
 
+test('code block language attr survives rendering', function () {
+    expect($this->html)->toContain('<code class="language-php">echo 2;');
+});
+
+test('task list nodes survive rendering', function () {
+    expect($this->html)
+        ->toContain('<ul data-type="taskList">')
+        ->toContain('data-checked="true" data-type="taskItem"')
+        ->toContain('data-checked="false" data-type="taskItem"')
+        // Snapshot/compare HTML must not offer a live-looking checkbox.
+        ->toContain('<input type="checkbox" disabled="disabled" checked="checked">')
+        ->toContain('done task')
+        ->toContain('open task');
+});
+
+test('callout node survives rendering', function () {
+    expect($this->html)
+        ->toContain('data-callout="warning"')
+        ->toContain('class="callout callout-warning"')
+        ->toContain('callout body');
+});
+
 test('text alignment survives rendering', function () {
     expect($this->html)->toContain('text-align: center');
 });
