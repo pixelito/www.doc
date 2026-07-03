@@ -75,6 +75,49 @@ test('title and tag diffs report old/new and added/removed sets', function () {
         ->and($diff['tags'])->toBe(['added' => ['c'], 'removed' => ['a']]);
 });
 
+test('unchanged list items with wiki-links are not marked when something else changes', function () {
+    // Regression: caxy's list differ reads TipTap's <li><p>…</p> items as
+    // empty text (its tag whitelist lacks <p>), so identical items came back
+    // removed + re-added. Lists are diffed inline now.
+    $listItem = fn (string $text, string $link) => ['type' => 'listItem', 'content' => [
+        ['type' => 'paragraph', 'content' => [
+            ['type' => 'text', 'text' => $text],
+            ['type' => 'wikiLink', 'attrs' => ['title' => $link, 'target_id' => 3]],
+        ]],
+    ]];
+    $doc = fn (string $tail) => ['type' => 'doc', 'content' => [
+        ['type' => 'bulletList', 'content' => [
+            $listItem('PHP — ', 'PHP Style'),
+            $listItem('React — ', 'React Style'),
+        ]],
+        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $tail]]],
+    ]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: $doc('original closing line')),
+        diffSide(content: $doc('edited closing line')),
+    );
+
+    // The list is untouched: no ins/del anywhere before it ends.
+    [$listPart] = explode('</ul>', $diff['body']['html'], 2);
+    expect($listPart)->not->toContain('<ins')->not->toContain('<del')
+        ->and($diff['body']['html'])->toContain('<del class="diffmod">original</del>');
+
+    // And a genuinely edited item still diffs word-level inside the list.
+    $changed = DocumentDiff::compare(
+        diffSide(content: $doc('same tail')),
+        diffSide(content: array_replace($doc('same tail'), ['content' => [
+            ['type' => 'bulletList', 'content' => [
+                $listItem('PHP — ', 'PHP Style'),
+                $listItem('Vue — ', 'React Style'),
+            ]],
+            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'same tail']]],
+        ]])),
+    );
+    expect($changed['body']['html'])->toContain('<del')->toContain('React')
+        ->and($changed['body']['html'])->toContain('<ins')->toContain('Vue');
+});
+
 // ── Blocks ──────────────────────────────────────────────────────────────────
 
 test('an image src swap is one modified block and a clean atomic img diff', function () {

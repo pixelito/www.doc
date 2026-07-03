@@ -149,6 +149,16 @@ class DocumentDiff
         // already serve. Table diffing stays on (cell-level detail for free).
         $config = HtmlDiffConfig::create()->setPurifierEnabled(false);
 
+        // Diff lists INLINE, not with caxy's list differ: that differ matches
+        // items by their "relevant text", which only descends into a tag
+        // whitelist that lacks <p> — and TipTap always renders <li><p>…</p>,
+        // so every item read as empty, nothing matched, and UNCHANGED list
+        // items rendered as removed + re-added. Inline diffing handles list
+        // items like any other prose (word-level, unchanged items untouched).
+        $isolated = $config->getIsolatedDiffTags();
+        unset($isolated['ol'], $isolated['ul'], $isolated['dl']);
+        $config->setIsolatedDiffTags($isolated);
+
         return [
             'changed'   => true,
             'html'      => HtmlDiff::create($oldHtml, $newHtml, $config)->build(),
