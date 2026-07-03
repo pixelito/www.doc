@@ -20,6 +20,11 @@ export default function SettingsLayout({ children }) {
 
     const tabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
+    // "v1.2.0" from a release tag (with or without the leading v), "dev" as-is.
+    const version = props.appVersion === 'dev' || !props.appVersion
+        ? 'dev'
+        : `v${String(props.appVersion).replace(/^v/, '')}`;
+
     return (
         <DocsLayout>
             <div className="mx-auto max-w-3xl">
@@ -53,6 +58,11 @@ export default function SettingsLayout({ children }) {
                 )}
 
                 <div className="mt-6 space-y-5">{children}</div>
+
+                {/* Which release this instance runs — meta caption per the styleguide. */}
+                <p className="mt-8 text-center text-[11px] text-text-tertiary">
+                    www.doc {version}
+                </p>
             </div>
         </DocsLayout>
     );

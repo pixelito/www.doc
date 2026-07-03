@@ -61,6 +61,10 @@ jobs:
             ${{ env.DOCKERHUB_REPO }}-app:${{ github.event.release.tag_name || 'latest' }}
             ${{ env.DOCKERHUB_REPO }}-app:latest
           labels: ${{ steps.meta.outputs.labels }}
+          # Bake the release tag in so instances can report their version
+          # (Settings footer, backup manifests). "dev" when built by hand.
+          build-args: |
+            APP_VERSION=${{ github.event.release.tag_name || 'dev' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

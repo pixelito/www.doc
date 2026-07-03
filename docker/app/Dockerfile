@@ -55,6 +55,11 @@ RUN mkdir -p \
  && composer dump-autoload --optimize --no-dev \
  && chown -R www-data:www-data storage bootstrap/cache
 
+# The release tag this image was built from ("dev" outside CI). Read by
+# config('app.version') → the Settings footer and backup manifests.
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 COPY docker/app/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 

@@ -310,6 +310,9 @@ class BackupService
             'format_version' => config('backup.format_version'),
             'schema_version' => $this->schemaVersion(),
             'app'            => config('app.name'),
+            // Which release wrote this archive — context for future restores
+            // ("dev" for source builds).
+            'app_version'    => config('app.version'),
             'created_at'     => now()->toIso8601String(),
             // Recorded in the DB `backups` row too, so RestoreService knows an
             // archive is encrypted WITHOUT first decrypting it (the manifest.json

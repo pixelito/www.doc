@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | The release this instance runs. Published images bake the git tag in as
+    | an APP_VERSION env (see docker.yml); source builds honestly say "dev".
+    | Shown in the Settings footer and recorded in backup manifests.
+    |
+    */
+
+    'version' => env('APP_VERSION', 'dev'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

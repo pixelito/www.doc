@@ -38,6 +38,9 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            // Which release this instance runs ("dev" for source builds).
+            // Rendered as the muted caption at the bottom of Settings.
+            'appVersion' => config('app.version'),
             'auth' => [
                 'user' => $request->user() ? [
                     'id'           => $request->user()->id,
