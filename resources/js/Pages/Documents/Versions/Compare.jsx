@@ -263,9 +263,9 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                             />
                                         </div>
                                         <figcaption className="mt-1.5 flex items-center gap-3 text-[11px] text-text-tertiary">
-                                            <span className="flex items-center gap-1"><span className="text-[8px]" style={{ color: '#4B6840' }}>●</span> added</span>
-                                            <span className="flex items-center gap-1"><span className="text-[8px]" style={{ color: '#B5573E' }}>●</span> removed</span>
-                                            <span className="flex items-center gap-1"><span className="text-[8px]" style={{ color: '#C99650' }}>●</span> changed</span>
+                                            <span className="flex items-center gap-1"><span className="text-[8px] text-sage-600">●</span> added</span>
+                                            <span className="flex items-center gap-1"><span className="text-[8px] text-danger">●</span> removed</span>
+                                            <span className="flex items-center gap-1"><span className="text-[8px] text-warning">●</span> changed</span>
                                         </figcaption>
                                     </figure>
                                 )}

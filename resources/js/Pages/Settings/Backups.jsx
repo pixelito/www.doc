@@ -1061,7 +1061,7 @@ export default function Backups() {
                     style={{ background: 'rgba(31, 37, 32, 0.42)' }}
                 >
                     <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
-                         style={{ boxShadow: '0 16px 40px rgba(31, 37, 32, 0.18)' }}>
+                         style={{ boxShadow: 'var(--shadow-lg)' }}>
                         <div className="flex flex-col items-center px-6 py-7 text-center">
                             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
                                 <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
@@ -1084,7 +1084,7 @@ export default function Backups() {
                     style={{ background: 'rgba(31, 37, 32, 0.42)' }}
                 >
                     <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
-                         style={{ boxShadow: '0 16px 40px rgba(31, 37, 32, 0.18)' }}>
+                         style={{ boxShadow: 'var(--shadow-lg)' }}>
                         <div className="flex flex-col items-center px-6 py-7 text-center">
                             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
                                 <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />

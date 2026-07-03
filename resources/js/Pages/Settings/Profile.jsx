@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { ThemeSegments } from '@/components/ThemePicker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
@@ -161,6 +162,17 @@ export default function ProfilePage({ user }) {
     return (
         <SettingsLayout>
             <Head title="Profile — Settings" />
+
+            {/* ── Appearance ───────────────────────────────────────────────── */}
+            <Card className="mb-6">
+                <CardHeader>
+                    <CardTitle className="text-sm font-semibold text-foreground">Appearance</CardTitle>
+                    <CardDescription>Theme for this browser — "System" follows your OS setting.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ThemeSegments />
+                </CardContent>
+            </Card>
 
             {/* ── Avatar ───────────────────────────────────────────────────── */}
             <Card className="mb-6">

@@ -65,7 +65,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
         >
             <div
                 className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
-                style={{ boxShadow: '0 16px 40px rgba(31, 37, 32, 0.18)' }}
+                style={{ boxShadow: 'var(--shadow-lg)' }}
             >
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">

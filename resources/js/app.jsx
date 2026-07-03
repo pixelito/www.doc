@@ -1,5 +1,8 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
+import { initTheme } from '@/lib/theme';
+
+initTheme();
 
 createInertiaApp({
     title: (title) => title ? `${title} — www.doc` : 'www.doc',

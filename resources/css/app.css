@@ -77,6 +77,8 @@
 }
 
 :root {
+    color-scheme: light;
+
     /* Surfaces — warm cream foundation */
     --canvas: #F5F4ED;
     /* page background */
@@ -88,6 +90,8 @@
     /* default borders */
     --border-subtle: #ECE9DF;
     /* dividers inside cards */
+    --canvas-parchment: #E4E2D8;
+    /* optional darker page bg (cards-on-parchment look), opt-in per page */
 
     /* Text */
     --text-primary: #1F2520;
@@ -152,6 +156,62 @@
     --shadow-lg: 0 16px 32px rgba(31, 37, 32, 0.10);
 }
 
+/* ── Dark theme ──────────────────────────────────────────────────────────────
+   Copied verbatim from the sage-design skill's theme.css (the canonical
+   source — change values THERE first, then re-sync this block). The app
+   stamps data-theme on <html> before first paint (see resources/js/lib/
+   theme.js); "system" is resolved in JS, so there is no prefers-color-scheme
+   block here. Never branch on light-vs-dark in app code — only on tokens. */
+[data-theme='dark'] {
+    color-scheme: dark;
+
+    /* Surfaces — warm dark ink (green-tinged, never pure black/gray) */
+    --canvas: #171B17;
+    --surface: #1F241F;
+    --surface-hover: #2A302A;
+    --border: #363D36;
+    --border-subtle: #2C322C;
+    --canvas-parchment: #111411;
+
+    /* Text */
+    --text-primary: #E8E8E0;
+    --text-secondary: #A3A99F;
+    --text-tertiary: #737A70;
+    --text-inverse: #171B17;
+
+    /* Sage ramp — tint end goes dark, accent end goes light */
+    --sage-50: #1E2A1C;
+    --sage-100: #283A23;
+    --sage-200: #3A5230;
+    --sage-300: #4E6B41;
+    --sage-400: #7FA471;
+    --sage-500: #93B685;
+    --sage-600: #A9C89B;
+    --sage-700: #C6DDBA;
+
+    /* Semantic */
+    --info: #8AA5BF;
+    --success: #7FA471;
+    --warning: #D4A55E;
+    --warning-surface: #342A18;
+    --warning-border: #5C4826;
+    --warning-text: #E2BE7E;
+    --danger: #D07E64;
+    --danger-surface: #36201A;
+    --danger-border: #5E3A2E;
+
+    /* Diff / change views */
+    --diff-add-text: #A9C89B;
+    --diff-add-bg: #24331E;
+    --diff-del-text: #DD9A85;
+    --diff-del-bg: #3A241D;
+
+    /* Shadows need more weight to register on dark surfaces */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.50);
+}
+
 @layer base {
     *,
     ::after,
@@ -176,6 +236,12 @@
     background-position: right 0.625rem center;
     background-size: 1rem 1rem;
     padding-right: 2rem;
+}
+
+/* The chevron stroke is baked into the data-URI (SVG can't read CSS vars), so
+   the dark theme swaps the whole image for one stroked in its text-tertiary. */
+[data-theme='dark'] .ui-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737A70' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* ── TipTap editor shell ─────────────────────────────────────────────────── */
@@ -276,6 +342,13 @@
     padding: 0.05em 0.15em;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
+}
+
+/* Highlight fills are CONTENT (authors pick light pastels), so they don't flip
+   with the theme — but inherited light body text on them would be unreadable.
+   Pin dark ink on highlighted runs in dark mode. */
+[data-theme='dark'] .tiptap mark {
+    color: #1F2520;
 }
 
 /* Image node view — wrapper, inner container, resize handle */
@@ -463,7 +536,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(31, 37, 32, 0.06);
+    box-shadow: var(--shadow-sm);
 }
 .network-diagram-block .react-flow__controls-button {
     width: 26px;

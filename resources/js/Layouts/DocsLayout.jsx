@@ -3,6 +3,7 @@ import { Link, usePage, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { IconSearch, IconSettings, IconLogout, IconMenu2, IconX, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-react';
 import { Toaster } from '@/components/ui/sonner';
+import { ThemeMenu } from '@/components/ThemePicker';
 import { avatarStyle, initials } from '@/lib/avatar';
 
 function NavLink({ href, children }) {
@@ -157,6 +158,7 @@ export default function DocsLayout({ children }) {
                             >
                                 {initials(auth.user.name)}
                             </div>
+                            <ThemeMenu />
                             <Link
                                 href="/settings/profile"
                                 title="Settings"
