@@ -68,7 +68,7 @@ services:
 
   worker:
     <<: *app-image
-    command: su www-data -s /bin/sh -c "php artisan queue:work --tries=3 --timeout=300"
+    command: php artisan queue:work --tries=3 --timeout=300
     volumes:
       - app-storage:/var/www/html/storage
     depends_on:
@@ -80,7 +80,7 @@ services:
     # Runs Laravel's scheduler in-process (wakes every minute) so registered
     # tasks actually fire — today that's the daily assets:prune. Shares the
     # storage volume so the prune can delete the orphaned image files.
-    command: su www-data -s /bin/sh -c "php artisan schedule:work"
+    command: php artisan schedule:work
     volumes:
       - app-storage:/var/www/html/storage
     depends_on:
