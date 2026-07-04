@@ -41,7 +41,6 @@ export default function TemplatesEdit({ template }) {
             description: description.trim() || null,
             content: contentRef.current,
         }, {
-            preserveScroll: true,
             onSuccess: () => { dirtyRef.current = false; },
             onFinish: () => setSaving(false),
         });

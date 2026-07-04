@@ -63,7 +63,7 @@ class TemplateController extends Controller
             'from_document' => $document->title,
         ]);
 
-        return redirect()->route('templates.index')->with('success', "Saved \"{$template->name}\" as a template.");
+        return back()->with('success', "Saved \"{$template->name}\" as a template.");
     }
 
     public function edit(Template $template): Response
@@ -95,7 +95,7 @@ class TemplateController extends Controller
 
         Audit::record('template.updated', $template, ['name' => $template->name]);
 
-        return back()->with('success', 'Template saved.');
+        return redirect()->route('templates.index')->with('success', 'Template saved.');
     }
 
     public function destroy(Template $template): RedirectResponse

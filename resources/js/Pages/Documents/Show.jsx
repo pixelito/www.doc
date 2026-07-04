@@ -263,7 +263,15 @@ function SaveAsTemplateModal({ open, onClose, documentId, documentTitle }) {
             name: name.trim(),
             description: description.trim() || null,
         }, {
-            onSuccess: () => onClose(),
+            preserveScroll: true,
+            onSuccess: () => {
+                onClose();
+                setTimeout(() => {
+                    document.body.style.pointerEvents = '';
+                    document.body.removeAttribute('data-scroll-locked');
+                    router.visit('/templates');
+                }, 150);
+            },
             onError: (errs) => setError(errs.name ?? 'Something went wrong.'),
             onFinish: () => setSaving(false),
         });
@@ -569,8 +577,9 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                                 setConflict(conflictData);
                                 return; // stay in edit mode; the dialog resolves it
                             }
-                            setConflict(null);
+                            isDirtyRef.current = false;
                             setSaveStatus('saved');
+                            toast.success('Page saved.');
                             setIsEditing(false);
                         },
                         onError: () => {

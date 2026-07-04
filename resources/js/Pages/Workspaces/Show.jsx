@@ -168,10 +168,10 @@ function StarButton({ node, starred }) {
             onClick={() => router.post(`/documents/${node.id}/star`, {}, { preserveScroll: true, preserveState: true })}
             title={starred ? 'Unstar' : 'Star'}
             aria-pressed={starred}
-            className={`flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-150 hover:bg-surface-hover ${
+            className={`flex h-6 w-6 items-center justify-center rounded-sm border border-transparent transition-all duration-150 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 ${
                 starred
-                    ? 'text-warning'
-                    : 'text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-foreground'
+                    ? 'text-warning opacity-100'
+                    : 'text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-warning'
             }`}
         >
             {starred
@@ -197,7 +197,7 @@ const GRIP_GUTTER = 'w-5';    // fixed drag-handle gutter (20px) — keep in syn
 // so neighbouring slices overlap across that hairline and read as one continuous line.
 const GUIDE_BLEED = 1;
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent, starred = false }) {
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent, starred = false, isReordering = false }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -208,7 +208,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
         <li
             ref={setNodeRef}
             style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
-            className={`group relative grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors ${
+            className={`group relative grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors ${
                 isDropParent ? 'bg-sage-50 ring-1 ring-inset ring-sage-300' : 'hover:bg-surface-hover/60'
             }`}
         >
@@ -279,7 +279,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             </div>
             <div className="flex items-center justify-end gap-1 py-2.5 pr-2">
                 {/* Star is personal and role-independent — outside canCreate. */}
-                {!dragging && <StarButton node={node} starred={starred} />}
+                {!dragging && !isReordering && <StarButton node={node} starred={starred} />}
                 {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
             </div>
         </li>
@@ -288,7 +288,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
 
 function FilteredRow({ node }) {
     return (
-        <li className="grid grid-cols-[1fr_110px_64px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
+        <li className="grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                 <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
@@ -554,7 +554,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
             {/* Page table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_110px_64px] border-b border-border bg-surface-hover py-2.5">
+                <div className="grid grid-cols-[1fr_110px_96px] border-b border-border bg-surface-hover py-2.5">
                     <span className="pl-3 pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Page</span>
                     <span className="pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Updated</span>
                     <span />
@@ -597,6 +597,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                                             pathLast={guideFlags.get(item.id)}
                                             isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
                                             starred={starredSet.has(item.node.id)}
+                                            isReordering={reordering}
                                         />
                                     ))}
                                 </ul>
