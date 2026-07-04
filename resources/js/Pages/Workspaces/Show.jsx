@@ -259,7 +259,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                     <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                     <Link
                         href={`/documents/${node.id}`}
-                        className={`truncate text-sm transition-colors hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
+                        className={`truncate text-sm transition-colors group-hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
                     >
                         {node.title}
                     </Link>
@@ -288,10 +288,10 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
 
 function FilteredRow({ node }) {
     return (
-        <li className="grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
+        <li className="group grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
+                <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-sage-600">
                     {node.title}
                 </Link>
                 {node.tags.map((t) => <TagPill key={t.id} name={t.name} active={true} />)}

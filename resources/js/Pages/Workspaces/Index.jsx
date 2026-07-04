@@ -62,7 +62,7 @@ function SortableRow({ workspace, draggable }) {
                     href={`/workspaces/${workspace.id}`}
                     className="min-w-0"
                 >
-                    <p className="truncate text-sm font-medium text-foreground transition-colors hover:text-sage-600">
+                    <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-sage-600">
                         {workspace.name}
                     </p>
                     {workspace.description && (
