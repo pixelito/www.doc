@@ -63,7 +63,7 @@ class TemplateController extends Controller
             'from_document' => $document->title,
         ]);
 
-        return back()->with('success', "Saved \"{$template->name}\" as a template.");
+        return redirect()->route('templates.index')->with('success', "Saved \"{$template->name}\" as a template.");
     }
 
     public function edit(Template $template): Response

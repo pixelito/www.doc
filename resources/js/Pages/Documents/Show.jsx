@@ -263,7 +263,6 @@ function SaveAsTemplateModal({ open, onClose, documentId, documentTitle }) {
             name: name.trim(),
             description: description.trim() || null,
         }, {
-            preserveScroll: true,
             onSuccess: () => onClose(),
             onError: (errs) => setError(errs.name ?? 'Something went wrong.'),
             onFinish: () => setSaving(false),
