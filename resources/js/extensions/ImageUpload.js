@@ -50,7 +50,29 @@ function replaceBlobSrc(view, blobUrl, realUrl) {
 export function insertFiles(editor, view, files) {
     files.forEach(file => {
         const preview = URL.createObjectURL(file);
-        editor.chain().focus().setImage({ src: preview }).run();
+        editor
+            .chain()
+            .focus()
+            .setImage({ src: preview })
+            // The image is a block atom node, so setImage leaves it as a
+            // NodeSelection — it stays "selected", and the next paste/keystroke
+            // REPLACES it instead of adding below. Drop a text cursor just after
+            // the image so it deselects and subsequent inserts stack downward.
+            .command(({ tr, state, dispatch }) => {
+                if (dispatch) {
+                    const after = tr.selection.to;
+                    // When the image is the last node there's no text position
+                    // after it to land in (no trailing paragraph in this schema),
+                    // so a forward cursor would fall back ABOVE the image. Append
+                    // an empty paragraph so the cursor sits below it instead.
+                    if (after >= tr.doc.content.size) {
+                        tr.insert(after, state.schema.nodes.paragraph.create());
+                    }
+                    tr.setSelection(TextSelection.near(tr.doc.resolve(after), 1));
+                }
+                return true;
+            })
+            .run();
         uploadFile(file)
             .then(({ url }) => replaceBlobSrc(view, preview, url))
             .catch(() => URL.revokeObjectURL(preview));
