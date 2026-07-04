@@ -14,7 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        // Trust the reverse proxy so X-Forwarded-* (real client IP, HTTPS) is
+        // honoured — but ONLY from the proxy. Trusting '*' lets any client spoof
+        // X-Forwarded-For, which forges the audit-log IP and the per-IP login
+        // throttle key. Defaults to private ranges (where a Docker-network proxy
+        // lives); set TRUSTED_PROXIES to your proxy's IP/CIDR — or '*' if you
+        // terminate elsewhere and accept the trade-off.
+        $proxies = (string) env('TRUSTED_PROXIES', '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1,::1');
+        $middleware->trustProxies(
+            at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)),
+        );
         // Prepend the first-run gate so every web request is funnelled to the
         // setup wizard until the instance is configured (no-op once set up).
         $middleware->web(prepend: [

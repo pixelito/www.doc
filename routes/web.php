@@ -52,11 +52,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
     // Password reset (forgot → emailed link → reset). Delivered via the SMTP
-    // settings from the setup wizard / admin Email tab.
+    // settings from the setup wizard / admin Email tab. The POST endpoints are
+    // throttled so the forgot form can't be abused to mail-bomb an address or
+    // brute-force reset tokens (the broker's per-user email throttle aside).
     Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->name('password.email');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])
+        ->middleware('throttle:6,1')->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])
+        ->middleware('throttle:6,1')->name('password.update');
 });
 
 Route::middleware('auth')->group(function () {
