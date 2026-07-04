@@ -144,11 +144,10 @@ class SetupController extends Controller
         $request->session()->regenerate();
 
         // Give the fresh instance a starting point: a Welcome workspace with a
-        // page that explains the app, plus the three starter page templates.
-        // Authored as the now-logged-in admin (the observer stamps Auth::id()).
-        // Best-effort — a failure here must not undo the completed setup.
+        // page that explains the app. Authored as the now-logged-in admin (the
+        // observer stamps Auth::id()). Best-effort — a failure here must not undo
+        // the completed setup.
         $this->seedWelcomeContent();
-        $this->seedStarterTemplates();
 
         return redirect()->route('workspaces.index');
     }
@@ -197,16 +196,6 @@ class SetupController extends Controller
         }
     }
 
-    /** Ship the Runbook / Meeting notes / RFC starter templates (fresh installs only). */
-    private function seedStarterTemplates(): void
-    {
-        try {
-            (new \Database\Seeders\TemplateSeeder())->run();
-        } catch (\Throwable $e) {
-            report($e);
-        }
-    }
-
     // ── Welcome content (StarterKit nodes + wikiLink + networkDiagram) ──────────
 
     private function h(string $text): array
@@ -228,6 +217,12 @@ class SetupController extends Controller
                 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $t]]]],
             ], $items),
         ];
+    }
+
+    /** A callout box — also shows the reader the node exists. Kind: info|success|warning|danger. */
+    private function callout(string $kind, string $text): array
+    {
+        return ['type' => 'callout', 'attrs' => ['kind' => $kind], 'content' => [$this->p($text)]];
     }
 
     private function welcomeContent(): array
@@ -259,11 +254,15 @@ class SetupController extends Controller
                 $this->p('Pages can embed network diagrams, rendered right here in the read view. Here\'s a simple one — open this page in edit mode to change it.'),
                 $this->diagramNode(),
 
+                $this->h('Make it yours'),
+                $this->p('Prefer a dark interface? Switch the theme under Settings → Profile — it follows your operating system by default. Star the pages you use most and they, along with the ones you viewed recently, sit on your home screen for quick access.'),
+
                 $this->h('For administrators'),
                 $this->bullets([
                     'Invite teammates and set their roles (admin, editor, viewer) under Settings → Users.',
                     'Configure the mail server under Settings → Email so password resets and notifications are delivered.',
                     'Schedule encrypted, off-host backups under Settings → Backups to keep your knowledge base safe.',
+                    'Review who created, changed or removed anything in the append-only activity log under Settings → Audit.',
                 ]),
 
                 $this->p('That\'s it — create your first real workspace and start writing.'),
@@ -276,14 +275,33 @@ class SetupController extends Controller
         return [
             'type' => 'doc',
             'content' => [
-                $this->p('The editor is a rich text editor that stays out of your way. A few things worth knowing:'),
+                $this->p('The editor is a rich text editor that stays out of your way. A few things worth knowing.'),
+
+                $this->h('Formatting'),
                 $this->bullets([
-                    'Paste from Word, Google Docs or the web and the formatting comes across cleanly — headings, lists, tables, links and more.',
-                    'Paste a screenshot straight from your clipboard and it\'s embedded inline; resize it by dragging.',
-                    'Use headings to structure a page; the formatting toolbar covers bold, italic, colours, highlights, code and quotes.',
-                    'Need a diagram? Insert a network diagram block and lay out nodes and connections visually.',
+                    'Paste from Word, Google Docs or the web and the formatting comes across cleanly — headings, lists, tables, links and images are preserved; anything that doesn\'t fit the page model is dropped rather than pasted as noise.',
+                    'The toolbar covers the essentials: bold, italic, underline, strikethrough, text colour and highlight, inline code, links, alignment, headings, quotes and lists.',
                 ]),
-                $this->p('Every time you save, the previous state is kept as a version — so you can always compare changes or roll back.'),
+
+                $this->h('More than plain text'),
+                $this->bullets([
+                    'Task lists for checkable to-dos, callouts for notes worth standing out, and code blocks with per-language syntax highlighting.',
+                    'Tables, block quotes and dividers when a page needs more structure.',
+                    'Network diagrams — lay out nodes and connections visually; they render in the read view and in exports.',
+                ]),
+                $this->callout('info', 'Two shortcuts speed everything up: type / anywhere for a command menu (headings, lists, callouts, code, diagrams and more), and type [[ to link another page.'),
+
+                $this->h('Images and files'),
+                $this->bullets([
+                    'Paste a screenshot from your clipboard and it\'s embedded inline — drag a corner to resize. Images pasted from the web are copied and re-hosted here, so a page never depends on an external URL that might disappear.',
+                    'Attach files to a page — specs, spreadsheets, PDFs — from the attachments panel. They are stored with the page and captured in its version history.',
+                ]),
+
+                $this->h('Versions, export and import'),
+                $this->bullets([
+                    'Every save keeps the previous state as a version, so you can compare any two or roll back from the page\'s history.',
+                    'Export any page to PDF or Word, or import an existing Word or PDF document to start a page from it.',
+                ]),
             ],
         ];
     }
@@ -293,13 +311,25 @@ class SetupController extends Controller
         return [
             'type' => 'doc',
             'content' => [
-                $this->p('A little structure keeps a knowledge base easy to navigate as it grows:'),
+                $this->p('A little structure keeps a knowledge base easy to navigate as it grows.'),
                 $this->bullets([
                     'Workspaces group big areas of work and don\'t nest — keep the set small and deliberate.',
-                    'Nest pages under one another to build a shallow tree of related notes.',
-                    'Link related pages by typing [[Page title]]; each page shows its backlinks, so connections work both ways.',
-                    'Add tags to cut across workspaces, and use full-text search to jump straight to anything.',
+                    'Nest pages under one another to build a shallow tree of related notes; drag rows to reorder or re-parent them.',
+                    'Link related pages by typing [[Page title]]; each page lists its backlinks, so connections work both ways.',
+                    'Add tags to cut across workspaces, and use full-text search to jump straight to anything — page titles, body text, even the labels inside diagrams.',
                 ]),
+
+                $this->h('Finding your way back'),
+                $this->bullets([
+                    'Star the pages you return to often; your starred and recently viewed pages sit on the home screen for one-click access.',
+                    'Save any page as a template to reuse its structure, then start new pages from it. Manage templates under Settings → Templates.',
+                ]),
+
+                $this->h('Nothing is lost by accident'),
+                $this->bullets([
+                    'Deleting a page or workspace moves it — and everything nested under it — to the Trash, where an admin can restore it or remove it for good.',
+                ]),
+
                 $this->p('When you\'re ready, delete this Welcome workspace and start shaping your own.'),
             ],
         ];

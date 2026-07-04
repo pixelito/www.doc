@@ -6,10 +6,11 @@ use App\Models\Template;
 use Illuminate\Database\Seeder;
 
 /**
- * The three starter templates a fresh instance ships with. Runs from the setup
- * wizard's complete step (and the dev DatabaseSeeder) — guarded so an instance
- * that already has templates is never re-seeded, and deliberately showcasing
- * the editor's block nodes (callouts, task lists, code blocks).
+ * Three sample templates for local development, seeded by the dev
+ * DatabaseSeeder — guarded so an instance that already has templates is never
+ * re-seeded, and deliberately showcasing the editor's block nodes (callouts,
+ * task lists, code blocks). A fresh production install ships with NO templates
+ * (setup deliberately doesn't seed these); users create their own.
  */
 class TemplateSeeder extends Seeder
 {
