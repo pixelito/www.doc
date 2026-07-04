@@ -647,8 +647,11 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     const setNodes = (next) => { nodesRef.current = next; setNodesState(next); };
     const setEdges = (next) => { edgesRef.current = next; setEdgesState(next); };
 
+    const dirtyRef = useRef(false);
+    const hasInteractedRef = useRef(false);
+
     const persist = () => {
-        if (!editable) return;   // read-only mount renders the graph but never writes back
+        if (!editable || !dirtyRef.current || !hasInteractedRef.current) return;   // read-only mount renders the graph but never writes back
         onChange?.({
             nodes: cleanNodes(nodesRef.current),
             edges: cleanEdges(edgesRef.current),
@@ -659,10 +662,10 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
 
     // Toggle/cycle the persisted settings: update the ref + state, then persist so
     // the choice is remembered (no undo entry — these are preferences, not edits).
-    const toggleSnap = () => { const v = !snapRef.current; snapRef.current = v; setSnap(v); persist(); };
+    const toggleSnap = () => { const v = !snapRef.current; snapRef.current = v; setSnap(v); dirtyRef.current = true; hasInteractedRef.current = true; persist(); };
     const cycleDefaultRouting = () => {
         const v = ROUTING_MODES[(ROUTING_MODES.indexOf(routingRef.current) + 1) % ROUTING_MODES.length];
-        routingRef.current = v; setDefaultRouting(v); persist();
+        routingRef.current = v; setDefaultRouting(v); dirtyRef.current = true; hasInteractedRef.current = true; persist();
     };
 
     // ── Undo / redo ──────────────────────────────────────────────────────────
@@ -699,13 +702,14 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     };
 
     // persist + record an undo step.
-    const commit = () => { persist(); pushHistory(); };
+    const commit = () => { dirtyRef.current = true; hasInteractedRef.current = true; persist(); pushHistory(); };
 
     const restore = (snap) => {
         setNodes(hydrateNodes(snap.nodes));
         setEdges(hydrateEdges(snap.edges));
         viewportRef.current = snap.viewport ?? viewportRef.current;
         rf.setViewport(viewportRef.current);
+        dirtyRef.current = true;
         persist();          // reflect the restored state into the document
     };
     const undo = () => {
@@ -740,6 +744,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         const onPointerDown = (e) => {
             const inside = !!wrapperRef.current?.contains(e.target);
             activeRef.current = inside;
+            if (inside) hasInteractedRef.current = true;
             // Select the node so the toolbar reflects "inside a diagram" — but not
             // when starting to type in a label input (it would blur the input).
             if (inside && e.target?.tagName !== 'INPUT' && e.target?.tagName !== 'TEXTAREA') onActivate?.();
@@ -953,7 +958,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         if (!ids.size) return false;
         setNodes(nodesRef.current.map((n) =>
             ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n));
-        persist();
+        dirtyRef.current = true;
         persist();
         clearTimeout(nudgeTimer.current);
         nudgeTimer.current = setTimeout(() => { nudgeTimer.current = null; pushHistory(); }, 350);
@@ -1179,7 +1184,9 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
                     onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
-                    onMoveEnd={editable ? ((_, vp) => { viewportRef.current = vp; persist(); }) : undefined}
+                    onMoveEnd={editable ? ((_, vp) => {
+                        viewportRef.current = vp;
+                    }) : undefined}
                     onSelectionChange={(sel) => { selectionRef.current = sel; setSelCount(sel.nodes?.length ?? 0); }}
                     defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
                     {...interactionProps}

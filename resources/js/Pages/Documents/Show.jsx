@@ -794,7 +794,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                                 </Button>
                             )}
                             {(perms.create || perms.delete) && (
-                                <DropdownMenu>
+                                <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
                                         <Button
                                             variant="outline"

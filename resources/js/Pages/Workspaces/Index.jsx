@@ -239,7 +239,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [], star
                                 </Button>
                             )}
                             {((perms.update && workspaces.length > 1) || perms.isAdmin) && (
-                                <DropdownMenu>
+                                <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
                                         <Button
                                             variant="outline"

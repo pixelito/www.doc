@@ -20,7 +20,24 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
     const graph = node.attrs.graph ?? EMPTY_GRAPH;
     const name = (node.attrs.name ?? '').trim();
 
-    const onChange = useCallback((g) => updateAttributes({ graph: g }), [updateAttributes]);
+    const onChange = useCallback((g) => {
+        // Prevent React Flow mount/resize events from marking the editor dirty
+        // if the diagram data hasn't actually mutated.
+        const currentStr = JSON.stringify({
+            nodes: node.attrs.graph?.nodes ?? [],
+            edges: node.attrs.graph?.edges ?? [],
+            viewport: node.attrs.graph?.viewport ?? { x: 0, y: 0, zoom: 1 },
+            settings: node.attrs.graph?.settings ?? { snap: true, routing: 'curved' },
+        });
+        const newStr = JSON.stringify({
+            nodes: g.nodes ?? [],
+            edges: g.edges ?? [],
+            viewport: g.viewport ?? { x: 0, y: 0, zoom: 1 },
+            settings: g.settings ?? { snap: true, routing: 'curved' },
+        });
+        if (currentStr === newStr) return;
+        updateAttributes({ graph: g });
+    }, [updateAttributes, node.attrs.graph]);
 
     // Select this node in ProseMirror when its canvas is interacted with — the
     // canvas swallows the click that would normally create the NodeSelection, so

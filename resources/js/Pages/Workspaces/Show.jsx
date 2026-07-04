@@ -484,7 +484,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                                 </Button>
                             )}
                             {(perms.create || perms.update || perms.delete) && (
-                                <DropdownMenu>
+                                <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
                                         <Button
                                             variant="outline"
