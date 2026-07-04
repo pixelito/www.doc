@@ -54,6 +54,9 @@ function sanitizeDoc(node) {
  *   suggestions    – [{ id, title, slug }] for wiki-link autocomplete
  *   resolvedLinks  – { [title]: '/documents/{id}' } for read-only link resolution
  *   onUpdate(json) – called when editor content changes (edit mode only)
+ *   onReady(json)  – called once with the editor's normalized content after it
+ *                    is created; the baseline for dirty-tracking, since the
+ *                    editor fills schema defaults the stored JSON may omit
  *   placeholder    – placeholder text shown in empty editor
  */
 export default function TipTapEditor({
@@ -62,6 +65,7 @@ export default function TipTapEditor({
     suggestions = [],
     resolvedLinks = {},
     onUpdate,
+    onReady,
     placeholder = 'Start writing… Type / for commands or [[ to link a page.',
 }) {
     const [wikiSuggestion, setWikiSuggestion] = useState(null);
@@ -91,8 +95,19 @@ export default function TipTapEditor({
         // empty doc) so there's always a text block to receive inline inserts
         // like wiki-links — otherwise an atom can land at the top level.
         content: safeContent ?? { type: 'doc', content: [{ type: 'paragraph' }] },
+        onCreate: ({ editor: e }) => {
+            // The editor normalizes the initial doc (filling default attrs the
+            // stored JSON omits) as it's built, so this is the true post-load
+            // baseline. Consumers compare against it so that normalization — and
+            // any settling transaction it triggers — isn't mistaken for an edit.
+            onReady?.(e.getJSON());
+        },
         onUpdate: ({ editor: e }) => {
-            if (editable) onUpdate?.(e.getJSON());
+            // Pass whether the editor is focused: a genuine edit always follows the
+            // user focusing the editor, whereas load-time settling transactions
+            // (schema defaults, initial content) fire while it's unfocused. Lets
+            // an always-editable consumer tell real edits from that noise.
+            if (editable) onUpdate?.(e.getJSON(), e.isFocused);
         },
         editorProps: {
             attributes: {

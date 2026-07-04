@@ -22,10 +22,24 @@ export default function TemplatesEdit({ template }) {
     // whole page on every keystroke (same pattern as the document editor).
     const contentRef = useRef(template.content);
     const dirtyRef = useRef(false);
+    // The editor's own normalized content at load. It fills schema defaults the
+    // stored JSON omits (e.g. textAlign), so comparing raw updates to
+    // template.content would read as dirty on load — with the editor always
+    // editable here, that popped the discard prompt on leave without any edit.
+    const baselineRef = useRef(null);
 
-    const handleEditorUpdate = useCallback((json) => {
+    const handleEditorReady = useCallback((json) => {
+        baselineRef.current = JSON.stringify(json);
         contentRef.current = json;
-        dirtyRef.current = true;
+    }, []);
+
+    const handleEditorUpdate = useCallback((json, userInitiated) => {
+        contentRef.current = json;
+        // Ignore load-time settling (fires while the editor is unfocused); only a
+        // focused edit that actually diverges from the baseline is dirty.
+        if (!userInitiated) return;
+        dirtyRef.current = baselineRef.current === null
+            || JSON.stringify(json) !== baselineRef.current;
     }, []);
 
     const { promptOpen, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
@@ -41,7 +55,12 @@ export default function TemplatesEdit({ template }) {
             description: description.trim() || null,
             content: contentRef.current,
         }, {
-            onSuccess: () => { dirtyRef.current = false; },
+            onSuccess: () => {
+                // The saved content is the new clean state — re-baseline so later
+                // edits compare against it, not the original load.
+                baselineRef.current = JSON.stringify(contentRef.current);
+                dirtyRef.current = false;
+            },
             onFinish: () => setSaving(false),
         });
     }
@@ -93,6 +112,7 @@ export default function TemplatesEdit({ template }) {
                         content={template.content}
                         editable={true}
                         suggestions={[]}
+                        onReady={handleEditorReady}
                         onUpdate={handleEditorUpdate}
                     />
                 </Card>

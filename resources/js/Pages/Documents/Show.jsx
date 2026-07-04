@@ -606,9 +606,13 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
         router.get(`/documents/${document.id}`, {}, { preserveState: false, preserveScroll: false });
     }, [document.id]);
 
-    const handleEditorUpdate = useCallback((json) => {
+    const handleEditorUpdate = useCallback((json, userInitiated) => {
         editorContentRef.current = json;
-        isDirtyRef.current = true;
+        // Only a focused edit is a real change. Entering edit mode remounts the
+        // editor (key change), and a page whose stored JSON isn't editor-normalized
+        // (seeded/imported pages) emits a settling transaction on that mount while
+        // unfocused — which must not trip the unsaved-changes guard on its own.
+        if (userInitiated) isDirtyRef.current = true;
     }, []);
 
     function handleExplicitSave(e) {
