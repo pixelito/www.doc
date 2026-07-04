@@ -42,8 +42,14 @@ class SearchController extends Controller
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
         $lang = config('database.search_language', 'english');
 
-        $terms = array_filter(preg_split('/[\s\p{P}]+/u', $q));
-        $tsQueryString = implode(' & ', array_map(fn($t) => $t . ':*', $terms));
+        // Split into lexemes on anything that isn't a letter or digit, then AND
+        // them with a prefix match (`:*`). Splitting only on whitespace/punctuation
+        // let Symbol-category chars (`< > | = ~`) through into to_tsquery, which
+        // parses them as operators — so `List<T>` or `a<b` raised "syntax error in
+        // tsquery" (a 500). Reducing each term to its alphanumerics keeps prefix
+        // search working while guaranteeing to_tsquery only ever sees plain words.
+        $terms = array_filter(preg_split('/[^\p{L}\p{N}]+/u', $q), fn ($t) => $t !== '');
+        $tsQueryString = implode(' & ', array_map(fn ($t) => $t . ':*', $terms));
         if ($tsQueryString === '') {
             $tsQueryString = ' ';
         }

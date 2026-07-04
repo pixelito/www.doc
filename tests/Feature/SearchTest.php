@@ -136,3 +136,38 @@ test('LIKE wildcards in the query are treated literally, not as wildcards', func
     // escaping it matches only a literal "%", which nothing here contains.
     $this->get('/search?q=%25')->assertInertia(fn (Assert $page) => $page->has('results', 0));
 });
+
+test('symbol characters in a query do not crash to_tsquery', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Generics',
+        'content' => DocumentFactory::tiptap('Prefer List over raw arrays when order matters.'),
+    ]);
+
+    // `<`/`>` sit in the Unicode Symbol category, so a whitespace/punctuation-only
+    // split let them reach to_tsquery as operators — "List<T>" raised
+    // "syntax error in tsquery" (a 500). These must return cleanly (200) now, and
+    // the alphanumeric lexemes ("list") should still match the page.
+    foreach (['List<T>', 'a<b', '5<10', 'Map<K,V>', 'x -> y'] as $query) {
+        $this->get('/search?q=' . urlencode($query))->assertOk();
+    }
+
+    $this->get('/search?q=' . urlencode('List<T>'))->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Generics')
+    );
+});
+
+test('operator-like characters split terms rather than acting as tsquery operators', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Boolean',
+        'content' => DocumentFactory::tiptap('The Falcon flag toggles the feature.'),
+    ]);
+
+    // "|" is a tsquery OR operator; letting it through meant a stray symbol changed
+    // the query's meaning. It's now just a separator between two prefix lexemes
+    // ("falcon" AND "flag"), both present in the page, so this matches cleanly.
+    $this->get('/search?q=' . urlencode('Falcon|flag'))->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Boolean')
+    );
+});
