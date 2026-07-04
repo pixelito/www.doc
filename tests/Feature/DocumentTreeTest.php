@@ -233,3 +233,50 @@ test('a page cannot be moved under a trashed parent', function () {
 
     expect($page->fresh()->parent_id)->toBeNull();
 });
+
+test('a cross-workspace move re-slugs a page that would collide in the destination', function () {
+    login();
+    $source = Workspace::factory()->create();
+    $dest   = Workspace::factory()->create();
+
+    // Same title in each workspace → same slug, which is legal because slugs are
+    // unique PER workspace. The move must not let both own "shared-title" in dest.
+    $incumbent = Document::factory()->create(['workspace_id' => $dest->id, 'title' => 'Shared Title']);
+    $mover     = Document::factory()->create(['workspace_id' => $source->id, 'title' => 'Shared Title']);
+
+    expect($mover->slug)->toBe($incumbent->slug); // both "shared-title"
+
+    $this->patch("/documents/{$mover->id}/move", ['workspace_id' => $dest->id])
+        ->assertRedirect();
+
+    $mover->refresh();
+
+    expect($mover->workspace_id)->toBe($dest->id)
+        ->and($incumbent->fresh()->slug)->toBe($incumbent->slug)  // incumbent untouched
+        ->and($mover->slug)->not->toBe($incumbent->slug);         // mover got a unique slug
+});
+
+test('a cross-workspace move re-slugs colliding descendants too', function () {
+    login();
+    $source = Workspace::factory()->create();
+    $dest   = Workspace::factory()->create();
+
+    // A child that will collide with an existing page in the destination.
+    $incumbent = Document::factory()->create(['workspace_id' => $dest->id, 'title' => 'Child Page']);
+    $parent    = Document::factory()->create(['workspace_id' => $source->id, 'title' => 'Parent Page']);
+    $child     = Document::factory()->create([
+        'workspace_id' => $source->id,
+        'parent_id'    => $parent->id,
+        'title'        => 'Child Page',
+    ]);
+
+    expect($child->slug)->toBe($incumbent->slug);
+
+    $this->patch("/documents/{$parent->id}/move", ['workspace_id' => $dest->id])
+        ->assertRedirect();
+
+    $child->refresh();
+
+    expect($child->workspace_id)->toBe($dest->id)
+        ->and($child->slug)->not->toBe($incumbent->slug);
+});

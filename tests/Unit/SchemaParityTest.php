@@ -119,3 +119,46 @@ test('network diagram node survives rendering', function () {
         ->toContain('class="network-diagram"')
         ->toContain('My Net');            // name as caption
 });
+
+test('a malicious text colour is dropped, not injected into the style attribute', function () {
+    // content JSON is user-supplied (the update endpoint takes an arbitrary doc)
+    // and this HTML is rendered with dangerouslySetInnerHTML — so a colour value
+    // must never carry extra CSS into the inline style.
+    $html = RenderDocument::toHtml([
+        'type' => 'doc',
+        'content' => [[
+            'type' => 'paragraph',
+            'content' => [[
+                'type'  => 'text',
+                'text'  => 'x',
+                'marks' => [[
+                    'type'  => 'textStyle',
+                    'attrs' => ['color' => 'red;position:fixed;inset:0;background:url(//evil)'],
+                ]],
+            ]],
+        ]],
+    ]);
+
+    expect($html)
+        ->not->toContain('position:fixed')
+        ->not->toContain('url(//evil)')
+        ->not->toContain('background');
+});
+
+test('valid colour literals still render', function () {
+    $render = fn ($color) => RenderDocument::toHtml([
+        'type' => 'doc',
+        'content' => [[
+            'type'    => 'paragraph',
+            'content' => [[
+                'type'  => 'text',
+                'text'  => 'x',
+                'marks' => [['type' => 'textStyle', 'attrs' => ['color' => $color]]],
+            ]],
+        ]],
+    ]);
+
+    expect($render('#ff0000'))->toContain('color: #ff0000');
+    expect($render('rgb(1, 2, 3)'))->toContain('color: rgb(1, 2, 3)');
+    expect($render('rebeccapurple'))->toContain('color: rebeccapurple');
+});

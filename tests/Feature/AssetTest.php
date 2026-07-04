@@ -150,3 +150,20 @@ it('rehost downloads and stores an image from a public host', function () {
     expect(Asset::count())->toBe(1)
         ->and(Asset::first()->mime)->toBe('image/png');
 });
+
+it('rehost rejects an image whose declared size exceeds the limit', function () {
+    $user = login();
+
+    // A hostile host that announces an 11 MB body: reject on the declared length
+    // before reading it, rather than buffering the whole payload into memory.
+    Http::fake(['*' => Http::response('tiny', 200, [
+        'Content-Type'   => 'image/png',
+        'Content-Length' => (string) (11 * 1024 * 1024),
+    ])]);
+
+    $this->actingAs($user)
+        ->postJson('/assets/rehost', ['url' => 'http://93.184.216.34/huge.png'])
+        ->assertStatus(422);
+
+    expect(Asset::count())->toBe(0);
+});

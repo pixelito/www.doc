@@ -178,24 +178,36 @@ class DocumentObserver
 
         $document->outgoingLinks()->delete();
 
+        // Resolve every target with two queries total instead of one per link:
+        // one keyed lookup for links that carry an explicit target id, and one
+        // title lookup for typed links, both batched via whereIn.
+        $byId = Document::query()
+            ->whereKey(array_filter(array_column($targets, 'target_id')))
+            ->get()
+            ->keyBy('id');
+
+        $typedTitles = array_values(array_unique(array_map(
+            fn ($t) => $t['title'],
+            array_filter($targets, fn ($t) => ! $t['target_id']),
+        )));
+
+        // Best typed-title match per title: same-workspace pages first, then the
+        // oldest (original) page — mirrors the old per-link ordering, resolved in
+        // PHP over one query rather than a query per link.
+        $byTitle = Document::query()
+            ->whereIn('title', $typedTitles)
+            ->whereKeyNot($document->getKey())
+            ->get(['id', 'title', 'workspace_id', 'created_at'])
+            ->sort(fn ($a, $b) => [$b->workspace_id === $document->workspace_id, $a->created_at->getTimestamp(), $a->id]
+                <=> [$a->workspace_id === $document->workspace_id, $b->created_at->getTimestamp(), $b->id])
+            ->groupBy('title')
+            ->map(fn ($group) => $group->first());
+
         foreach ($targets as $targetData) {
             $title = $targetData['title'];
-            $targetId = $targetData['target_id'];
-
-            if ($targetId) {
-                // We know exactly which document they selected
-                $target = Document::query()
-                    ->whereKey($targetId)
-                    ->first();
-            } else {
-                // Fallback for typed links without an explicit ID
-                $target = Document::query()
-                    ->where('title', $title)
-                    ->whereKeyNot($document->getKey())
-                    ->orderByRaw('(workspace_id = ?) desc', [$document->workspace_id])
-                    ->orderBy('created_at', 'asc') // Tie-breaker: oldest (original) page wins
-                    ->first();
-            }
+            $target = $targetData['target_id']
+                ? $byId->get($targetData['target_id'])
+                : $byTitle->get($title);
 
             Link::create([
                 'source_document_id' => $document->getKey(),

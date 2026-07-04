@@ -217,8 +217,24 @@ class Document extends Model
         // tree. saveQuietly keeps the observer out of a structural change.
         foreach ($this->children()->withTrashed()->get() as $child) {
             $child->workspace_id = $workspaceId;
+            $child->reslugForWorkspace();
             self::withoutTimestamps(fn () => $child->saveQuietly());
             $child->moveSubtreeToWorkspace($workspaceId);
+        }
+    }
+
+    /**
+     * Keep the slug unique within the workspace after a cross-workspace move.
+     * Slugs are unique per workspace and only generated when blank, so a move
+     * carries the old slug over as-is — which can collide with a page that
+     * already owns it in the destination (two `/{workspace}/{slug}` URLs). Set
+     * `workspace_id` to the destination BEFORE calling. The slug stays stable
+     * unless it actually collides, in which case a suffixed unique one is minted.
+     */
+    public function reslugForWorkspace(): void
+    {
+        if ($this->slugExists((string) $this->slug)) {
+            $this->slug = $this->generateUniqueSlug($this->slugSource());
         }
     }
 

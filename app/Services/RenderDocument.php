@@ -437,13 +437,39 @@ class ColoredTextStyleMark extends TextStyle
             'color' => [
                 'parseHTML' => fn ($DOMNode) => InlineStyle::getAttribute($DOMNode, 'color') ?: null,
                 'renderHTML' => function ($attributes) {
-                    if (! ($attributes->color ?? null)) {
-                        return null;
-                    }
+                    $color = self::safeColor($attributes->color ?? null);
 
-                    return ['style' => "color: {$attributes->color}"];
+                    return $color ? ['style' => "color: {$color}"] : null;
                 },
             ],
         ];
+    }
+
+    /**
+     * Whitelist the color value before it lands in an inline `style` attribute.
+     * The editor only ever emits hex, but `documents.content` is user-supplied
+     * JSON (the update endpoint accepts an arbitrary doc), and this HTML is
+     * rendered with dangerouslySetInnerHTML in the compare/export views. Attribute
+     * escaping stops tag breakout, but not CSS injection — e.g.
+     * `red;position:fixed;inset:0` (overlay) or `x;background:url(//evil)` (a
+     * server-side beacon on the next export fetch). Accept only well-formed color
+     * literals; anything else drops the style entirely rather than passing through.
+     */
+    private static function safeColor($color): ?string
+    {
+        if (! is_string($color)) {
+            return null;
+        }
+
+        $color = trim($color);
+
+        $isHex     = (bool) preg_match('/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i', $color);
+        // rgb()/rgba()/hsl()/hsla(): only numbers, separators and units inside — no
+        // semicolons, url(), or nested parens that could smuggle further CSS.
+        $isFunc    = (bool) preg_match('/^(?:rgb|rgba|hsl|hsla)\(\s*[0-9.,%\/\s]+\)$/i', $color);
+        // Bare CSS keyword colours ("red", "rebeccapurple", "transparent").
+        $isKeyword = (bool) preg_match('/^[a-z]+$/i', $color);
+
+        return ($isHex || $isFunc || $isKeyword) ? $color : null;
     }
 }

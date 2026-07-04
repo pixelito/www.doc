@@ -321,6 +321,12 @@ class DocumentController extends Controller
         $document->workspace_id = $newWorkspaceId;
         $document->position = $data['position'] ?? $document->position;
 
+        // A move carries the slug over unchanged; re-slug if it now collides with
+        // a page already in the destination workspace (slugs are unique per ws).
+        if ($workspaceChanged) {
+            $document->reslugForWorkspace();
+        }
+
         // Structural moves must not shift updated_at — only content edits should.
         Document::withoutTimestamps(fn () => $document->save());
 

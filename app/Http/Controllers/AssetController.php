@@ -82,8 +82,11 @@ class AssetController extends Controller
         // redirects and pins the connection to the validated IPs (rebinding).
         $ips = Ssrf::assertPublicUrl($url);
 
+        // Stream the response so the size limit is enforced as we read, not after
+        // the whole body is already in memory: a hostile host could otherwise
+        // return (or lie about) a huge payload and exhaust the worker's memory.
         $response = Http::timeout(10)
-            ->withOptions(Ssrf::fetchOptions($url, $ips))
+            ->withOptions(Ssrf::fetchOptions($url, $ips) + ['stream' => true])
             ->get($url);
 
         abort_unless($response->successful(), 422, 'Failed to download image.');
@@ -91,8 +94,18 @@ class AssetController extends Controller
         $mime = strtolower(explode(';', $response->header('Content-Type') ?? '')[0]);
         abort_unless(in_array($mime, self::ALLOWED_MIMES), 422, 'URL does not point to a supported image.');
 
-        $content = $response->body();
-        abort_if(strlen($content) > self::MAX_BYTES, 422, 'Image exceeds 10 MB limit.');
+        // Reject up front when the server honestly declares an oversized length…
+        $declared = (int) ($response->header('Content-Length') ?: 0);
+        abort_if($declared > self::MAX_BYTES, 422, 'Image exceeds 10 MB limit.');
+
+        // …then cap the actual read so a missing or lying Content-Length can't
+        // stream us past the limit anyway.
+        $body    = $response->toPsrResponse()->getBody();
+        $content = '';
+        while (! $body->eof()) {
+            $content .= $body->read(8192);
+            abort_if(strlen($content) > self::MAX_BYTES, 422, 'Image exceeds 10 MB limit.');
+        }
 
         $checksum = hash('sha256', $content);
 
