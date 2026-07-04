@@ -5,7 +5,7 @@ import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar, IconLink,
-    IconFolderSymlink, IconTemplate, IconDots,
+    IconFolderSymlink, IconTemplate, IconDots, IconStar, IconStarFilled,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -415,7 +415,7 @@ function BacklinksPanel({ backlinks }) {
     );
 }
 
-export default function DocumentShow({ document, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
+export default function DocumentShow({ document, isStarred = false, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
@@ -758,6 +758,20 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         </>
                     ) : (
                         <>
+                            {/* Star is personal quick access — any role, not audited. */}
+                            <button
+                                type="button"
+                                onClick={() => router.post(`/documents/${document.id}/star`, {}, { preserveScroll: true })}
+                                title={isStarred ? 'Unstar this page' : 'Star this page'}
+                                aria-pressed={isStarred}
+                                className={`flex h-8 w-8 items-center justify-center rounded-sm transition-colors hover:bg-surface-hover ${
+                                    isStarred ? 'text-warning' : 'text-text-tertiary hover:text-foreground'
+                                }`}
+                            >
+                                {isStarred
+                                    ? <IconStarFilled className="h-4 w-4" />
+                                    : <IconStar className="h-4 w-4" stroke={1.5} />}
+                            </button>
                             {/* Edit is THE action on a page — it stays a button.
                                 Everything occasional lives in the ⋯ menu so the
                                 header doesn't stack five buttons. */}

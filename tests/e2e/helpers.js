@@ -11,7 +11,9 @@ export async function openWorkspace(page, name) {
     await page.goto('/workspaces');
     await expect(page).toHaveTitle(/www\.doc/i);
 
-    const existing = page.getByText(name).first();
+    // Scope to table rows (li): the quick-access lists above the table repeat
+    // workspace names as row meta, and those links lead to documents.
+    const existing = page.locator('li').getByText(name).first();
     if (await existing.isVisible().catch(() => false)) {
         await existing.click();
     } else {

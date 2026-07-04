@@ -11,6 +11,7 @@ use App\Support\BulkReorder;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,9 +38,28 @@ class WorkspaceController extends Controller
                 'workspace'  => ['name' => $d->workspace->name, 'slug' => $d->workspace->slug],
             ]);
 
+        // Personal quick access (document_user pivot). Trashed pages drop out
+        // via Document's soft-delete scope on the relations.
+        $user = auth()->user();
+        $docRow = fn (Document $d) => [
+            'id'        => $d->id,
+            'title'     => $d->title,
+            'workspace' => ['name' => $d->workspace->name],
+        ];
+
+        $starred = $user->starredDocuments()->with('workspace:id,name')
+            ->get()->map($docRow)->values();
+
+        $recentlyViewed = $user->recentlyViewedDocuments()->with('workspace:id,name')
+            ->limit(15)->get()
+            ->map(fn (Document $d) => $docRow($d) + ['viewed_at' => $d->pivot->last_viewed_at])
+            ->values();
+
         return Inertia::render('Workspaces/Index', [
-            'workspaces' => $workspaces,
-            'recent'     => $recent,
+            'workspaces'     => $workspaces,
+            'recent'         => $recent,
+            'starred'        => $starred,
+            'recentlyViewed' => $recentlyViewed,
         ]);
     }
 
@@ -52,6 +72,12 @@ class WorkspaceController extends Controller
         return Inertia::render('Workspaces/Show', [
             'workspace' => $workspace->loadCount('documents'),
             'tree'      => DocumentTree::build($documents),
+            // For the tree rows' star affordance (personal, per-user).
+            'starredIds' => DB::table('document_user')
+                ->where('user_id', auth()->id())
+                ->whereNotNull('starred_at')
+                ->whereIn('document_id', $documents->pluck('id'))
+                ->pluck('document_id'),
             // For the New page modal's "start from" picker. Viewers can't
             // create pages (and can't view templates), so they get none.
             'templates' => auth()->user()->can('viewAny', \App\Models\Template::class)

@@ -19,6 +19,10 @@ Each archive holds two layers:
 Restores always rebuild from the canonical layer, never the PDFs. The archive's
 `manifest.json` records which app version created it.
 
+Per-user navigation state (starred pages, recently-viewed timestamps) is
+deliberately **not** part of backups — it's personal ephemera, not content, and
+a restore resets it.
+
 The audit trail travels inside every archive (`canonical/audit_events.ndjson`)
 and is **merged** on restore — never wiped — so restoring an old backup can't
 erase newer audit history.

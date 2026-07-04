@@ -36,6 +36,8 @@
 - **Page templates** — reusable starting points for new pages (Runbook, Meeting
   notes and RFC ship with a fresh install); save any page as a template, manage
   them under Templates, and pick one in the New page dialog. Included in backups.
+- **Starred & recent pages** — star any page for quick access; the workspaces
+  overview lists your starred and recently viewed pages. Personal per user.
 - **Roles & admin** — admin / editor / viewer roles, a user-management admin
   area, and a Trash with restore/purge.
 - **Immutable audit log** — an append-only trail of who changed, restored or

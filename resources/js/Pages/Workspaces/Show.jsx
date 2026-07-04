@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
+import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -157,6 +157,30 @@ function RowActions({ node, workspaceId, onAddChild }) {
     );
 }
 
+/**
+ * Per-user star toggle on a tree row. Hover-revealed like the row actions,
+ * but a starred page keeps its (filled) star visible — that's the point.
+ */
+function StarButton({ node, starred }) {
+    return (
+        <button
+            type="button"
+            onClick={() => router.post(`/documents/${node.id}/star`, {}, { preserveScroll: true, preserveState: true })}
+            title={starred ? 'Unstar' : 'Star'}
+            aria-pressed={starred}
+            className={`flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-150 hover:bg-surface-hover ${
+                starred
+                    ? 'text-warning'
+                    : 'text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-foreground'
+            }`}
+        >
+            {starred
+                ? <IconStarFilled className="h-3.5 w-3.5" />
+                : <IconStar className="h-3.5 w-3.5" stroke={1.5} />}
+        </button>
+    );
+}
+
 // ── Tree guides (see .examples/tree-view-unlimited-nesting.webp) ─────────────
 // The drag handle lives in its own fixed gutter at the far left (GRIP_GUTTER wide),
 // OUTSIDE the tree indent, so the spines and branches never cross it. Within the
@@ -173,7 +197,7 @@ const GRIP_GUTTER = 'w-5';    // fixed drag-handle gutter (20px) — keep in syn
 // so neighbouring slices overlap across that hairline and read as one continuous line.
 const GUIDE_BLEED = 1;
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent }) {
+function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent, starred = false }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -253,7 +277,9 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             <div className="py-2.5 pr-4">
                 <span className="text-xs text-text-tertiary">{node.updated_at}</span>
             </div>
-            <div className="flex items-center justify-end py-2.5 pr-2">
+            <div className="flex items-center justify-end gap-1 py-2.5 pr-2">
+                {/* Star is personal and role-independent — outside canCreate. */}
+                {!dragging && <StarButton node={node} starred={starred} />}
                 {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
             </div>
         </li>
@@ -278,9 +304,10 @@ function FilteredRow({ node }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
-export default function WorkspaceShow({ workspace, tree, templates = [] }) {
+export default function WorkspaceShow({ workspace, tree, templates = [], starredIds = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
+    const starredSet = useMemo(() => new Set(starredIds), [starredIds]);
     const [rootNodes, setRootNodes] = useState(tree);
     const [activeTag, setActiveTag] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -569,6 +596,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [] }) {
                                             dragging={activeId != null}
                                             pathLast={guideFlags.get(item.id)}
                                             isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
+                                            starred={starredSet.has(item.node.id)}
                                         />
                                     ))}
                                 </ul>

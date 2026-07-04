@@ -108,6 +108,8 @@ Route::middleware('auth')->group(function () {
     Route::get('documents/{document}/children', [DocumentController::class, 'children'])->name('documents.children');
     Route::patch('documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
+    // Personal star toggle — any role that can view the page (not audited).
+    Route::post('documents/{document}/star', [DocumentController::class, 'star'])->name('documents.star');
     Route::post('documents/diagram-export', [DocumentController::class, 'exportDiagram'])->name('documents.diagram.export');
 
     Route::patch('workspaces/reorder', [WorkspaceController::class, 'reorder'])->name('workspaces.reorder');

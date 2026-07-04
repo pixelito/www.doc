@@ -1406,6 +1406,35 @@ class WorkspaceSeeder extends Seeder
             'position'    => 99,
         ]);
         $trashedWorkspace->delete();
+
+        // ── User Document Interactions ─────────────────────────────────────────────
+        $this->command->info('Seeding starred and recently viewed documents...');
+        
+        // Give everyone a few starred and recently viewed pages
+        $users = User::all();
+        $docs = Document::take(10)->get();
+        
+        if ($docs->count() > 0) {
+            foreach ($users as $u) {
+                // Star 2 random documents
+                $starred = $docs->random(min(2, $docs->count()));
+                foreach ($starred as $doc) {
+                    \Illuminate\Support\Facades\DB::table('document_user')->updateOrInsert(
+                        ['user_id' => $u->id, 'document_id' => $doc->id],
+                        ['starred_at' => now()]
+                    );
+                }
+                
+                // View 4 random documents
+                $viewed = $docs->random(min(4, $docs->count()));
+                foreach ($viewed as $doc) {
+                    \Illuminate\Support\Facades\DB::table('document_user')->updateOrInsert(
+                        ['user_id' => $u->id, 'document_id' => $doc->id],
+                        ['last_viewed_at' => now()->subMinutes(rand(1, 1440))]
+                    );
+                }
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

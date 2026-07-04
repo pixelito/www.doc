@@ -11,6 +11,8 @@ use App\Support\BulkReorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,6 +48,8 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
 
+        $this->recordView($document);
+
         $document->load([
             'workspace',
             'tags',
@@ -72,6 +76,11 @@ class DocumentController extends Controller
 
         return Inertia::render('Documents/Show', [
             'document'     => $document,
+            'isStarred'    => DB::table('document_user')
+                ->where('user_id', Auth::id())
+                ->where('document_id', $document->id)
+                ->whereNotNull('starred_at')
+                ->exists(),
             'versionsCount' => $document->versions()->count(),
             'breadcrumbs'  => $document->ancestors(),
             'backlinks'    => $backlinks,
@@ -79,6 +88,66 @@ class DocumentController extends Controller
             'allDocuments' => Document::with('workspace:id,name')->orderBy('title')->get(['id', 'title', 'slug', 'workspace_id']),
             'workspaces'   => Workspace::orderBy('name')->get(['id', 'name']),
         ]);
+    }
+
+    /**
+     * Toggle the current user's star on a page. Personal navigation state, so
+     * any role that can VIEW the page may star it, and — like the view stamp
+     * below — it is deliberately not audited (see .claude/rules/audit.md).
+     */
+    public function star(Document $document): RedirectResponse
+    {
+        $this->authorize('view', $document);
+
+        $starred = DB::table('document_user')
+            ->where('user_id', Auth::id())
+            ->where('document_id', $document->id)
+            ->value('starred_at');
+
+        $affected = DB::table('document_user')
+            ->where('user_id', Auth::id())
+            ->where('document_id', $document->id)
+            ->update(['starred_at' => $starred ? null : now()]);
+
+        if (! $affected) {
+            // No pivot row yet; insertOrIgnore so a concurrent first write
+            // can't trip the unique(user, document) constraint.
+            DB::table('document_user')->insertOrIgnore([
+                'user_id'     => Auth::id(),
+                'document_id' => $document->id,
+                'starred_at'  => now(),
+            ]);
+        }
+
+        return back();
+    }
+
+    /**
+     * Stamp the current user's "recently viewed" timestamp for a page.
+     * Query-builder only — an Eloquent save on the shared document row would
+     * bump updated_at and contend with the optimistic-lock counter on every
+     * page VIEW. Throttled: a stamp fresher than 5 minutes is left alone so
+     * ordinary navigation doesn't turn every view into a write.
+     */
+    protected function recordView(Document $document): void
+    {
+        $updated = DB::table('document_user')
+            ->where('user_id', Auth::id())
+            ->where('document_id', $document->id)
+            ->where(fn ($q) => $q->whereNull('last_viewed_at')
+                ->orWhere('last_viewed_at', '<', now()->subMinutes(5)))
+            ->update(['last_viewed_at' => now()]);
+
+        if (! $updated && ! DB::table('document_user')
+                ->where('user_id', Auth::id())
+                ->where('document_id', $document->id)
+                ->exists()) {
+            DB::table('document_user')->insertOrIgnore([
+                'user_id'        => Auth::id(),
+                'document_id'    => $document->id,
+                'last_viewed_at' => now(),
+            ]);
+        }
     }
 
     public function preview(Document $document): JsonResponse

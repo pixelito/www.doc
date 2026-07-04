@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
-    IconArrowsSort, IconCheck, IconDots,
+    IconArrowsSort, IconCheck, IconChevronRight, IconDots, IconHistory, IconStarFilled,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -82,7 +82,62 @@ function SortableRow({ workspace, draggable }) {
     );
 }
 
-export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
+/**
+ * Personal quick-access list (Starred / Recently viewed) above the workspace
+ * table. Collapsible; the state is a per-device display preference, so it
+ * lives in localStorage like the theme choice — no server round-trip.
+ */
+function QuickAccess({ id, title, icon: Icon, items, meta }) {
+    const storageKey = `wwwdoc:quickaccess:${id}`;
+    // Closed by default — the header (with its count) is the quiet resting
+    // state; expanding is a deliberate, remembered choice.
+    const [collapsed, setCollapsed] = useState(() => localStorage.getItem(storageKey) !== '0');
+
+    function toggle() {
+        setCollapsed((wasCollapsed) => {
+            localStorage.setItem(storageKey, wasCollapsed ? '0' : '1');
+            return !wasCollapsed;
+        });
+    }
+
+    return (
+        <section className="min-w-0">
+            <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={!collapsed}
+                className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary transition-colors hover:text-text-secondary"
+            >
+                <IconChevronRight
+                    className={`h-3.5 w-3.5 transition-transform ${collapsed ? '' : 'rotate-90'}`}
+                    stroke={1.5}
+                />
+                <Icon className="h-3.5 w-3.5" stroke={1.5} />
+                {title}
+                <span className="font-normal">({items.length})</span>
+            </button>
+            {!collapsed && (
+                <div className="ui-scroll max-h-56 overflow-y-auto rounded-md border border-border bg-card">
+                    {items.map((doc, idx) => (
+                        <Link
+                            key={doc.id}
+                            href={`/documents/${doc.id}`}
+                            className={`group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
+                        >
+                            <IconFileText className="h-3.5 w-3.5 shrink-0 text-text-tertiary transition-colors group-hover:text-sage-600" stroke={1.5} />
+                            <span className="min-w-0 flex-1 truncate text-sm text-foreground transition-colors group-hover:text-sage-600">{doc.title}</span>
+                            <span className="shrink-0 text-xs text-text-tertiary">
+                                {meta ? meta(doc) : doc.workspace.name}
+                            </span>
+                        </Link>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+export default function WorkspacesIndex({ workspaces: initial, recent = [], starred = [], recentlyViewed = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [workspaces, setWorkspaces] = useState(initial);
@@ -218,6 +273,24 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                 </div>
             </div>
 
+            {/* Personal quick access — starred + recently viewed (hidden while reordering) */}
+            {!reordering && (starred.length > 0 || recentlyViewed.length > 0) && (
+                <div className="mt-5 space-y-3">
+                    {starred.length > 0 && (
+                        <QuickAccess id="starred" title="Starred" icon={IconStarFilled} items={starred} />
+                    )}
+                    {recentlyViewed.length > 0 && (
+                        <QuickAccess
+                            id="recent"
+                            title="Recently viewed"
+                            icon={IconHistory}
+                            items={recentlyViewed}
+                            meta={(doc) => timeAgo(doc.viewed_at)}
+                        />
+                    )}
+                </div>
+            )}
+
             {/* Table */}
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
@@ -283,10 +356,10 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             <Link
                                 key={doc.id}
                                 href={`/documents/${doc.id}`}
-                                className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
+                                className={`group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
                             >
-                                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary transition-colors group-hover:text-sage-600" stroke={1.5} />
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors group-hover:text-sage-600">
                                     {doc.title}
                                 </span>
                                 <span className="shrink-0 text-xs text-text-tertiary">
