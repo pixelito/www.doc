@@ -27,6 +27,7 @@ Open the `.env` file in your preferred text editor. You only need to configure a
 | `APP_URL` | The exact address users will type in their browser to access the app (e.g., `https://docs.example.com` or `http://192.168.1.50:8080`). This is crucial for generating correct links in emails and PDF exports. |
 | `DB_PASSWORD` | Set this to a strong, secure password for the internal PostgreSQL database. You won't need to type this password anywhere else. |
 | `APP_KEY` | *(Optional but recommended)* This is a 32-byte Base64-encoded string (starting with `base64:`). <br>• **Linux/Mac:** Run `openssl rand -base64 32`<br>• **Windows (PowerShell):** Run <code>[Convert]::ToBase64String((1..32&#124;%{[byte](Get-Random -Max 256)}))</code> <br><br>**Note:** If you don't want to deal with the command line, simply **leave this blank!** The app will automatically generate a secure key on its first boot and save it securely in the Docker volume. Setting it manually just ensures you have a visible backup of the key in your `.env` file. |
+| `BACKUP_ENCRYPTION_KEY` | *(Optional)* Set this to enable encrypted backups. Generate one the same way as `APP_KEY` (`openssl rand -base64 32`). **Store it somewhere safe and separate** — an encrypted backup cannot be restored without it. Leave blank to keep backups unencrypted. |
 
 *(Note: You do not need to configure email settings (`MAIL_*`) in the `.env` file. Email configuration is handled safely via the Web Setup Wizard after the app boots.)*
 
@@ -42,6 +43,8 @@ Simply run the app, and it will bind to port `8080` locally:
 docker compose -f docker-compose.prod.yml up -d
 ```
 You can view a sample Caddy configuration for a reverse proxy in [`Caddyfile.example`](../Caddyfile.example).
+
+> **Behind a proxy?** So the app sees each visitor's real IP (for the audit log and login throttling) rather than the proxy's, set `TRUSTED_PROXIES` in your `.env` to the proxy's address or subnet. It defaults to private ranges, which is correct when the proxy runs on the same Docker network. Only set it to `*` if you fully control what can reach the app, since that lets any client spoof its IP.
 
 ### Option B: Internal Network with Self-Signed TLS
 If you are running the app internally (e.g., on a local IP like `192.168.10.10` or a local `.local` hostname) and don't have a reverse proxy, you can use our built-in TLS compose file. This spins up the entire stack along with a lightweight Caddy container that automatically generates a secure, self-signed certificate for your specific IP or hostname.
