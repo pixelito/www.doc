@@ -16,6 +16,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TrashController;
 use App\Http\Controllers\VersionController;
 use App\Http\Controllers\WorkspaceController;
@@ -28,6 +29,7 @@ Route::pattern('document', '[0-9]+');
 Route::pattern('version', '[0-9]+');
 Route::pattern('workspace', '[0-9]+');
 Route::pattern('tag', '[0-9]+');
+Route::pattern('template', '[0-9]+');
 Route::pattern('job', '[0-9]+');
 Route::pattern('user', '[0-9]+');
 Route::pattern('backup', '[0-9]+');
@@ -115,6 +117,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('workspaces', WorkspaceController::class)->except(['create', 'edit']);
     Route::resource('documents', DocumentController::class)->only(['store', 'show', 'update', 'destroy']);
     Route::resource('tags', TagController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+
+    // Page templates — reusable starting points. Managed via Inertia pages;
+    // "save as template" snapshots an existing page's content.
+    Route::resource('templates', TemplateController::class)->only(['index', 'store', 'edit', 'update', 'destroy']);
+    Route::post('documents/{document}/template', [TemplateController::class, 'storeFromDocument'])->name('documents.save-as-template');
 
     // Asset upload + rehost (must be before any {asset} resource route)
     Route::post('assets/rehost', [AssetController::class, 'rehost'])->name('assets.rehost');

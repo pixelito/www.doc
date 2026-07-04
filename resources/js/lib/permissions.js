@@ -12,5 +12,8 @@ export function can(auth) {
         create: isAdmin || isEditor,
         update: isAdmin || isEditor,
         delete: isAdmin,
+        // Templates are invisible to viewers (they can't create pages);
+        // editors and admins manage them fully — mirrors TemplatePolicy.
+        templates: isAdmin || isEditor,
     };
 }

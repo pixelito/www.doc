@@ -22,6 +22,21 @@ class Document extends Model
     /** @use HasFactory<\Database\Factories\DocumentFactory> */
     use HasFactory, HasSlug, SoftDeletes;
 
+    /**
+     * Transient (declared so it bypasses attribute magic, never persisted):
+     * the template this page was instantiated from, set by the controller so
+     * the observer can put it in the document.created audit context.
+     */
+    public ?string $sourceTemplateName = null;
+
+    /**
+     * Transient: set by the observer once this instance's creation has been
+     * audited, so the create flow's second save (the content write in
+     * DocumentController::store) doesn't log a duplicate document.created —
+     * one event per user action.
+     */
+    public bool $creationAudited = false;
+
     protected function casts(): array
     {
         return [

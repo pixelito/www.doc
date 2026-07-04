@@ -66,6 +66,8 @@ class RestoreService
                 $this->insert('assets', $this->scrubUsers($this->jsonArray($work, 'assets'), ['uploaded_by_id']));
                 // Attachments reference documents, so they go in after them.
                 $this->insert('attachments', $this->scrubUsers($this->jsonArray($work, 'attachments'), ['uploaded_by_id']));
+                // Page templates (standalone; absent from pre-1.3 archives → []).
+                $this->insert('templates', $this->scrubUsers($this->jsonArray($work, 'templates'), ['created_by_id']));
 
                 // Audit trail is append-only even across restores: never wiped,
                 // archive rows are MERGED in (insert-missing by id).
@@ -165,8 +167,8 @@ class RestoreService
     private function wipe(): void
     {
         // Children before parents. taggables/links/versions/attachments reference
-        // documents; documents reference workspaces. assets are standalone.
-        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'assets'] as $table) {
+        // documents; documents reference workspaces. assets/templates are standalone.
+        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'assets', 'templates'] as $table) {
             DB::table($table)->delete();
         }
     }
@@ -291,7 +293,7 @@ class RestoreService
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'audit_events'] as $table) {
+        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],

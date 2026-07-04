@@ -100,17 +100,27 @@ class DocumentController extends Controller
 
         $validated = $request->validated();
 
+        $template = isset($validated['template_id'])
+            ? \App\Models\Template::findOrFail($validated['template_id'])
+            : null;
+
         // Create the bare page first (a blank page snapshots no version), attach
         // tags, THEN write content — so the first version's snapshot captures the
         // tags too. The version observer reads tags off the page at save time.
-        $document = Document::create(array_diff_key($validated, ['tags' => '', 'content' => '']));
+        $document = new Document(array_diff_key($validated, ['tags' => '', 'content' => '', 'template_id' => '']));
+        $document->sourceTemplateName = $template?->name; // surfaces in the document.created audit context
+        $document->save();
 
         if ($request->has('tags')) {
             $document->tags()->sync($request->input('tags'));
         }
 
-        if (array_key_exists('content', $validated) && $validated['content'] !== null) {
-            $document->update(['content' => $validated['content']]);
+        // A template supplies the starting content when the request carries none.
+        // Copied verbatim (no token substitution) — the observer then parses
+        // wiki-links and snapshots v1 exactly as for hand-written content.
+        $content = $validated['content'] ?? $template?->content;
+        if ($content !== null) {
+            $document->update(['content' => $content]);
         }
 
         return redirect()->to(route('documents.show', $document) . '?edit=1');

@@ -1,24 +1,28 @@
 import { Link, usePage } from '@inertiajs/react';
-import { IconUser, IconUsers, IconDatabaseExport, IconMail, IconHistory } from '@tabler/icons-react';
+import { IconUser, IconTemplate, IconUsers, IconDatabaseExport, IconMail, IconHistory } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
+import { can } from '@/lib/permissions';
 
 // Thin wrapper over the single base layout — adds the settings tabs. Flash
 // banners are rendered by DocsLayout, so don't repeat them here.
 
-// Settings tabs. Personal ones show for everyone; admin ones only for admins.
+// Settings tabs. Personal ones show for everyone; the rest for whoever can use
+// them (Templates: editors and admins per TemplatePolicy; others admin-only).
 const TABS = [
-    { label: 'Profile', href: '/settings/profile', icon: IconUser,           adminOnly: false },
-    { label: 'Users',   href: '/admin/users',         icon: IconUsers,          adminOnly: true },
-    { label: 'Email',   href: '/admin/settings/mail', icon: IconMail,           adminOnly: true },
-    { label: 'Backups', href: '/admin/backups',       icon: IconDatabaseExport, adminOnly: true },
-    { label: 'Audit',   href: '/admin/audit',         icon: IconHistory,        adminOnly: true },
+    { label: 'Profile',   href: '/settings/profile',    icon: IconUser,           visible: () => true },
+    { label: 'Templates', href: '/templates',           icon: IconTemplate,       visible: (p) => p.templates },
+    { label: 'Users',     href: '/admin/users',         icon: IconUsers,          visible: (p) => p.isAdmin },
+    { label: 'Email',     href: '/admin/settings/mail', icon: IconMail,           visible: (p) => p.isAdmin },
+    { label: 'Backups',   href: '/admin/backups',       icon: IconDatabaseExport, visible: (p) => p.isAdmin },
+    { label: 'Audit',     href: '/admin/audit',         icon: IconHistory,        visible: (p) => p.isAdmin },
 ];
 
 export default function SettingsLayout({ children }) {
     const { url, props } = usePage();
-    const isAdmin = props.auth?.user?.roles?.includes('admin');
+    const perms = can(props.auth);
+    const isAdmin = perms.isAdmin;
 
-    const tabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
+    const tabs = TABS.filter((tab) => tab.visible(perms));
 
     // "v1.2.0" from a release tag (with or without the leading v), "dev" as-is.
     const version = props.appVersion === 'dev' || !props.appVersion

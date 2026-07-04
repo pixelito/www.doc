@@ -144,10 +144,11 @@ class SetupController extends Controller
         $request->session()->regenerate();
 
         // Give the fresh instance a starting point: a Welcome workspace with a
-        // page that explains the app. Authored as the now-logged-in admin (the
-        // observer stamps Auth::id()). Best-effort — a failure here must not
-        // undo the completed setup.
+        // page that explains the app, plus the three starter page templates.
+        // Authored as the now-logged-in admin (the observer stamps Auth::id()).
+        // Best-effort — a failure here must not undo the completed setup.
         $this->seedWelcomeContent();
+        $this->seedStarterTemplates();
 
         return redirect()->route('workspaces.index');
     }
@@ -191,6 +192,16 @@ class SetupController extends Controller
                 $writing->update(['parent_id' => $welcome->id]);
                 $organising->update(['parent_id' => $welcome->id]);
             });
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** Ship the Runbook / Meeting notes / RFC starter templates (fresh installs only). */
+    private function seedStarterTemplates(): void
+    {
+        try {
+            (new \Database\Seeders\TemplateSeeder())->run();
         } catch (\Throwable $e) {
             report($e);
         }

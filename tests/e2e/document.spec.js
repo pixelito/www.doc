@@ -20,9 +20,11 @@ test.describe('Document and Workspace Management', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
 
-    // Export to PDF. No conditional guard: if the button disappears from the
-    // UI this test must FAIL, not silently skip half its assertions.
-    await page.getByRole('button', { name: /Export/i }).click();
+    // Export to PDF, via the header's ⋯ menu. No conditional guard: if the
+    // entry disappears from the UI this test must FAIL, not silently skip
+    // half its assertions.
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: /Export/i }).click();
     await page.getByText('PDF').click();
     await page.getByRole('dialog').getByRole('button', { name: 'Export' }).click();
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconChevronRight, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
+import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPlus, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -19,6 +19,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import NewPageModal from '@/components/ui/NewPageModal';
 import { can } from '@/lib/permissions';
 
@@ -275,7 +278,7 @@ function FilteredRow({ node }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
-export default function WorkspaceShow({ workspace, tree }) {
+export default function WorkspaceShow({ workspace, tree, templates = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [rootNodes, setRootNodes] = useState(tree);
@@ -433,47 +436,69 @@ export default function WorkspaceShow({ workspace, tree }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    {perms.update && rootNodes.length > 0 && !activeTag && (
-                        reordering ? (
-                            <>
-                                <Button variant="outline" onClick={requestLeave}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={finishReorder}>
-                                    <IconCheck stroke={1.5} />
-                                    Done
-                                </Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={() => { reorderDirty.current = false; setReordering(true); }}>
-                                <IconArrowsSort stroke={1.5} />
-                                Reorder
+                    {/* Reorder mode owns the header while active; otherwise ONE
+                        primary button + the ⋯ menu for occasional actions. */}
+                    {reordering ? (
+                        <>
+                            <Button variant="outline" onClick={requestLeave}>
+                                Cancel
                             </Button>
-                        )
-                    )}
-                    {perms.create && !reordering && (
-                        <Button variant="outline" asChild>
-                            <Link href={`/workspaces/${workspace.id}/imports/create`}>
-                                <IconUpload stroke={1.5} />
-                                Import
-                            </Link>
-                        </Button>
-                    )}
-                    {perms.delete && !reordering && (
-                        <Button
-                            variant="outline"
-                            className="border-border text-danger hover:bg-danger-surface hover:border-danger/20 hover:text-danger"
-                            onClick={() => setDeleteOpen(true)}
-                        >
-                            <IconTrash stroke={1.5} />
-                            Delete
-                        </Button>
-                    )}
-                    {perms.create && !reordering && (
-                        <Button onClick={() => openModal('')}>
-                            <IconPlus stroke={1.5} />
-                            New page
-                        </Button>
+                            <Button onClick={finishReorder}>
+                                <IconCheck stroke={1.5} />
+                                Done
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            {perms.create && (
+                                <Button onClick={() => openModal('')}>
+                                    <IconPlus stroke={1.5} />
+                                    New page
+                                </Button>
+                            )}
+                            {(perms.create || perms.update || perms.delete) && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="border-border px-2 hover:bg-surface-hover"
+                                            title="More actions"
+                                            aria-label="More actions"
+                                        >
+                                            <IconDots stroke={1.5} />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52">
+                                        {perms.update && rootNodes.length > 0 && !activeTag && (
+                                            <DropdownMenuItem onSelect={() => { reorderDirty.current = false; setReordering(true); }}>
+                                                <IconArrowsSort stroke={1.5} />
+                                                Reorder pages
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.create && (
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/workspaces/${workspace.id}/imports/create`}>
+                                                    <IconUpload stroke={1.5} />
+                                                    Import pages…
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.delete && (
+                                            <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onSelect={() => setDeleteOpen(true)}
+                                                    className="text-danger focus:bg-danger-surface focus:text-danger"
+                                                >
+                                                    <IconTrash stroke={1.5} />
+                                                    Move to Trash
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -578,6 +603,7 @@ export default function WorkspaceShow({ workspace, tree }) {
             workspaceId={workspace.id}
             parentOptions={options}
             initialParentId={modalParentId}
+            templates={templates}
         />
 
         <ConfirmDialog

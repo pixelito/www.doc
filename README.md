@@ -33,6 +33,9 @@
   panel; binaries ride along in backups.
 - **Workspaces, nesting & tags** — a fixed set of top-level workspaces, shallow
   drag-and-drop page nesting, and tags that cut across workspaces.
+- **Page templates** — reusable starting points for new pages (Runbook, Meeting
+  notes and RFC ship with a fresh install); save any page as a template, manage
+  them under Templates, and pick one in the New page dialog. Included in backups.
 - **Roles & admin** — admin / editor / viewer roles, a user-management admin
   area, and a Trash with restore/purge.
 - **Immutable audit log** — an append-only trail of who changed, restored or

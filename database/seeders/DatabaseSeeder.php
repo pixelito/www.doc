@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         auth()->login(User::where('email', 'admin@example.com')->firstOrFail());
 
         $this->call(WorkspaceSeeder::class);
+        $this->call(TemplateSeeder::class);
         $this->call(AuditEventSeeder::class);
     }
 }

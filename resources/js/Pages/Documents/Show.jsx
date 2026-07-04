@@ -5,7 +5,7 @@ import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar, IconLink,
-    IconFolderSymlink,
+    IconFolderSymlink, IconTemplate, IconDots,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import TipTapEditor from '@/components/editor/TipTapEditor';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -241,6 +244,80 @@ function ExportModal({ documentId, open, onClose }) {
     );
 }
 
+/** "Save as template": snapshot this page's current content as a reusable template. */
+function SaveAsTemplateModal({ open, onClose, documentId, documentTitle }) {
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (open) { setName(documentTitle); setDescription(''); setError(''); setSaving(false); }
+    }, [open, documentTitle]);
+
+    function submit(e) {
+        e.preventDefault();
+        if (!name.trim()) { setError('Name is required.'); return; }
+        setSaving(true);
+        router.post(`/documents/${documentId}/template`, {
+            name: name.trim(),
+            description: description.trim() || null,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+            onError: (errs) => setError(errs.name ?? 'Something went wrong.'),
+            onFinish: () => setSaving(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Save as template</DialogTitle>
+                    <DialogDescription>
+                        The page's current content becomes a reusable starting point in the New page dialog.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={submit} className="space-y-3 py-2">
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-foreground">Name</label>
+                        <Input
+                            autoFocus
+                            value={name}
+                            onChange={(e) => { setName(e.target.value); setError(''); }}
+                            placeholder="e.g. Runbook"
+                        />
+                        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+                    </div>
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-foreground">
+                            Description <span className="font-normal text-text-tertiary">(optional)</span>
+                        </label>
+                        <Input
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Shown under the name in the picker"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button
+                            type="submit"
+                            disabled={saving || !name.trim()}
+                            className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                        >
+                            <IconTemplate stroke={1.5} />
+                            {saving ? 'Saving…' : 'Save template'}
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function MoveModal({ open, onClose, documentId, workspaces, currentWorkspaceId }) {
     const targets = workspaces.filter((w) => w.id !== currentWorkspaceId);
     const [target, setTarget] = useState('');
@@ -345,6 +422,7 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
         () => perms.update && new URLSearchParams(window.location.search).get('edit') === '1'
     );
     const [exportOpen, setExportOpen]     = useState(false);
+    const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
     const [moveOpen, setMoveOpen]         = useState(false);
 
     const [editTitle, setEditTitle] = useState(document.title);
@@ -680,16 +758,9 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                         </>
                     ) : (
                         <>
-                            {perms.create && (
-                                <Button
-                                    variant="outline"
-                                    className="border-border hover:bg-surface-hover"
-                                    onClick={() => setExportOpen(true)}
-                                >
-                                    <IconDownload stroke={1.5} />
-                                    Export
-                                </Button>
-                            )}
+                            {/* Edit is THE action on a page — it stays a button.
+                                Everything occasional lives in the ⋯ menu so the
+                                header doesn't stack five buttons. */}
                             {perms.update && (
                                 <Button
                                     variant="outline"
@@ -700,25 +771,51 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                                     Edit
                                 </Button>
                             )}
-                            {perms.update && workspaces.length > 1 && (
-                                <Button
-                                    variant="outline"
-                                    className="border-border hover:bg-surface-hover"
-                                    onClick={() => setMoveOpen(true)}
-                                >
-                                    <IconFolderSymlink stroke={1.5} />
-                                    Move
-                                </Button>
-                            )}
-                            {perms.delete && (
-                                <Button
-                                    variant="outline"
-                                    className="border-border text-danger hover:bg-danger-surface hover:border-danger/20 hover:text-danger"
-                                    onClick={destroyDocument}
-                                >
-                                    <IconTrash stroke={1.5} />
-                                    Delete
-                                </Button>
+                            {(perms.create || perms.delete) && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="border-border px-2 hover:bg-surface-hover"
+                                            title="More actions"
+                                            aria-label="More actions"
+                                        >
+                                            <IconDots stroke={1.5} />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52">
+                                        {perms.create && (
+                                            <DropdownMenuItem onSelect={() => setExportOpen(true)}>
+                                                <IconDownload stroke={1.5} />
+                                                Export…
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.create && (
+                                            <DropdownMenuItem onSelect={() => setSaveTemplateOpen(true)}>
+                                                <IconTemplate stroke={1.5} />
+                                                Save as template…
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.update && workspaces.length > 1 && (
+                                            <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
+                                                <IconFolderSymlink stroke={1.5} />
+                                                Move to workspace…
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.delete && (
+                                            <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onSelect={destroyDocument}
+                                                    className="text-danger focus:bg-danger-surface focus:text-danger"
+                                                >
+                                                    <IconTrash stroke={1.5} />
+                                                    Move to Trash
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             )}
                         </>
                     )}
@@ -863,6 +960,12 @@ export default function DocumentShow({ document, versionsCount, breadcrumbs = []
                 documentId={document.id}
                 workspaces={workspaces}
                 currentWorkspaceId={document.workspace.id}
+            />
+            <SaveAsTemplateModal
+                open={saveTemplateOpen}
+                onClose={() => setSaveTemplateOpen(false)}
+                documentId={document.id}
+                documentTitle={document.title}
             />
         </DocsLayout>
 

@@ -72,12 +72,24 @@ class DocumentObserver
         // Observer-level so every edit path is covered (controllers, imports,
         // restores). Structural moves bailed out above, so they never land here —
         // they're audited as document.moved by their controllers instead.
+        //
+        // The create flow saves twice on one instance (bare row, then content) —
+        // that's ONE user action, so the second save is not audited again.
+        if ($document->wasRecentlyCreated && $document->creationAudited) {
+            return;
+        }
+
         Audit::record(
             $document->wasRecentlyCreated ? 'document.created' : 'document.updated',
             $document,
-            ['title' => $document->title],
+            array_filter([
+                'title'    => $document->title,
+                'template' => $document->wasRecentlyCreated ? $document->sourceTemplateName : null,
+            ]),
             Auth::id() ?? $document->updated_by_id ?? $document->created_by_id,
         );
+
+        $document->creationAudited = $document->wasRecentlyCreated;
     }
 
     public function deleted(Document $document): void

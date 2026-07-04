@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { router } from '@inertiajs/react';
-import { IconX } from '@tabler/icons-react';
+import { IconCheck, IconX } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -14,10 +14,41 @@ import { useScrollLock } from '@/hooks/useScrollLock';
  *   workspaceId      – always required
  *   parentOptions    – [{ id, label }] for the parent select
  *   initialParentId  – pre-select a parent (e.g. when clicking + on a row)
+ *   templates        – [{ id, name, description }] "start from" choices
  */
-export default function NewPageModal({ open, onClose, workspaceId, parentOptions = [], initialParentId = '' }) {
+/**
+ * One row of the "Start from" listbox. Selection is a filled background + check
+ * mark, NOT a ring — rings bleed outside the row and get clipped by the list's
+ * scroll container.
+ */
+function TemplateOption({ name, description, selected, onSelect }) {
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            role="radio"
+            aria-checked={selected}
+            className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
+                selected ? 'bg-sage-50' : 'hover:bg-surface-hover'
+            }`}
+        >
+            <span className="min-w-0 flex-1">
+                <span className={`block truncate text-sm font-medium ${selected ? 'text-sage-600' : 'text-foreground'}`}>
+                    {name}
+                </span>
+                {description && (
+                    <span className="mt-0.5 block truncate text-xs text-text-tertiary">{description}</span>
+                )}
+            </span>
+            {selected && <IconCheck className="h-4 w-4 shrink-0 text-sage-600" stroke={2} />}
+        </button>
+    );
+}
+
+export default function NewPageModal({ open, onClose, workspaceId, parentOptions = [], initialParentId = '', templates = [] }) {
     const [title, setTitle]    = useState('');
     const [parentId, setParentId] = useState(initialParentId);
+    const [templateId, setTemplateId] = useState(null);
     const [error, setError]    = useState('');
     const [busy, setBusy]      = useState(false);
 
@@ -26,6 +57,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
         if (open) {
             setTitle('');
             setParentId(initialParentId);
+            setTemplateId(null);
             setError('');
         }
     }, [open, initialParentId]);
@@ -51,6 +83,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
             title: title.trim(),
             workspace_id: workspaceId,
             parent_id: parentId || null,
+            template_id: templateId,
         }, {
             onSuccess: () => { setBusy(false); onClose(); },
             onError: (errs) => { setBusy(false); setError(errs.title ?? 'Something went wrong.'); },
@@ -99,6 +132,36 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
                             />
                             {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
                         </div>
+
+                        {/* Start from — blank or a template */}
+                        {templates.length > 0 && (
+                            <div>
+                                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                                    Start from
+                                </label>
+                                <div
+                                    role="radiogroup"
+                                    aria-label="Start from"
+                                    className="ui-scroll max-h-44 overflow-y-auto rounded-sm border border-border bg-canvas divide-y divide-border-subtle"
+                                >
+                                    <TemplateOption
+                                        name="Blank page"
+                                        description="Start with an empty page."
+                                        selected={templateId === null}
+                                        onSelect={() => setTemplateId(null)}
+                                    />
+                                    {templates.map((t) => (
+                                        <TemplateOption
+                                            key={t.id}
+                                            name={t.name}
+                                            description={t.description}
+                                            selected={templateId === t.id}
+                                            onSelect={() => setTemplateId(t.id)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Parent page */}
                         <div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
-    IconArrowsSort, IconCheck,
+    IconArrowsSort, IconCheck, IconDots,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -13,6 +13,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -160,37 +163,57 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [] }) {
                             <option value="updated">Last updated</option>
                         </select>
                     )}
-                    {perms.update && workspaces.length > 1 && (
-                        reordering ? (
-                            <>
-                                <Button variant="outline" onClick={requestLeave}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={finishReorder}>
-                                    <IconCheck stroke={1.5} />
-                                    Done
-                                </Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={() => { reorderDirty.current = false; setReordering(true); }}>
-                                <IconArrowsSort stroke={1.5} />
-                                Reorder
+                    {/* Reorder mode owns the header while active; otherwise ONE
+                        primary button + the ⋯ menu for occasional actions. */}
+                    {reordering ? (
+                        <>
+                            <Button variant="outline" onClick={requestLeave}>
+                                Cancel
                             </Button>
-                        )
-                    )}
-                    {perms.isAdmin && !reordering && (
-                        <Button asChild variant="outline" className="text-text-secondary hover:text-foreground">
-                            <Link href="/trash">
-                                <IconTrash stroke={1.5} />
-                                Trash
-                            </Link>
-                        </Button>
-                    )}
-                    {perms.create && !reordering && (
-                        <Button onClick={() => setModalOpen(true)}>
-                            <IconPlus stroke={1.5} />
-                            New workspace
-                        </Button>
+                            <Button onClick={finishReorder}>
+                                <IconCheck stroke={1.5} />
+                                Done
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            {perms.create && (
+                                <Button onClick={() => setModalOpen(true)}>
+                                    <IconPlus stroke={1.5} />
+                                    New workspace
+                                </Button>
+                            )}
+                            {((perms.update && workspaces.length > 1) || perms.isAdmin) && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="border-border px-2 hover:bg-surface-hover"
+                                            title="More actions"
+                                            aria-label="More actions"
+                                        >
+                                            <IconDots stroke={1.5} />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52">
+                                        {perms.update && workspaces.length > 1 && (
+                                            <DropdownMenuItem onSelect={() => { reorderDirty.current = false; setReordering(true); }}>
+                                                <IconArrowsSort stroke={1.5} />
+                                                Reorder workspaces
+                                            </DropdownMenuItem>
+                                        )}
+                                        {perms.isAdmin && (
+                                            <DropdownMenuItem asChild>
+                                                <Link href="/trash">
+                                                    <IconTrash stroke={1.5} />
+                                                    View Trash
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

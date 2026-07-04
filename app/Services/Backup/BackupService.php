@@ -10,6 +10,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Link;
 use App\Models\Tag;
+use App\Models\Template;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Backup\Destinations\DestinationFactory;
@@ -102,8 +103,9 @@ class BackupService
         $workspaces = Workspace::withTrashed()->orderBy('id')->get()
             ->map(fn (Workspace $w) => $w->makeVisible(['deleted_at'])->toArray());
 
-        $tags  = Tag::orderBy('id')->get()->map->toArray();
-        $links = Link::orderBy('id')->get()->map->toArray();
+        $tags      = Tag::orderBy('id')->get()->map->toArray();
+        $links     = Link::orderBy('id')->get()->map->toArray();
+        $templates = Template::orderBy('id')->get()->map->toArray();
 
         // id → name/email/role map: enough to re-attribute authorship on restore
         // without dumping password hashes.
@@ -126,6 +128,7 @@ class BackupService
         $this->putJson("{$work}/canonical/users.json", $users);
         $this->putJson("{$work}/canonical/assets.json", $assets);
         $this->putJson("{$work}/canonical/attachments.json", $attachments);
+        $this->putJson("{$work}/canonical/templates.json", $templates);
 
         // High-volume tables stream to NDJSON (one JSON object per line) so peak
         // memory stays flat no matter how many pages/versions exist — each row is
@@ -152,6 +155,7 @@ class BackupService
             'users'      => $users->count(),
             'assets'     => $assets->count(),
             'attachments' => $attachments->count(),
+            'templates'  => $templates->count(),
             'audit_events' => $auditEvents,
         ];
     }

@@ -52,6 +52,11 @@ class WorkspaceController extends Controller
         return Inertia::render('Workspaces/Show', [
             'workspace' => $workspace->loadCount('documents'),
             'tree'      => DocumentTree::build($documents),
+            // For the New page modal's "start from" picker. Viewers can't
+            // create pages (and can't view templates), so they get none.
+            'templates' => auth()->user()->can('viewAny', \App\Models\Template::class)
+                ? \App\Models\Template::orderBy('name')->get(['id', 'name', 'description'])
+                : [],
         ]);
     }
 

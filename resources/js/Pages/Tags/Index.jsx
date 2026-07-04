@@ -55,9 +55,11 @@ export default function TagsIndex({ tags }) {
 
             <div className="mt-4 overflow-hidden rounded-md border border-border bg-card">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_90px_36px] border-b border-border bg-surface-hover px-4 py-2.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Tag</span>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Pages</span>
+                {/* Cells pad themselves (not the container) so the grid tracks
+                    span the same width as the data rows' and columns line up. */}
+                <div className="grid grid-cols-[1fr_90px_44px] border-b border-border bg-surface-hover py-2.5">
+                    <span className="pl-4 pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Tag</span>
+                    <span className="pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">Pages</span>
                     <span />
                 </div>
 
@@ -105,7 +107,7 @@ export default function TagsIndex({ tags }) {
                         {tags.map((tag) => (
                             <li
                                 key={tag.id}
-                                className="group grid grid-cols-[1fr_90px_36px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
+                                className="group grid grid-cols-[1fr_90px_44px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60"
                             >
                                 <Link
                                     href={`/tags/${tag.id}`}
@@ -119,15 +121,15 @@ export default function TagsIndex({ tags }) {
                                 <div className="py-2.5 pr-4 text-xs text-text-tertiary">
                                     {tag.documents_count} {tag.documents_count === 1 ? 'page' : 'pages'}
                                 </div>
-                                <div className="flex items-center justify-center py-2.5 pr-1">
+                                <div className="flex items-center justify-center py-1.5 pr-2">
                                     {perms.delete && (
                                         <button
                                             type="button"
                                             onClick={() => setTagToDelete(tag)}
                                             title={`Delete ${tag.name}`}
-                                            className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger-surface hover:text-danger"
+                                            className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger-surface hover:text-danger"
                                         >
-                                            <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
+                                            <IconTrash className="h-4 w-4" stroke={1.5} />
                                         </button>
                                     )}
                                 </div>

@@ -9,9 +9,10 @@ the local disk or an external SMB network share.
 
 Each archive holds two layers:
 
-- **Canonical layer** — the full content model as JSON/NDJSON plus every asset
-  and attachment binary. This is the authoritative restore source,
-  integrity-checked against per-file SHA-256s.
+- **Canonical layer** — the full content model as JSON/NDJSON (pages, versions,
+  workspaces, tags, links and page templates) plus every asset and attachment
+  binary. This is the authoritative restore source, integrity-checked against
+  per-file SHA-256s.
 - **Readable layer** — a PDF per page, foldered by tree, for humans and
   auditors.
 

@@ -18,6 +18,7 @@ class StoreDocumentRequest extends FormRequest
             ],
             'position' => ['nullable', 'integer'],
             'content' => ['nullable', 'array'],
+            'template_id' => ['nullable', 'integer', 'exists:templates,id'],
             'metadata' => ['nullable', 'array'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['integer', 'exists:tags,id'],
