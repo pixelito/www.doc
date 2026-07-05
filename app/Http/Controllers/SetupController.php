@@ -44,6 +44,7 @@ class SetupController extends Controller
             'adminName'       => $request->session()->get('setup.admin.name'),
             'instanceName'    => Setup::instanceName(),
             'mail'            => MailSettings::forDisplay(),
+            'checkUpdates'    => \App\Support\UpdateCheck::isEnabled(),
         ]);
     }
 
@@ -64,8 +65,15 @@ class SetupController extends Controller
     {
         $this->abortIfComplete();
 
-        $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'check_updates' => ['boolean'],
+        ]);
         Setting::put('instance', ['name' => $validated['name']]);
+
+        // Opt into (or out of) the outdated-version notification. Off by default;
+        // the wizard is one of the two prominent places it can be turned on.
+        \App\Support\UpdateCheck::setEnabled((bool) ($validated['check_updates'] ?? false));
 
         return back();
     }

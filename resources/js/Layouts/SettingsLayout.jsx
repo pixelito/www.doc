@@ -1,7 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
-import { IconUser, IconTemplate, IconUsers, IconDatabaseExport, IconMail, IconHistory } from '@tabler/icons-react';
+import { IconUser, IconTemplate, IconUsers, IconDatabaseExport, IconMail, IconHistory, IconRefresh } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { can } from '@/lib/permissions';
+
+// "v1.2.0" from a release tag (with or without the leading v).
+const fmtVersion = (v) => `v${String(v).replace(/^v/i, '')}`;
+
+const UPDATES_HREF = '/admin/settings/updates';
 
 // Thin wrapper over the single base layout — adds the settings tabs. Flash
 // banners are rendered by DocsLayout, so don't repeat them here.
@@ -15,6 +20,7 @@ const TABS = [
     { label: 'Email',     href: '/admin/settings/mail', icon: IconMail,           visible: (p) => p.isAdmin },
     { label: 'Backups',   href: '/admin/backups',       icon: IconDatabaseExport, visible: (p) => p.isAdmin },
     { label: 'Audit',     href: '/admin/audit',         icon: IconHistory,        visible: (p) => p.isAdmin },
+    { label: 'Updates',   href: UPDATES_HREF,           icon: IconRefresh,        visible: (p) => p.isAdmin },
 ];
 
 export default function SettingsLayout({ children }) {
@@ -27,7 +33,11 @@ export default function SettingsLayout({ children }) {
     // "v1.2.0" from a release tag (with or without the leading v), "dev" as-is.
     const version = props.appVersion === 'dev' || !props.appVersion
         ? 'dev'
-        : `v${String(props.appVersion).replace(/^v/, '')}`;
+        : fmtVersion(props.appVersion);
+
+    // Admin-only ambient nudge: a dot on the Updates tab (and the footer caption)
+    // when a newer release is known. Full status lives in the Updates tab itself.
+    const updateAvailable = isAdmin && props.updateStatus?.update_available;
 
     return (
         <DocsLayout>
@@ -43,6 +53,7 @@ export default function SettingsLayout({ children }) {
                         {tabs.map((tab) => {
                             const active = url.startsWith(tab.href);
                             const Icon = tab.icon;
+                            const dot = tab.href === UPDATES_HREF && updateAvailable;
                             return (
                                 <Link
                                     key={tab.href}
@@ -55,6 +66,9 @@ export default function SettingsLayout({ children }) {
                                 >
                                     <Icon className="h-4 w-4" stroke={1.5} />
                                     {tab.label}
+                                    {dot && (
+                                        <span className="h-1.5 w-1.5 rounded-full bg-sage-400" aria-label="Update available" />
+                                    )}
                                 </Link>
                             );
                         })}
@@ -63,10 +77,21 @@ export default function SettingsLayout({ children }) {
 
                 <div className="mt-6 space-y-5">{children}</div>
 
-                {/* Which release this instance runs — meta caption per the styleguide. */}
-                <p className="mt-8 text-center text-[11px] text-text-tertiary">
-                    www.doc {version}
-                </p>
+                {/* Which release this instance runs — meta caption per the styleguide.
+                    For admins it links into the Updates tab, with a dot when a newer
+                    release is available. */}
+                <div className="mt-8 text-center text-[11px] text-text-tertiary">
+                    {isAdmin ? (
+                        <Link href={UPDATES_HREF} className="inline-flex items-center gap-1.5 transition-colors hover:text-text-secondary">
+                            www.doc {version}
+                            {updateAvailable && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-sage-400" aria-label="Update available" />
+                            )}
+                        </Link>
+                    ) : (
+                        <p>www.doc {version}</p>
+                    )}
+                </div>
             </div>
         </DocsLayout>
     );

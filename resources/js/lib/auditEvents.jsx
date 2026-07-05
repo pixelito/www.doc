@@ -73,6 +73,7 @@ const EVENTS = {
 
     'settings.mail_updated':   { tone: 'warning', text: (c) => <>updated the email (SMTP) settings{c?.host ? <> (<span className="font-medium">{c.host}</span>)</> : ''}</> },
     'settings.backup_updated': { tone: 'warning', text: () => 'updated the backup settings' },
+    'settings.updates_updated': { tone: 'neutral', text: (c) => <>{c?.enabled ? 'enabled' : 'disabled'} the update check</> },
 
     'backup.requested':         { tone: 'neutral', text: () => 'started a manual backup' },
     'backup.completed': {

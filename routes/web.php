@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuditController as AdminAuditController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\MailSettingsController as AdminMailSettingsController;
+use App\Http\Controllers\Admin\UpdateSettingsController as AdminUpdateSettingsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttachmentController;
@@ -82,6 +83,12 @@ Route::middleware('auth')->group(function () {
         Route::get('settings/mail', [AdminMailSettingsController::class, 'index'])->name('settings.mail');
         Route::patch('settings/mail', [AdminMailSettingsController::class, 'update'])->name('settings.mail.update');
         Route::post('settings/mail/test', [AdminMailSettingsController::class, 'test'])->name('settings.mail.test');
+
+        // Outdated-version notification: the "Updates" settings tab (version,
+        // opt-in check, cached release notes) plus its toggle and manual refresh.
+        Route::get('settings/updates', [AdminUpdateSettingsController::class, 'index'])->name('settings.updates');
+        Route::patch('settings/updates', [AdminUpdateSettingsController::class, 'update'])->name('settings.updates.update');
+        Route::post('settings/updates/check', [AdminUpdateSettingsController::class, 'check'])->name('settings.updates.check');
 
         // Backups & restore (NIS2). 'settings'/'run' declared before {backup} so
         // they aren't read as ids (the [0-9]+ pattern already prevents that).

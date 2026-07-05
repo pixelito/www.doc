@@ -65,7 +65,22 @@ class HandleInertiaRequests extends Middleware
             // acknowledging. Manual runs are excluded: the admin is watching and
             // gets a toast, so a persistent banner would just be noise.
             'backupNotices' => $this->backupNotices($request),
+            // Slim, admin-only nudge for the Settings "Updates" tab dot: just
+            // whether a newer release is available. The tab's own controller
+            // ships the full status; this keeps every response light. null for
+            // non-admins — the check is an admin concern, never surfaced pre-auth.
+            'updateStatus' => $this->updateStatus($request),
         ];
+    }
+
+    private function updateStatus(Request $request): ?array
+    {
+        $user = $request->user();
+        if (! $user || ! $user->hasRole('admin')) {
+            return null;
+        }
+
+        return ['update_available' => \App\Support\UpdateCheck::updateAvailable()];
     }
 
     /** @return array<int, array<string, mixed>> */

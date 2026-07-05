@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import MailFields from '@/components/MailFields';
 import { isEmail } from '@/lib/utils';
 import {
@@ -12,14 +13,14 @@ import {
 
 const STEPS = ['Welcome', 'Administrator', 'Instance', 'Email', 'Finish'];
 
-export default function Wizard({ adminConfigured, adminName, instanceName, mail }) {
+export default function Wizard({ adminConfigured, adminName, instanceName, mail, checkUpdates }) {
     const { props } = usePage();
     const [step, setStep] = useState(adminConfigured ? 2 : 0);
     const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
     const back = () => setStep((s) => Math.max(s - 1, 0));
 
     const adminForm = useForm({ name: '', email: '', password: '', password_confirmation: '' });
-    const instanceForm = useForm({ name: instanceName || '' });
+    const instanceForm = useForm({ name: instanceName || '', check_updates: checkUpdates ?? false });
     const mailForm = useForm({
         host: mail?.host ?? '',
         port: mail?.port ?? 587,
@@ -185,6 +186,18 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail 
                                             onChange={(e) => instanceForm.setData('name', e.target.value)}
                                             placeholder="Acme Knowledge Base" className="mt-1" required />
                                         {instanceForm.errors.name && <p className="mt-1 text-xs text-danger">{instanceForm.errors.name}</p>}
+                                    </div>
+                                    <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-surface-hover px-3 py-2.5">
+                                        <div>
+                                            <p className="text-sm font-medium text-foreground">Check for new releases</p>
+                                            <p className="mt-0.5 text-xs text-text-secondary">
+                                                Reads public release info from GitHub to notify you when an update is out.
+                                                Sends nothing about this instance. You can change this later in Settings.
+                                            </p>
+                                        </div>
+                                        <Switch checked={instanceForm.data.check_updates}
+                                            onCheckedChange={(v) => instanceForm.setData('check_updates', v)}
+                                            className="mt-0.5" />
                                     </div>
                                     <div className="flex justify-between pt-1">
                                         <Button type="button" variant="outline" onClick={back}>

@@ -685,3 +685,48 @@
 .network-diagram-block .react-flow__controls-button:hover svg {
     fill: var(--sage-600);
 }
+
+/* Compact markdown for cached GitHub release notes in the Updates settings tab.
+   Deliberately lighter than `.tiptap` (which is tuned for full documents): small
+   headings and tight margins so a changelog reads as dense admin UI, not prose. */
+.release-notes {
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+.release-notes > :first-child { margin-top: 0; }
+.release-notes > :last-child { margin-bottom: 0; }
+.release-notes h1,
+.release-notes h2,
+.release-notes h3,
+.release-notes h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+    margin: 1.1em 0 0.35em;
+}
+.release-notes p { margin: 0.5em 0; }
+.release-notes ul,
+.release-notes ol { padding-left: 1.25em; margin: 0.5em 0; }
+.release-notes ul { list-style: disc; }
+.release-notes ol { list-style: decimal; }
+.release-notes li { margin: 0.15em 0; }
+.release-notes li > p { margin: 0.15em 0; }
+.release-notes a { color: var(--sage-600); text-decoration: underline; }
+.release-notes hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 1em 0; }
+.release-notes code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--surface-hover);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+}
+.release-notes pre {
+    background: var(--surface-hover);
+    padding: 0.75em;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: 0.6em 0;
+}
+.release-notes pre code { background: none; padding: 0; }
