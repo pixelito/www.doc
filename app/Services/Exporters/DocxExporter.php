@@ -10,6 +10,11 @@ use PhpOffice\PhpWord\Style\Font;
 
 class DocxExporter implements ExporterContract
 {
+    // Target on-page width for a diagram, in EMU (1 in = 914400). ~6in fills the
+    // content column of both A4 and US-Letter (1in margins) without overflow; the
+    // diagram scales to this preserving aspect, so it's no longer tiny.
+    private const DIAGRAM_WIDTH_EMU = 5486400;
+
     private PhpWord $word;
 
     /** @var \PhpOffice\PhpWord\Element\Section */
@@ -420,8 +425,13 @@ class DocxExporter implements ExporterContract
 
             if ($name === 'word/document.xml') {
                 $content = preg_replace_callback('/<w:t[^>]*>SVG_DIAGRAM_(\d+)_(\d+)_([a-zA-Z0-9_]+)<\/w:t>/', function($m) use ($fallbackIds) {
-                    $width = $m[1] * 9525;
-                    $height = $m[2] * 9525;
+                    // Scale to the page content width preserving aspect (the graph's
+                    // intrinsic px size otherwise renders the diagram tiny).
+                    $pxW = (int) $m[1];
+                    $pxH = (int) $m[2];
+                    $scale = $pxW > 0 ? self::DIAGRAM_WIDTH_EMU / ($pxW * 9525) : 1.0;
+                    $width = (int) round($pxW * 9525 * $scale);
+                    $height = (int) round($pxH * 9525 * $scale);
                     $uuid = $m[3];
                     // No rendered media for this diagram (Node pass failed) —
                     // strip the marker rather than leave hidden junk text in

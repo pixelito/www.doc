@@ -255,3 +255,23 @@ test('a diagram with no captured imageSrc still exports media rendered from its 
 
     expect($hasMedia)->toBeTrue();
 });
+
+test('the DOCX export scales the diagram to the page content width', function () {
+    Storage::fake('local');
+    login();
+
+    $document = Document::factory()->create([
+        'content' => diagramDoc(graphWithLabels(['router']), null),
+    ]);
+
+    $path = (new DocxExporter)->export($document);
+
+    $zip = new ZipArchive;
+    $zip->open(Storage::disk('local')->path($path));
+    $xml = $zip->getFromName('word/document.xml');
+    $zip->close();
+
+    // The drawing width is scaled to the ~6in content-width target (5486400 EMU),
+    // not the graph's small intrinsic px width — so the diagram fills the page.
+    expect($xml)->toContain('cx="5486400"');
+});
