@@ -68,6 +68,8 @@ export default function TipTapEditor({
     onUpdate,
     onReady,
     placeholder = 'Start writing… Type / for commands or [[ to link a page.',
+    canCreate = false,
+    workspaceId = null,
 }) {
     const [wikiSuggestion, setWikiSuggestion] = useState(null);
     const [slashSuggestion, setSlashSuggestion] = useState(null);
@@ -216,7 +218,7 @@ export default function TipTapEditor({
                     renderItem={(item) => item.title}
                 />
             )}
-            <WikiLinkPreview />
+            <WikiLinkPreview canCreate={!editable && canCreate} workspaceId={workspaceId} />
         </div>
     );
 }

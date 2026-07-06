@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { IconFileText, IconAlertTriangle, IconLoader2 } from '@tabler/icons-react';
+import { router } from '@inertiajs/react';
+import { IconFileText, IconAlertTriangle, IconLoader2, IconPlus } from '@tabler/icons-react';
 
 const CARD_WIDTH = 288;
 
@@ -16,23 +17,29 @@ function cardPosition(rect) {
     return { left, top, anchorBottom };
 }
 
-export default function WikiLinkPreview() {
+export default function WikiLinkPreview({ canCreate = false, workspaceId = null }) {
     const [hover, setHover]     = useState(null);  // { title, href, broken, rect }
     const [preview, setPreview] = useState(null);  // { id, title, excerpt }
     const [loading, setLoading] = useState(false);
     const abortRef              = useRef(null);
     const lastHrefRef           = useRef(null);
+    const hideTimer             = useRef(null);
 
     // Listen for events dispatched by the WikiLink nodeView
     useEffect(() => {
-        function onShow(e) { setHover(e.detail); }
-        function onHide()  { setHover(null); }
+        function onShow(e) { clearTimeout(hideTimer.current); setHover(e.detail); }
+        function onHide() {
+            // Delay the close so the mouse can move from the link into the card.
+            clearTimeout(hideTimer.current);
+            hideTimer.current = setTimeout(() => setHover(null), 120);
+        }
 
         document.addEventListener('wiki-link-preview-show', onShow);
         document.addEventListener('wiki-link-preview-hide', onHide);
         return () => {
             document.removeEventListener('wiki-link-preview-show', onShow);
             document.removeEventListener('wiki-link-preview-hide', onHide);
+            clearTimeout(hideTimer.current);
         };
     }, []);
 
@@ -86,6 +93,8 @@ export default function WikiLinkPreview() {
         // ── Broken / unresolved link ──────────────────────────────────────
         <div
             style={style}
+            onMouseEnter={() => clearTimeout(hideTimer.current)}
+            onMouseLeave={() => setHover(null)}
             className="overflow-hidden rounded-md border border-warning/40 bg-surface shadow-md"
         >
             <div className="flex items-start gap-2.5 px-3.5 py-3">
@@ -97,6 +106,16 @@ export default function WikiLinkPreview() {
                     <p className="mt-0.5 text-xs text-text-secondary">
                         This page doesn&rsquo;t exist yet.
                     </p>
+                    {canCreate && (
+                        <button
+                            type="button"
+                            onClick={() => router.post('/documents', { title: hover.title, workspace_id: workspaceId })}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-sage-600 hover:bg-surface-hover"
+                        >
+                            <IconPlus size={13} stroke={1.5} />
+                            Create page
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

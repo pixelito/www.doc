@@ -428,6 +428,19 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     const [isEditing, setIsEditing]       = useState(
         () => perms.update && new URLSearchParams(window.location.search).get('edit') === '1'
     );
+
+    // `router.post`/`patch`/etc. default to `preserveState: true`, so a
+    // same-component navigation (e.g. the "Create page" hover-card action
+    // posting to /documents and redirecting to the new page's
+    // `?edit=1` URL) reuses this mounted instance instead of remounting —
+    // the `isEditing` initializer above only runs once, at first mount, so
+    // it would otherwise stay stale. Re-derive it whenever the document
+    // identity changes so that redirect target actually opens in edit mode.
+    useEffect(() => {
+        if (perms.update && new URLSearchParams(window.location.search).get('edit') === '1') {
+            setIsEditing(true);
+        }
+    }, [document.id]);
     const [exportOpen, setExportOpen]     = useState(false);
     const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
     const [moveOpen, setMoveOpen]         = useState(false);
@@ -965,6 +978,8 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             suggestions={allDocuments}
                             resolvedLinks={resolvedLinks}
                             onUpdate={handleEditorUpdate}
+                            canCreate={perms.create}
+                            workspaceId={document.workspace_id}
                         />
                     )}
                 </Card>
