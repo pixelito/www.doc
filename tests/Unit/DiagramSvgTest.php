@@ -133,3 +133,56 @@ test('a single-line label still renders (one tspan) and stays searchable text', 
     expect(substr_count($svg, '<tspan'))->toBe(1)
         ->and($svg)->toContain('>Solo</tspan>');
 });
+
+test('normalizeNode keeps a plain name and structured props', function () {
+    $out = DiagramSvg::normalizeNode([
+        'label' => 'Server1',
+        'props' => [
+            ['key' => 'IP', 'value' => '10.10.10.10'],
+            ['key' => 'Role', 'value' => 'DB'],
+        ],
+    ]);
+
+    expect($out['name'])->toBe('Server1')
+        ->and($out['props'])->toBe([
+            ['key' => 'IP', 'value' => '10.10.10.10'],
+            ['key' => 'Role', 'value' => 'DB'],
+        ]);
+});
+
+test('normalizeNode drops fully blank prop rows and trims', function () {
+    $out = DiagramSvg::normalizeNode([
+        'label' => '  Server1 ',
+        'props' => [
+            ['key' => ' IP ', 'value' => ' 10.0.0.1 '],
+            ['key' => '', 'value' => ''],
+            ['key' => 'Note', 'value' => ''],
+        ],
+    ]);
+
+    expect($out['name'])->toBe('Server1')
+        ->and($out['props'])->toBe([
+            ['key' => 'IP', 'value' => '10.0.0.1'],
+            ['key' => 'Note', 'value' => ''],
+        ]);
+});
+
+test('normalizeNode migrates a legacy multi-line label to value-only props', function () {
+    $out = DiagramSvg::normalizeNode(['label' => "Server1\n10.10.10.10\nprod"]);
+
+    expect($out['name'])->toBe('Server1')
+        ->and($out['props'])->toBe([
+            ['key' => '', 'value' => '10.10.10.10'],
+            ['key' => '', 'value' => 'prod'],
+        ]);
+});
+
+test('normalizeNode does not migrate legacy lines when structured props exist', function () {
+    $out = DiagramSvg::normalizeNode([
+        'label' => "Server1\nignored-second-line",
+        'props' => [['key' => 'IP', 'value' => '10.0.0.1']],
+    ]);
+
+    expect($out['name'])->toBe('Server1')
+        ->and($out['props'])->toBe([['key' => 'IP', 'value' => '10.0.0.1']]);
+});

@@ -169,6 +169,49 @@ class DiagramSvg
             : $label;
     }
 
+    /**
+     * A device node's display content: its name plus ordered key/value
+     * properties. Shared by the SVG renderer and RenderDocument's search-text
+     * extraction so both agree. Legacy free-form labels (a multi-line `label`
+     * with no `props`) migrate on read: the first line is the name and each
+     * remaining non-empty line becomes a value-only property.
+     *
+     * @return array{name: string, props: array<int, array{key: string, value: string}>}
+     */
+    public static function normalizeNode(array $data): array
+    {
+        $label = trim((string) ($data['label'] ?? ''));
+
+        $props = [];
+        foreach ((array) ($data['props'] ?? []) as $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            $key   = trim((string) ($p['key'] ?? ''));
+            $value = trim((string) ($p['value'] ?? ''));
+            if ($key === '' && $value === '') {
+                continue; // no blank rows
+            }
+            $props[] = ['key' => $key, 'value' => $value];
+        }
+
+        $lines = array_values(array_filter(
+            array_map('trim', explode("\n", $label)),
+            fn ($l) => $l !== ''
+        ));
+        $name = $lines[0] ?? '';
+
+        // Legacy multi-line label (no structured props): extra lines become
+        // value-only properties.
+        if ($props === [] && count($lines) > 1) {
+            foreach (array_slice($lines, 1) as $line) {
+                $props[] = ['key' => '', 'value' => $line];
+            }
+        }
+
+        return ['name' => $name, 'props' => $props];
+    }
+
     /** A 16px Tabler icon (24-unit source, stroke 1.5) anchored at its top-left. */
     private static function icon(string $kind, float $x, float $y, string $color): string
     {
