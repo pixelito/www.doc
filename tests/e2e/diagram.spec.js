@@ -44,17 +44,21 @@ test('a network diagram edits, persists, renders read-only, and is searchable by
     // Rename the first node: double-click opens the inline label input.
     const firstNode = diagram.locator('.react-flow__node').first();
     await firstNode.dblclick();
-    const labelInput = firstNode.locator('input');
-    await expect(labelInput).toBeVisible();
-    await labelInput.fill(label);
-    await labelInput.press('Enter');
+    const labelArea = firstNode.locator('textarea');
+    await expect(labelArea).toBeVisible();
+    await labelArea.pressSequentially(label);   // replaces selected default 'Node'
+    await labelArea.press('Enter');             // Enter now inserts a newline
+    await labelArea.pressSequentially('10.10.10.10');
+    await labelArea.blur();                      // blur commits
     await expect(diagram.getByText(label)).toBeVisible();
+    await expect(diagram.getByText('10.10.10.10')).toBeVisible();
 
     // Save → read mode. The read view renders the graph as a READ-ONLY canvas:
     // the label is visible but the editing chrome (the Node button) is not.
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
     await expect(page.locator('[data-network-diagram]').getByText(label)).toBeVisible();
+    await expect(page.locator('[data-network-diagram]').getByText('10.10.10.10')).toBeVisible();
     await expect(page.locator('[data-network-diagram]').getByRole('button', { name: 'Node', exact: true })).toHaveCount(0);
 
     // Reload: the graph JSON persisted in the document is the source of truth.

@@ -297,20 +297,24 @@ function LabeledNode({ id, data, selected }) {
             {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0" stroke={1.5} style={{ color: color.accent }} />}
 
             {editing ? (
-                <input
+                <textarea
                     autoFocus
+                    rows={Math.max(1, value.split('\n').length)}
                     onFocus={(e) => e.target.select()}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onBlur={commit}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                        if (e.key === 'Escape') { setEditing(false); setValue(data.label ?? ''); }
+                        // Enter inserts a newline (free-form multi-line labels);
+                        // Escape reverts; blur commits. Stop keys reaching React
+                        // Flow's canvas shortcuts while typing.
+                        e.stopPropagation();
+                        if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setValue(data.label ?? ''); }
                     }}
-                    className="w-full rounded-sm border border-sage-400 bg-canvas px-1 text-center text-xs outline-none"
+                    className="w-full resize-none rounded-sm border border-sage-400 bg-canvas px-1 text-center text-xs leading-tight outline-none"
                 />
             ) : (
-                <span>{data.label || 'Node'}</span>
+                <span className="whitespace-pre-line text-center">{data.label || 'Node'}</span>
             )}
         </div>
     );
