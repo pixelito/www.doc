@@ -59,6 +59,10 @@ function sanitizeDoc(node) {
  *                    is created; the baseline for dirty-tracking, since the
  *                    editor fills schema defaults the stored JSON may omit
  *   placeholder    – placeholder text shown in empty editor
+ *   canCreate      – when true (read mode + create permission), the broken
+ *                    wiki-link hover card offers "Create page"
+ *   workspaceId    – current document's workspace id, used when creating a
+ *                    page from a broken wiki-link
  */
 export default function TipTapEditor({
     content,

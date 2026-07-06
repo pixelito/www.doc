@@ -176,7 +176,7 @@ export const WikiLink = Node.create({
                     // doesn't already exist verbatim — selecting it inserts an
                     // unresolved link (target_id null) the user can create later.
                     const trimmed = query.trim();
-                    const exists = matches.some(
+                    const exists = (ext.options.suggestions ?? []).some(
                         (d) => d.title.toLowerCase() === trimmed.toLowerCase(),
                     );
                     const offerCreate = trimmed !== '' && !exists;
