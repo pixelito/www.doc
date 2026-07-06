@@ -524,13 +524,17 @@ class DiagramSvg
                     . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
                     . self::esc(self::truncate($name, $nameMaxW)) . '</text>';
 
-                // Value column aligns to the widest key (10px text ≈ 5.2px/char).
+                // Value column aligns to the widest key, but the key column is
+                // capped to part of the card so a long key truncates instead of
+                // overflowing and shoving the value off-card.
+                $availW  = $b['w'] - ($nameX - $b['x']) - $pad;
                 $maxKeyW = 0.0;
                 foreach ($props as $p) {
                     if ($p['key'] !== '') {
                         $maxKeyW = max($maxKeyW, self::textWidth($p['key'], 5.2));
                     }
                 }
+                $maxKeyW = min($maxKeyW, $availW * 0.45);
                 $keyX = $nameX;
                 $valX = $keyX + ($maxKeyW > 0 ? $maxKeyW + 8 : 0);
                 $rowY = $nameY + 15;

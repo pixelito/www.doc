@@ -236,3 +236,20 @@ test('a name-only node still renders one centered line', function () {
     expect($svg)->toContain('text-anchor="middle"')
         ->and($svg)->toContain('>Solo</text>');
 });
+
+test('a long property key is truncated so it cannot overflow the card', function () {
+    $graph = ['nodes' => [[
+        'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+        'width' => 160, 'height' => 60,
+        'data' => ['label' => 'Server1', 'kind' => 'generic',
+                   'props' => [['key' => str_repeat('X', 60), 'value' => 'ok']]],
+    ]], 'edges' => []];
+
+    $svg = DiagramSvg::render($graph)['svg'];
+
+    // The full 60-char key must not appear verbatim (it was truncated with …);
+    // the value still renders.
+    expect($svg)->not->toContain(str_repeat('X', 60))
+        ->and($svg)->toContain('…')
+        ->and($svg)->toContain('>ok</text>');
+});
