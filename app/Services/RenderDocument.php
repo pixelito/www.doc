@@ -269,9 +269,16 @@ class NetworkDiagramNode extends Node
         $nodes  = (is_object($graph) ? ($graph->nodes ?? []) : []);
         $labels = [];
         foreach ($nodes as $n) {
-            $label = is_object($n) ? ($n->data->label ?? null) : null;
-            if (is_string($label) && trim($label) !== '') {
-                $labels[] = trim($label);
+            $data = is_object($n)
+                ? (array) json_decode(json_encode($n->data ?? new \stdClass), true)
+                : [];
+            ['name' => $name, 'props' => $props] = \App\Support\DiagramSvg::normalizeNode($data);
+            if ($name !== '') {
+                $labels[] = $name;
+            }
+            foreach ($props as $p) {
+                if ($p['key'] !== '')   $labels[] = $p['key'];
+                if ($p['value'] !== '') $labels[] = $p['value'];
             }
         }
 

@@ -77,6 +77,51 @@ test('a multi-line node label is searchable line by line', function () {
     );
 });
 
+test('a diagram node is searchable by name, property value, and property key', function () {
+    login();
+    $graph = [
+        'nodes' => [[
+            'id' => 'n0', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+            'data' => ['label' => 'AppHost', 'kind' => 'server', 'props' => [
+                ['key' => 'IP', 'value' => '172.16.9.9'],
+                ['key' => 'Role', 'value' => 'API'],
+            ]],
+        ]],
+        'edges'    => [],
+        'viewport' => ['x' => 0, 'y' => 0, 'zoom' => 1],
+    ];
+
+    Document::factory()->create([
+        'title'   => 'App Infrastructure',
+        'content' => diagramDoc($graph, '/storage/assets/abc.png'),
+    ]);
+    Document::factory()->create([
+        'title'   => 'Unrelated Page Three',
+        'content' => DocumentFactory::tiptap('Nothing networky here at all.'),
+    ]);
+
+    // Name:
+    $this->get('/search?q=AppHost')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'App Infrastructure')
+    );
+
+    // Property value (an IP):
+    $this->get('/search?q=172.16.9.9')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'App Infrastructure')
+    );
+
+    // Property key:
+    $this->get('/search?q=Role')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'App Infrastructure')
+    );
+});
+
 test('a document is found by its diagram name', function () {
     login();
     Document::factory()->create([
