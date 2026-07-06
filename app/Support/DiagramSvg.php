@@ -31,6 +31,7 @@ class DiagramSvg
     ];
 
     private const LABEL_COLOR = '#1F2520';
+    private const KEY_COLOR   = '#5C625C';
     private const CANVAS_BG   = '#FBFAF5';
 
     /** @var array<string,string>|null  kind => Tabler icon inner SVG */
@@ -111,6 +112,34 @@ class DiagramSvg
             }
 
             $data  = $n['data'] ?? [];
+
+            // Fit a device card (name + property rows) to its content when the
+            // node carries no persisted size (never manually resized → 150×40
+            // fallback). The React canvas auto-sizes via CSS; without this the
+            // rows would spill past the box in this derived SVG. Only labeled
+            // nodes with structured props grow.
+            if ($type !== 'group') {
+                $fit = self::normalizeNode(['label' => $data['label'] ?? '', 'props' => $data['props'] ?? null]);
+                if ($fit['props'] !== []) {
+                    $fitKind = $data['kind'] ?? null;
+                    $fitIcon = $fitKind && $fitKind !== 'generic' && isset(self::icons()[$fitKind]);
+                    $fitPad  = 10.0;
+                    $fitIconW = $fitIcon ? 22 : 0;
+                    $fitKeyW = 0.0;
+                    $fitValW = 0.0;
+                    foreach ($fit['props'] as $fp) {
+                        if ($fp['key'] !== '') {
+                            $fitKeyW = max($fitKeyW, self::textWidth($fp['key'], 5.2));
+                        }
+                        $fitValW = max($fitValW, self::textWidth($fp['value'], 5.2));
+                    }
+                    $fitRowsW = ($fitKeyW > 0 ? $fitKeyW + 8 : 0) + $fitValW;
+                    $fitNameW = self::textWidth($fit['name'] !== '' ? $fit['name'] : 'Node');
+                    $w = max((float) $w, $fitPad + $fitIconW + max($fitNameW, $fitRowsW) + $fitPad);
+                    $h = max((float) $h, 22 + count($fit['props']) * 13 + 8);
+                }
+            }
+
             $out[] = [
                 'id'       => $n['id'] ?? uniqid('n'),
                 'type'     => $type,
@@ -543,7 +572,7 @@ class DiagramSvg
                     $y = $rowY + $i * 13;
                     if ($p['key'] !== '') {
                         $parts[] = '<text x="' . self::n($keyX) . '" y="' . self::n($y)
-                            . '" font-family="Lexend, sans-serif" font-size="10" fill="#5C625C">'
+                            . '" font-family="Lexend, sans-serif" font-size="10" fill="' . self::KEY_COLOR . '">'
                             . self::esc(self::truncate($p['key'], $maxKeyW, 5.2)) . '</text>';
                     }
                     $vx     = $p['key'] !== '' ? $valX : $keyX;

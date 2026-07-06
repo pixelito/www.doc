@@ -55,7 +55,8 @@ const uid = () =>
 // Handlers the custom node needs but that must NOT be persisted — passed via
 // context instead of polluting node.data (which is serialized into the graph).
 const NodeBehavior = createContext({
-    editable: false, onLabelChange: () => {}, onKindChange: () => {}, onPropsChange: () => {},
+    editable: false, onLabelChange: () => {}, onLabelLive: () => {}, onKindChange: () => {},
+    onPropsChange: () => {}, onPropsLive: () => {},
     onNodeColorChange: () => {}, onNodeColorLive: () => {}, onPersist: () => {},
     snapToGrid: false,
 });
@@ -189,7 +190,7 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange, onPropsChange, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
+    const { editable, onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
     const name = (data.label ?? '').trim();
     const props = Array.isArray(data.props) ? data.props : [];
 
@@ -267,7 +268,8 @@ function LabeledNode({ id, data, selected }) {
                             <input
                                 type="text"
                                 value={data.label ?? ''}
-                                onChange={(e) => onLabelChange(id, e.target.value)}
+                                onChange={(e) => onLabelLive(id, e.target.value)}
+                                onBlur={(e) => onLabelChange(id, e.target.value)}
                                 onKeyDown={(e) => e.stopPropagation()}
                                 placeholder="Name"
                                 aria-label="Node name"
@@ -278,7 +280,8 @@ function LabeledNode({ id, data, selected }) {
                                     <input
                                         type="text"
                                         value={p.key}
-                                        onChange={(e) => onPropsChange(id, props.map((q, j) => j === i ? { ...q, key: e.target.value } : q))}
+                                        onChange={(e) => onPropsLive(id, props.map((q, j) => j === i ? { ...q, key: e.target.value } : q))}
+                                        onBlur={() => onPropsChange(id, props)}
                                         onKeyDown={(e) => e.stopPropagation()}
                                         placeholder="Key"
                                         aria-label="Property key"
@@ -287,7 +290,8 @@ function LabeledNode({ id, data, selected }) {
                                     <input
                                         type="text"
                                         value={p.value}
-                                        onChange={(e) => onPropsChange(id, props.map((q, j) => j === i ? { ...q, value: e.target.value } : q))}
+                                        onChange={(e) => onPropsLive(id, props.map((q, j) => j === i ? { ...q, value: e.target.value } : q))}
+                                        onBlur={() => onPropsChange(id, props)}
                                         onKeyDown={(e) => e.stopPropagation()}
                                         placeholder="Value"
                                         aria-label="Property value"
@@ -911,9 +915,22 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         commit();
     };
 
+    // Live variant for the properties-panel Name input: state-only update while
+    // typing (see onNodeColorLive) — the panel commits (persist + undo entry)
+    // on blur instead of flooding history on every keystroke.
+    const onLabelLive = (id, label) => {
+        setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
+    };
+
     const onPropsChange = (id, props) => {
         setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, props } } : n)));
         commit();
+    };
+
+    // Live variant for the properties-panel Key/Value inputs — same rationale
+    // as onLabelLive.
+    const onPropsLive = (id, props) => {
+        setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, props } } : n)));
     };
 
     const onKindChange = (id, kind) => {
@@ -1176,12 +1193,14 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     // node and edge (all context consumers) re-renders on every drag frame — which
     // is what made dragging feel laggy. Now only the dragged node re-renders.
     const behaviorRef = useRef(null);
-    behaviorRef.current = { onLabelChange, onKindChange, onPropsChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
+    behaviorRef.current = { onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
     const behavior = useMemo(() => ({
         editable,
         onLabelChange: (...a) => behaviorRef.current.onLabelChange(...a),
+        onLabelLive: (...a) => behaviorRef.current.onLabelLive(...a),
         onKindChange: (...a) => behaviorRef.current.onKindChange(...a),
         onPropsChange: (...a) => behaviorRef.current.onPropsChange(...a),
+        onPropsLive: (...a) => behaviorRef.current.onPropsLive(...a),
         onNodeColorChange: (...a) => behaviorRef.current.onNodeColorChange(...a),
         onNodeColorLive: (...a) => behaviorRef.current.onNodeColorLive(...a),
         onEdgeChange: (...a) => behaviorRef.current.onEdgeChange(...a),

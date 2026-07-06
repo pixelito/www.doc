@@ -253,3 +253,23 @@ test('a long property key is truncated so it cannot overflow the card', function
         ->and($svg)->toContain('…')
         ->and($svg)->toContain('>ok</text>');
 });
+
+test('a device card with no persisted size grows to fit its property rows', function () {
+    $graph = ['nodes' => [[
+        'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+        // NO width/height => 150x40 fallback; must grow to fit 3 rows.
+        'data' => ['label' => 'Server1', 'kind' => 'generic', 'props' => [
+            ['key' => 'IP', 'value' => '10.10.10.10'],
+            ['key' => 'Role', 'value' => 'DB'],
+            ['key' => 'OS', 'value' => 'Debian 12'],
+        ]],
+    ]], 'edges' => []];
+
+    $svg = DiagramSvg::render($graph)['svg'];
+
+    // Node rects use rx="6"; the attribute order is width then height then rx.
+    // The tallest such rect must enclose 3 rows (well past the 40px fallback).
+    preg_match_all('/<rect[^>]*height="([\d.]+)"[^>]*rx="6"/', $svg, $m);
+    $maxH = max(array_map('floatval', $m[1] ?: [0.0]));
+    expect($maxH)->toBeGreaterThanOrEqual(69.0);
+});
