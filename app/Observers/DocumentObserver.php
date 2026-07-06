@@ -92,6 +92,21 @@ class DocumentObserver
         $document->creationAudited = $document->wasRecentlyCreated;
     }
 
+    /**
+     * A newly created page resolves any previously-broken inbound wiki-links to
+     * its title. A broken link means NO title match existed at its source's sync
+     * time, so this page is now the unique match — exactly what a source re-sync
+     * would produce. Only null targets are touched, so already-resolved links are
+     * left alone. Links aren't audited and the source doc isn't saved, so no
+     * updated_at/version bump on sources.
+     */
+    public function created(Document $document): void
+    {
+        Link::whereNull('target_document_id')
+            ->where('target_title', $document->title)
+            ->update(['target_document_id' => $document->getKey()]);
+    }
+
     public function deleted(Document $document): void
     {
         $document->workspace?->touch();
