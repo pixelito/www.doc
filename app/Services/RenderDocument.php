@@ -104,16 +104,35 @@ class RenderDocument
                     $mime = mime_content_type($path) ?: null;
                 }
             } elseif (filter_var($src, FILTER_VALIDATE_URL)) {
-                $ips = Ssrf::assertPublicUrl($src);
+                // Follow a few redirects MANUALLY, re-validating every hop through
+                // the SSRF guard. Ssrf::fetchOptions disables Guzzle's auto-redirect
+                // on purpose (a 30x could bounce us to an internal host the up-front
+                // check never saw); many legitimate image hosts (CDNs, picsum,
+                // imgur) 302 to a storage domain, so we re-run assertPublicUrl on
+                // each Location before fetching it.
+                $url = $src;
+                for ($hop = 0; $hop < 4; $hop++) {
+                    $ips = Ssrf::assertPublicUrl($url); // throws 422 on a private hop
 
-                $response = Http::timeout(5)
-                    ->withOptions(Ssrf::fetchOptions($src, $ips))
-                    ->get($src);
+                    $response = Http::timeout(5)
+                        ->withOptions(Ssrf::fetchOptions($url, $ips))
+                        ->get($url);
 
-                if ($response->successful()) {
-                    $content = $response->body();
-                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
-                    $mime = $finfo->buffer($content) ?: null;
+                    if ($response->redirect()) {
+                        $location = $response->header('Location');
+                        if ($location === null || $location === '') {
+                            break;
+                        }
+                        $url = self::resolveRedirect($url, $location);
+                        continue;
+                    }
+
+                    if ($response->successful()) {
+                        $content = $response->body();
+                        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->buffer($content) ?: null;
+                    }
+                    break;
                 }
             }
 
@@ -128,6 +147,34 @@ class RenderDocument
         }
 
         return self::UNAVAILABLE_IMAGE;
+    }
+
+    /**
+     * Resolve a redirect `Location` (which may be absolute, protocol-relative,
+     * root-relative, or a bare path) against the URL it came from. The result is
+     * re-validated by Ssrf::assertPublicUrl before it's ever fetched.
+     */
+    private static function resolveRedirect(string $base, string $location): string
+    {
+        if (parse_url($location, PHP_URL_SCHEME) !== null) {
+            return $location; // already absolute
+        }
+
+        $parts  = parse_url($base);
+        $scheme = $parts['scheme'] ?? 'https';
+        $host   = $parts['host'] ?? '';
+        $port   = isset($parts['port']) ? ':' . $parts['port'] : '';
+
+        if (str_starts_with($location, '//')) {
+            return $scheme . ':' . $location;           // protocol-relative
+        }
+        if (str_starts_with($location, '/')) {
+            return "{$scheme}://{$host}{$port}{$location}"; // root-relative
+        }
+
+        $path = $parts['path'] ?? '/';
+        $dir  = substr($path, 0, strrpos($path, '/') + 1) ?: '/';
+        return "{$scheme}://{$host}{$port}{$dir}{$location}"; // relative path
     }
 }
 

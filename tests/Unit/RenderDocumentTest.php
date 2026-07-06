@@ -205,3 +205,27 @@ test('resolveImageToDataUri refuses a private/link-local host (ssrf guard)', fun
     expect(RenderDocument::resolveImageToDataUri('http://169.254.169.254/latest/meta-data/'))
         ->toBe(RenderDocument::UNAVAILABLE_IMAGE);
 });
+
+test('resolveImageToDataUri follows a redirect (many image hosts 302 to a CDN)', function () {
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    // Public IP literals so the SSRF guard validates each hop without DNS.
+    Illuminate\Support\Facades\Http::fake([
+        '1.1.1.1/*' => Illuminate\Support\Facades\Http::response('', 302, ['Location' => 'http://8.8.8.8/real.png']),
+        '8.8.8.8/*' => Illuminate\Support\Facades\Http::response($png, 200, ['Content-Type' => 'image/png']),
+    ]);
+
+    expect(RenderDocument::resolveImageToDataUri('http://1.1.1.1/img'))
+        ->toStartWith('data:image/');
+});
+
+test('resolveImageToDataUri blocks a redirect that points at a private host', function () {
+    // The per-hop SSRF re-validation must reject a 302 → link-local bounce; the
+    // metadata stub must never be embedded.
+    Illuminate\Support\Facades\Http::fake([
+        '1.1.1.1/*'         => Illuminate\Support\Facades\Http::response('', 302, ['Location' => 'http://169.254.169.254/latest/meta-data/']),
+        '169.254.169.254/*' => Illuminate\Support\Facades\Http::response('secret', 200, ['Content-Type' => 'image/png']),
+    ]);
+
+    expect(RenderDocument::resolveImageToDataUri('http://1.1.1.1/img'))
+        ->toBe(RenderDocument::UNAVAILABLE_IMAGE);
+});
