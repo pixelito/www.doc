@@ -73,7 +73,7 @@ test('a non-hex edge colour is rejected, not interpolated into the SVG', functio
         ->and($svg)->toContain('stroke="#8E938E"'); // fell back to the default
 });
 
-test('it renders a multi-line label as separate tspans (icon node)', function () {
+test('a legacy multi-line label migrates to name + value-only property row (icon node)', function () {
     $graph = [
         'nodes' => [
             [
@@ -90,13 +90,13 @@ test('it renders a multi-line label as separate tspans (icon node)', function ()
 
     $svg = DiagramSvg::render($graph)['svg'];
 
-    // Two lines => two tspans, each carrying one line's text.
-    expect(substr_count($svg, '<tspan'))->toBe(2)
-        ->and($svg)->toContain('>Server1</tspan>')
-        ->and($svg)->toContain('>10.10.10.10</tspan>');
+    // Legacy multi-line label -> name + one value-only property row (device card).
+    expect($svg)->toContain('>Server1</text>')
+        ->and($svg)->toContain('>10.10.10.10</text>')
+        ->and($svg)->toContain('font-size="10"');
 });
 
-test('it renders a multi-line label as separate tspans (generic/iconless node)', function () {
+test('a legacy multi-line label migrates to name + value-only property row (generic node)', function () {
     $graph = [
         'nodes' => [
             [
@@ -113,13 +113,12 @@ test('it renders a multi-line label as separate tspans (generic/iconless node)',
 
     $svg = DiagramSvg::render($graph)['svg'];
 
-    expect(substr_count($svg, '<tspan'))->toBe(2)
-        ->and($svg)->toContain('text-anchor="middle"') // centered layout preserved
-        ->and($svg)->toContain('>Line A</tspan>')
-        ->and($svg)->toContain('>Line B</tspan>');
+    expect($svg)->toContain('>Line A</text>')
+        ->and($svg)->toContain('>Line B</text>')
+        ->and($svg)->toContain('font-size="10"');
 });
 
-test('a single-line label still renders (one tspan) and stays searchable text', function () {
+test('a single-line label still renders as one centered text element', function () {
     $graph = [
         'nodes' => [[
             'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
@@ -130,8 +129,9 @@ test('a single-line label still renders (one tspan) and stays searchable text', 
 
     $svg = DiagramSvg::render($graph)['svg'];
 
-    expect(substr_count($svg, '<tspan'))->toBe(1)
-        ->and($svg)->toContain('>Solo</tspan>');
+    expect($svg)->toContain('text-anchor="middle"')
+        ->and($svg)->toContain('>Solo</text>')
+        ->and($svg)->not->toContain('<tspan');
 });
 
 test('normalizeNode keeps a plain name and structured props', function () {
@@ -185,4 +185,54 @@ test('normalizeNode does not migrate legacy lines when structured props exist', 
 
     expect($out['name'])->toBe('Server1')
         ->and($out['props'])->toBe([['key' => 'IP', 'value' => '10.0.0.1']]);
+});
+
+test('a node with properties renders name plus key/value rows', function () {
+    $graph = ['nodes' => [[
+        'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+        'width' => 180, 'height' => 80,
+        'data' => [
+            'label' => 'Server1', 'kind' => 'server',
+            'props' => [
+                ['key' => 'IP', 'value' => '10.10.10.10'],
+                ['key' => 'Role', 'value' => 'DB'],
+            ],
+        ],
+    ]], 'edges' => []];
+
+    $svg = DiagramSvg::render($graph)['svg'];
+
+    expect($svg)->toContain('>Server1</text>')       // name
+        ->and($svg)->toContain('>IP</text>')          // key
+        ->and($svg)->toContain('>10.10.10.10</text>') // value
+        ->and($svg)->toContain('>Role</text>')
+        ->and($svg)->toContain('>DB</text>')
+        ->and($svg)->toContain('fill="#5C625C"')      // muted key colour used
+        ->and($svg)->toContain('font-size="10"');     // property rows
+});
+
+test('a value-only property renders without a key', function () {
+    $graph = ['nodes' => [[
+        'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+        'width' => 160, 'height' => 60,
+        'data' => ['label' => 'Server1', 'kind' => 'generic',
+                   'props' => [['key' => '', 'value' => '10.10.10.10']]],
+    ]], 'edges' => []];
+
+    $svg = DiagramSvg::render($graph)['svg'];
+
+    expect($svg)->toContain('>Server1</text>')
+        ->and($svg)->toContain('>10.10.10.10</text>');
+});
+
+test('a name-only node still renders one centered line', function () {
+    $graph = ['nodes' => [[
+        'id' => 'n1', 'type' => 'labeled', 'position' => ['x' => 0, 'y' => 0],
+        'width' => 150, 'height' => 40, 'data' => ['label' => 'Solo', 'kind' => 'generic'],
+    ]], 'edges' => []];
+
+    $svg = DiagramSvg::render($graph)['svg'];
+
+    expect($svg)->toContain('text-anchor="middle"')
+        ->and($svg)->toContain('>Solo</text>');
 });

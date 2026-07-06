@@ -119,6 +119,7 @@ class DiagramSvg
                 'w'        => (float) $w,
                 'h'        => (float) $h,
                 'label'    => (string) ($data['label'] ?? ''),
+                'props'    => $data['props'] ?? null,
                 'color'    => $data['color'] ?? null,
                 'iconKind' => $data['kind'] ?? null,
             ];
@@ -487,46 +488,66 @@ class DiagramSvg
             $cy      = $b['y'] + $b['h'] / 2;
             $kind    = $n['iconKind'] ?? null;
             $hasIcon = $kind && $kind !== 'generic' && isset(self::icons()[$kind]);
-            $rawLabel = $n['label'] !== '' ? $n['label'] : 'Node';
-            $maxTextW = $b['w'] - ($hasIcon ? 34 : 16);
+            ['name' => $name, 'props' => $props] = self::normalizeNode([
+                'label' => $n['label'],
+                'props' => $n['props'] ?? null,
+            ]);
+            $name = $name !== '' ? $name : 'Node';
 
-            // Free-form multi-line labels: one <tspan> per line, block vertically
-            // centred on the box. `truncate()` clips each line independently.
-            $lines  = array_map(
-                fn (string $ln): string => self::truncate($ln, $maxTextW),
-                explode("\n", $rawLabel)
-            );
-            $lineH   = 14.0;
-            // Baseline of line 0, shifted up so the block is centred on ($cy + 4)
-            // (the same visual baseline the single-line layout used).
-            $baseY   = $cy + 4 - ($lineH * (count($lines) - 1) / 2);
-
-            if ($hasIcon) {
-                // Icon + text group is centred horizontally on the WIDEST line.
-                $tw = 0.0;
-                foreach ($lines as $ln) {
-                    $tw = max($tw, self::textWidth($ln));
+            if ($props === []) {
+                // Name-only node: today's single centered/icon line.
+                $label = self::truncate($name, $b['w'] - ($hasIcon ? 34 : 16));
+                if ($hasIcon) {
+                    $tw     = self::textWidth($label);
+                    $groupW = 16 + 6 + $tw;
+                    $ix     = $cx - $groupW / 2;
+                    $parts[] = self::icon($kind, $ix, $cy - 8, $c['accent']);
+                    $parts[] = '<text x="' . self::n($ix + 22) . '" y="' . self::n($cy + 4)
+                        . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
+                        . self::esc($label) . '</text>';
+                } else {
+                    $parts[] = '<text x="' . self::n($cx) . '" y="' . self::n($cy + 4)
+                        . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
+                        . self::esc($label) . '</text>';
                 }
-                $groupW = 16 + 6 + $tw;
-                $ix     = $cx - $groupW / 2;
-                $textX  = $ix + 22;
-                $parts[] = self::icon($kind, $ix, $cy - 8, $c['accent']);
-
-                $tspans = '';
-                foreach ($lines as $i => $ln) {
-                    $tspans .= '<tspan x="' . self::n($textX) . '" y="' . self::n($baseY + $i * $lineH) . '">'
-                        . self::esc($ln) . '</tspan>';
-                }
-                $parts[] = '<text font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="'
-                    . self::LABEL_COLOR . '">' . $tspans . '</text>';
             } else {
-                $tspans = '';
-                foreach ($lines as $i => $ln) {
-                    $tspans .= '<tspan x="' . self::n($cx) . '" y="' . self::n($baseY + $i * $lineH) . '">'
-                        . self::esc($ln) . '</tspan>';
+                // Device card: left-aligned name (bold) + property rows below.
+                $pad     = 10.0;
+                $nameX   = $b['x'] + $pad + ($hasIcon ? 22 : 0);
+                $nameY   = $b['y'] + 18;
+                $nameMaxW = $b['w'] - ($nameX - $b['x']) - $pad;
+
+                if ($hasIcon) {
+                    $parts[] = self::icon($kind, $b['x'] + $pad, $b['y'] + 9, $c['accent']);
                 }
-                $parts[] = '<text text-anchor="middle" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="'
-                    . self::LABEL_COLOR . '">' . $tspans . '</text>';
+                $parts[] = '<text x="' . self::n($nameX) . '" y="' . self::n($nameY)
+                    . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
+                    . self::esc(self::truncate($name, $nameMaxW)) . '</text>';
+
+                // Value column aligns to the widest key (10px text ≈ 5.2px/char).
+                $maxKeyW = 0.0;
+                foreach ($props as $p) {
+                    if ($p['key'] !== '') {
+                        $maxKeyW = max($maxKeyW, self::textWidth($p['key'], 5.2));
+                    }
+                }
+                $keyX = $nameX;
+                $valX = $keyX + ($maxKeyW > 0 ? $maxKeyW + 8 : 0);
+                $rowY = $nameY + 15;
+
+                foreach ($props as $i => $p) {
+                    $y = $rowY + $i * 13;
+                    if ($p['key'] !== '') {
+                        $parts[] = '<text x="' . self::n($keyX) . '" y="' . self::n($y)
+                            . '" font-family="Lexend, sans-serif" font-size="10" fill="#5C625C">'
+                            . self::esc(self::truncate($p['key'], $maxKeyW, 5.2)) . '</text>';
+                    }
+                    $vx     = $p['key'] !== '' ? $valX : $keyX;
+                    $vMaxW  = $b['w'] - ($vx - $b['x']) - $pad;
+                    $parts[] = '<text x="' . self::n($vx) . '" y="' . self::n($y)
+                        . '" font-family="Lexend, sans-serif" font-size="10" fill="' . self::LABEL_COLOR . '">'
+                        . self::esc(self::truncate($p['value'], $vMaxW, 5.2)) . '</text>';
+                }
             }
         }
         
