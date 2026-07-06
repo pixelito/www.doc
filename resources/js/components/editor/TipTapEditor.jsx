@@ -9,6 +9,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
+import { IconPlus } from '@tabler/icons-react';
 
 import { ResizableImage } from '@/extensions/ResizableImage';
 import { Callout } from '@/extensions/Callout';
@@ -191,14 +192,21 @@ export default function TipTapEditor({
                 <SuggestionList
                     suggestion={wikiSuggestion}
                     keyHandlerRef={wikiKeyRef}
-                    renderItem={(item) => (
-                        <div className="flex flex-col text-left leading-tight">
-                            <span>{item.title}</span>
-                            <span className="text-[10px] text-text-tertiary">
-                                {item.workspace?.name} / {item.slug}
-                            </span>
-                        </div>
-                    )}
+                    renderItem={(item) =>
+                        item.__create ? (
+                            <div className="flex items-center gap-1.5 text-left leading-tight text-sage-600">
+                                <IconPlus size={13} stroke={1.5} />
+                                <span>Create new page '{item.title}'</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col text-left leading-tight">
+                                <span>{item.title}</span>
+                                <span className="text-[10px] text-text-tertiary">
+                                    {item.workspace?.name} / {item.slug}
+                                </span>
+                            </div>
+                        )
+                    }
                 />
             )}
             {slashSuggestion && (

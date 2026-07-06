@@ -169,9 +169,23 @@ export const WikiLink = Node.create({
 
                 items: ({ query }) => {
                     const q = query.toLowerCase();
-                    return (ext.options.suggestions ?? [])
-                        .filter((d) => d.title.toLowerCase().includes(q))
-                        .slice(0, 8);
+                    const matches = (ext.options.suggestions ?? [])
+                        .filter((d) => d.title.toLowerCase().includes(q));
+
+                    // Offer "Create new page" when the typed title is non-empty and
+                    // doesn't already exist verbatim — selecting it inserts an
+                    // unresolved link (target_id null) the user can create later.
+                    const trimmed = query.trim();
+                    const exists = matches.some(
+                        (d) => d.title.toLowerCase() === trimmed.toLowerCase(),
+                    );
+                    const offerCreate = trimmed !== '' && !exists;
+
+                    const list = matches.slice(0, offerCreate ? 7 : 8);
+                    if (offerCreate) {
+                        list.push({ __create: true, title: trimmed, id: null });
+                    }
+                    return list;
                 },
 
                 render: () => ({
