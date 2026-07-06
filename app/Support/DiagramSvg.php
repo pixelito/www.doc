@@ -444,19 +444,46 @@ class DiagramSvg
             $cy      = $b['y'] + $b['h'] / 2;
             $kind    = $n['iconKind'] ?? null;
             $hasIcon = $kind && $kind !== 'generic' && isset(self::icons()[$kind]);
-            $label   = self::truncate($n['label'] !== '' ? $n['label'] : 'Node', $b['w'] - ($hasIcon ? 34 : 16));
+            $rawLabel = $n['label'] !== '' ? $n['label'] : 'Node';
+            $maxTextW = $b['w'] - ($hasIcon ? 34 : 16);
+
+            // Free-form multi-line labels: one <tspan> per line, block vertically
+            // centred on the box. `truncate()` clips each line independently.
+            $lines  = array_map(
+                fn (string $ln): string => self::truncate($ln, $maxTextW),
+                explode("\n", $rawLabel)
+            );
+            $lineH   = 14.0;
+            // Baseline of line 0, shifted up so the block is centred on ($cy + 4)
+            // (the same visual baseline the single-line layout used).
+            $baseY   = $cy + 4 - ($lineH * (count($lines) - 1) / 2);
+
             if ($hasIcon) {
-                $tw     = self::textWidth($label);
+                // Icon + text group is centred horizontally on the WIDEST line.
+                $tw = 0.0;
+                foreach ($lines as $ln) {
+                    $tw = max($tw, self::textWidth($ln));
+                }
                 $groupW = 16 + 6 + $tw;
                 $ix     = $cx - $groupW / 2;
+                $textX  = $ix + 22;
                 $parts[] = self::icon($kind, $ix, $cy - 8, $c['accent']);
-                $parts[] = '<text x="' . self::n($ix + 22) . '" y="' . self::n($cy + 4)
-                    . '" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
-                    . self::esc($label) . '</text>';
+
+                $tspans = '';
+                foreach ($lines as $i => $ln) {
+                    $tspans .= '<tspan x="' . self::n($textX) . '" y="' . self::n($baseY + $i * $lineH) . '">'
+                        . self::esc($ln) . '</tspan>';
+                }
+                $parts[] = '<text font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="'
+                    . self::LABEL_COLOR . '">' . $tspans . '</text>';
             } else {
-                $parts[] = '<text x="' . self::n($cx) . '" y="' . self::n($cy + 4)
-                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="' . self::LABEL_COLOR . '">'
-                    . self::esc($label) . '</text>';
+                $tspans = '';
+                foreach ($lines as $i => $ln) {
+                    $tspans .= '<tspan x="' . self::n($cx) . '" y="' . self::n($baseY + $i * $lineH) . '">'
+                        . self::esc($ln) . '</tspan>';
+                }
+                $parts[] = '<text text-anchor="middle" font-family="Lexend, sans-serif" font-size="12" font-weight="bold" fill="'
+                    . self::LABEL_COLOR . '">' . $tspans . '</text>';
             }
         }
         
