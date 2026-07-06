@@ -42,17 +42,23 @@ class SearchController extends Controller
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
         $lang = config('database.search_language', 'english');
 
-        // Split into lexemes on anything that isn't a letter or digit, then AND
-        // them with a prefix match (`:*`). Splitting only on whitespace/punctuation
-        // let Symbol-category chars (`< > | = ~`) through into to_tsquery, which
-        // parses them as operators — so `List<T>` or `a<b` raised "syntax error in
-        // tsquery" (a 500). Reducing each term to its alphanumerics keeps prefix
-        // search working while guaranteeing to_tsquery only ever sees plain words.
-        $terms = array_filter(preg_split('/[^\p{L}\p{N}]+/u', $q), fn ($t) => $t !== '');
-        $tsQueryString = implode(' & ', array_map(fn ($t) => $t . ':*', $terms));
-        if ($tsQueryString === '') {
-            $tsQueryString = ' ';
-        }
+        // Lexize the query with the SAME parser + dictionary that built the
+        // documents' search_vector, so multi-part tokens (IPs, version numbers,
+        // hostnames — 192.168.5.5, v1.2.3, foo.bar.com) tokenize identically on
+        // both sides. Splitting the query ourselves broke this: `192.168.5.5`
+        // became `192:* & 168:* & 5:* & 5:*`, but Postgres indexes the IP as ONE
+        // lexeme, so the AND could never match. unnest(to_tsvector(...)) yields
+        // exactly the indexed lexemes; `:*` preserves prefix search
+        // ("serv" → server); quote_literal keeps odd lexemes safe and — since they
+        // come from to_tsvector, never the raw query — guarantees no tsquery
+        // operator (`< > | = ~`) can reach to_tsquery (the 500 the old splitter
+        // was guarding against). Empty/stopword-only queries → ' ' (no FTS match,
+        // ILIKE title fallback still applies), same as before.
+        $tsQueryString = DB::selectOne(
+            "SELECT COALESCE(string_agg(quote_literal(lexeme) || ':*', ' & '), ' ') AS q
+               FROM unnest(to_tsvector(?, ?))",
+            [$lang, $q]
+        )->q;
 
         // FTS for indexed documents, ILIKE title fallback for unindexed ones.
         // ts_headline runs over the tag-STRIPPED text (the same derivation the

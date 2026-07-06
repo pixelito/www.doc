@@ -171,3 +171,52 @@ test('operator-like characters split terms rather than acting as tsquery operato
         fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Boolean')
     );
 });
+
+test('a document is found by an IP address in its body', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Rack Inventory',
+        'content' => DocumentFactory::tiptap('The primary host lives at 192.168.5.5 in rack 4.'),
+    ]);
+
+    $this->get('/search?q=192.168.5.5')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Rack Inventory')
+    );
+});
+
+test('a document is found by a dotted version number', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Upgrade Log',
+        'content' => DocumentFactory::tiptap('Bumped the gateway to v1.2.3 last night.'),
+    ]);
+
+    $this->get('/search?q=v1.2.3')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Upgrade Log')
+    );
+});
+
+test('prefix search still matches a partial word', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Server Runbook',
+        'content' => DocumentFactory::tiptap('Restart the Server1 process carefully.'),
+    ]);
+
+    // "serv" must still prefix-match "Server1"/"Server" (regression guard).
+    $this->get('/search?q=serv')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Server Runbook')
+    );
+});
+
+test('a query with tsquery operator characters does not error', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Generics Notes',
+        'content' => DocumentFactory::tiptap('Using List<T> across the codebase.'),
+    ]);
+
+    // Angle brackets must never reach to_tsquery as operators (would 500).
+    $this->get('/search?q=' . urlencode('List<T>'))->assertOk();
+    $this->get('/search?q=' . urlencode('a<b'))->assertOk();
+});
