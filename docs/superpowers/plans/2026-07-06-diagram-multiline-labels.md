@@ -173,22 +173,173 @@ git commit -m "feat: render multi-line diagram node labels in server-side SVG"
 
 ---
 
-### Task 2: Regression test — multi-line labels stay searchable
+### Task 2: Fix search so dotted tokens (IPs, versions, hostnames) match
 
-Confirms the "no code change needed" claim for search: `RenderDocument::hiddenLabels()` already keeps internal newlines, and the FTS tokenizer splits on them, so each line is an independent search token. This task adds the guard test; it must pass with NO production change.
+> **Scope note:** This task was added on 2026-07-06 after the Task-2 investigation
+> found that searching a node by its IP fails. This is a PRE-EXISTING, app-wide
+> bug (any IP-shaped query fails), not caused by the multi-line label work; the
+> maintainer chose to fix it as part of this branch so name+IP nodes are findable
+> by IP. It supersedes the spec's "Search — no code change" line.
+
+The root cause: `SearchController::searchDocuments()` splits the query on every
+non-alphanumeric char, so `192.168.5.5` becomes `192:* & 168:* & 5:* & 5:*` —
+but Postgres indexes the IP as a SINGLE lexeme, so the AND can never match.
+Fix: derive the query's lexemes with the **same** parser + dictionary that built
+`search_vector` (`unnest(to_tsvector($lang, $q))`), append `:*` to each for
+prefix search, and `quote_literal` them (safe + no tsquery-operator injection).
+Verified in-container: `192.168.5.5` → `'192.168.5.5':*` (matches), `v1.2.3` →
+`'v1.2.3':*`, `foo.bar.com` → `'foo.bar.com':*`, `List<T>` → `'list':*` (no 500),
+`serv` still prefix-matches `Server1`.
+
+**Files:**
+- Modify: `app/Http/Controllers/SearchController.php` — `searchDocuments()`, the tokenization block (currently lines 45–55).
+- Test: `tests/Feature/SearchTest.php`
+
+**Interfaces:**
+- Consumes: `$lang` (already computed at line 43) and `$q`. Produces the same `$tsQueryString` string variable the existing SQL already binds into `to_tsquery(?, ?)` — nothing downstream changes.
+- `DB` (`Illuminate\Support\Facades\DB`) is already imported/used in this file.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `tests/Feature/SearchTest.php` (it already imports `Document`, `Workspace`, `DocumentFactory`, and `AssertableInertia as Assert`, and uses the `login()` helper):
+
+```php
+test('a document is found by an IP address in its body', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Rack Inventory',
+        'content' => DocumentFactory::tiptap('The primary host lives at 192.168.5.5 in rack 4.'),
+    ]);
+
+    $this->get('/search?q=192.168.5.5')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Rack Inventory')
+    );
+});
+
+test('a document is found by a dotted version number', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Upgrade Log',
+        'content' => DocumentFactory::tiptap('Bumped the gateway to v1.2.3 last night.'),
+    ]);
+
+    $this->get('/search?q=v1.2.3')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Upgrade Log')
+    );
+});
+
+test('prefix search still matches a partial word', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Server Runbook',
+        'content' => DocumentFactory::tiptap('Restart the Server1 process carefully.'),
+    ]);
+
+    // "serv" must still prefix-match "Server1"/"Server" (regression guard).
+    $this->get('/search?q=serv')->assertInertia(
+        fn (Assert $page) => $page->has('results', 1)->where('results.0.title', 'Server Runbook')
+    );
+});
+
+test('a query with tsquery operator characters does not error', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Generics Notes',
+        'content' => DocumentFactory::tiptap('Using List<T> across the codebase.'),
+    ]);
+
+    // Angle brackets must never reach to_tsquery as operators (would 500).
+    $this->get('/search?q=' . urlencode('List<T>'))->assertOk();
+    $this->get('/search?q=' . urlencode('a<b'))->assertOk();
+});
+```
+
+- [ ] **Step 2: Run the tests to verify the right ones fail**
+
+Run: `docker compose exec app php artisan test --filter=SearchTest`
+Expected: the two NEW dotted-token tests (`IP address`, `dotted version number`) FAIL (old splitter turns the IP into ANDed single-digit terms that can't match the single indexed lexeme). The `prefix search` and `operator characters` tests PASS already (unchanged behavior) — that is fine; they are regression guards, not RED cases.
+
+- [ ] **Step 3: Implement the fix**
+
+In `app/Http/Controllers/SearchController.php`, replace this block (currently lines 45–55):
+
+```php
+        // Split into lexemes on anything that isn't a letter or digit, then AND
+        // them with a prefix match (`:*`). Splitting only on whitespace/punctuation
+        // let Symbol-category chars (`< > | = ~`) through into to_tsquery, which
+        // parses them as operators — so `List<T>` or `a<b` raised "syntax error in
+        // tsquery" (a 500). Reducing each term to its alphanumerics keeps prefix
+        // search working while guaranteeing to_tsquery only ever sees plain words.
+        $terms = array_filter(preg_split('/[^\p{L}\p{N}]+/u', $q), fn ($t) => $t !== '');
+        $tsQueryString = implode(' & ', array_map(fn ($t) => $t . ':*', $terms));
+        if ($tsQueryString === '') {
+            $tsQueryString = ' ';
+        }
+```
+
+with:
+
+```php
+        // Lexize the query with the SAME parser + dictionary that built the
+        // documents' search_vector, so multi-part tokens (IPs, version numbers,
+        // hostnames — 192.168.5.5, v1.2.3, foo.bar.com) tokenize identically on
+        // both sides. Splitting the query ourselves broke this: `192.168.5.5`
+        // became `192:* & 168:* & 5:* & 5:*`, but Postgres indexes the IP as ONE
+        // lexeme, so the AND could never match. unnest(to_tsvector(...)) yields
+        // exactly the indexed lexemes; `:*` preserves prefix search
+        // ("serv" → server); quote_literal keeps odd lexemes safe and — since they
+        // come from to_tsvector, never the raw query — guarantees no tsquery
+        // operator (`< > | = ~`) can reach to_tsquery (the 500 the old splitter
+        // was guarding against). Empty/stopword-only queries → ' ' (no FTS match,
+        // ILIKE title fallback still applies), same as before.
+        $tsQueryString = DB::selectOne(
+            "SELECT COALESCE(string_agg(quote_literal(lexeme) || ':*', ' & '), ' ') AS q
+               FROM unnest(to_tsvector(?, ?))",
+            [$lang, $q]
+        )->q;
+```
+
+Note: `unnest(to_tsvector(...))` exposes a column named `lexeme` (no table alias — aliasing would need all three output columns). Do not add `AS l(lexeme)`.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `docker compose exec app php artisan test --filter=SearchTest`
+Expected: PASS — all four new tests green, and the pre-existing SearchTest cases (title match, body match, ranking, trashed-workspace exclusion, empty query) stay green.
+
+- [ ] **Step 5: Guard against a wider regression**
+
+Run: `docker compose exec app php artisan test --filter=SearchReindexTest`
+Expected: PASS (this task doesn't change how the vector is built, only how the query is lexized, but confirm nothing tied to search regressed).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/Http/Controllers/SearchController.php tests/Feature/SearchTest.php
+git commit -m "fix: match IP/version/hostname search queries by lexizing input with the index parser"
+```
+
+---
+
+### Task 3: Regression test — multi-line labels are searchable per line
+
+Now that Task 2 makes dotted queries match, this guard proves a multi-line node
+label (name on line 1, IP on line 2) is findable by EITHER line. It also pins the
+property that `RenderDocument::hiddenLabels()` keeps internal newlines and the FTS
+tokenizer treats them as separators. **Depends on Task 2** — the IP assertion only
+passes with the search fix in place.
 
 **Files:**
 - Test: `tests/Feature/NetworkDiagramTest.php`
 
 **Interfaces:**
-- Consumes: existing test helpers/patterns in `NetworkDiagramTest.php` (it already searches via `GET /search?q=…` and asserts diagram labels are found through hidden-label text).
+- Consumes: the existing search test in `NetworkDiagramTest.php` (the `/search?q=core-router` case ≈ lines 40–65) — its document+diagram construction and `assertInertia` result shape. Also depends on Task 2's search fix being committed.
 - Produces: nothing consumed downstream — a standalone regression guard.
 
 - [ ] **Step 1: Read the existing search test for the exact pattern**
 
-Read `tests/Feature/NetworkDiagramTest.php` around the existing `/search?q=core-router` assertion (≈ lines 40–65) and mirror its document-creation + `assertInertia` search-result shape exactly (same factory/route usage, same auth setup). Reuse that pattern rather than inventing a new one.
+Read `tests/Feature/NetworkDiagramTest.php` around the existing `/search?q=core-router` assertion (≈ lines 40–65) and mirror its document-creation + `assertInertia` search-result shape exactly (same factory/route usage, same auth setup, same prop path / `where(...)`). Reuse that pattern rather than inventing a new one.
 
-- [ ] **Step 2: Write the failing (should-pass) test**
+- [ ] **Step 2: Write the test**
 
 Add a test that creates a document containing a diagram whose node label is `"WebHost\n192.168.5.5"` (a `\n` in the label), following the existing test's construction, then asserts BOTH lines are independently findable:
 
@@ -198,33 +349,34 @@ test('a multi-line node label is searchable line by line', function () {
     // "searchable by node label" test above, but with a two-line label:
     //   'data' => ['label' => "WebHost\n192.168.5.5", ...]
     // (copy that test's setup verbatim, changing only the label value and the
-    //  workspace/page titles so it doesn't collide).
+    //  workspace/page titles so it doesn't collide with the other test's data).
 
     // First line is its own token:
     $this->get('/search?q=WebHost')->assertInertia(/* result contains the page */);
 
-    // Second line is its own token (newline acted as a separator):
+    // Second line (an IP) is its own token — newline acted as a separator, and
+    // Task 2's fix makes the dotted IP query match:
     $this->get('/search?q=192.168.5.5')->assertInertia(/* result contains the page */);
 });
 ```
 
-Fill the `assertInertia` closures by copying the shape from the existing `/search?q=core-router` assertion in the same file (same prop path and `where(...)` used there). Do not leave the comments as placeholders — replace them with the real setup and assertions copied from the neighbouring test.
+Fill the `assertInertia` closures by copying the shape from the existing `/search?q=core-router` assertion in the same file. Do NOT leave the comments as placeholders — replace them with the real setup and assertions copied from the neighbouring test.
 
 - [ ] **Step 3: Run the test**
 
 Run: `docker compose exec app php artisan test --filter=NetworkDiagramTest`
-Expected: PASS with no production change — proving multi-line labels are already searched per line. If it FAILS (e.g. the two tokens are concatenated), STOP: the search path does need work; add a step to `RenderDocument::hiddenLabels()` to `str_replace("\n", ' ', $label)` before imploding, and note it here.
+Expected: PASS — both `WebHost` and `192.168.5.5` find the page. (If the IP assertion fails, confirm Task 2's fix is committed on this branch before investigating further.)
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add tests/Feature/NetworkDiagramTest.php
-git commit -m "test: cover multi-line diagram labels indexing per line for search"
+git commit -m "test: cover multi-line diagram labels searchable per line (incl. IP)"
 ```
 
 ---
 
-### Task 3: Canvas edits and displays multi-line labels
+### Task 4: Canvas edits and displays multi-line labels
 
 Turn the single-line `<input>` into a `<textarea>` (Enter inserts a newline, Escape reverts, blur commits) and render the label with preserved line breaks. Update the existing e2e spec, which currently drives the label through an `<input>` and commits with Enter.
 
