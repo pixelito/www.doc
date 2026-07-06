@@ -41,15 +41,20 @@ test('a network diagram edits, persists, renders read-only, and is searchable by
     await addNode.click();
     await expect(diagram.locator('.react-flow__node')).toHaveCount(2);
 
-    // Rename the first node: double-click opens the inline label input.
+    // Rename the first node via the floating properties panel: select it, set
+    // its name, and add a key/value property row.
     const firstNode = diagram.locator('.react-flow__node').first();
-    await firstNode.dblclick();
-    const labelArea = firstNode.locator('textarea');
-    await expect(labelArea).toBeVisible();
-    await labelArea.pressSequentially(label);   // replaces selected default 'Node'
-    await labelArea.press('Enter');             // Enter now inserts a newline
-    await labelArea.pressSequentially('10.10.10.10');
-    await labelArea.blur();                      // blur commits
+    await firstNode.click(); // select → floating editor appears
+    const nameInput = diagram.getByRole('textbox', { name: 'Node name' });
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill(label);
+    await diagram.getByRole('button', { name: 'Add property' }).click();
+    await diagram.getByRole('textbox', { name: 'Property key' }).fill('IP');
+    await diagram.getByRole('textbox', { name: 'Property value' }).fill('10.10.10.10');
+    // Deselect to commit (click empty canvas, away from the top-left toolbar).
+    const pane = diagram.locator('.react-flow__pane');
+    const paneBox = await pane.boundingBox();
+    await pane.click({ position: { x: paneBox.width - 30, y: paneBox.height - 30 } });
     await expect(diagram.getByText(label)).toBeVisible();
     await expect(diagram.getByText('10.10.10.10')).toBeVisible();
 

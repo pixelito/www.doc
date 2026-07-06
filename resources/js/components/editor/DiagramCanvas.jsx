@@ -24,7 +24,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 import {
-    IconPlus, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
+    IconPlus, IconX, IconTrash, IconCircleDot, IconServer, IconRouter, IconSwitch3,
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconServer2, IconArrowsSplit2, IconKey, IconWorld, IconWifi, IconDeviceLaptop,
     IconDeviceMobile, IconPhone, IconPrinter, IconDeviceCctv, IconBroadcast,
@@ -55,7 +55,7 @@ const uid = () =>
 // Handlers the custom node needs but that must NOT be persisted — passed via
 // context instead of polluting node.data (which is serialized into the graph).
 const NodeBehavior = createContext({
-    editable: false, onLabelChange: () => {}, onKindChange: () => {},
+    editable: false, onLabelChange: () => {}, onKindChange: () => {}, onPropsChange: () => {},
     onNodeColorChange: () => {}, onNodeColorLive: () => {}, onPersist: () => {},
     snapToGrid: false,
 });
@@ -189,11 +189,9 @@ const HANDLE_SIDES = [
 ];
 
 function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
-    const [editing, setEditing] = useState(false);
-    const [value, setValue] = useState(data.label ?? '');
-
-    useEffect(() => { setValue(data.label ?? ''); }, [data.label]);
+    const { editable, onLabelChange, onKindChange, onPropsChange, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
+    const name = (data.label ?? '').trim();
+    const props = Array.isArray(data.props) ? data.props : [];
 
     const kind = data.kind ?? 'generic';
     // Start the icon picker expanded if this node already uses a non-core icon,
@@ -210,18 +208,12 @@ function LabeledNode({ id, data, selected }) {
     const Icon = kindMeta(kind).Icon;
     const color = colorMeta(data.color ?? 'default');
 
-    const commit = () => {
-        setEditing(false);
-        onLabelChange(id, value.trim() || 'Node');
-    };
-
     return (
         // h-full/w-full so a manually-resized node fills its box; on an un-resized
         // node the wrapper is auto-sized, so this just resolves to the label size
         // (minWidth keeps small labels legible).
         <div
-            onDoubleClick={() => editable && setEditing(true)}
-            className={`group flex h-full w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-bold text-foreground shadow-md ${
+            className={`group flex h-full w-full ${props.length ? 'flex-col items-start justify-start gap-0.5' : 'items-center justify-center'} gap-1.5 rounded-md border px-3 py-2 text-xs text-foreground shadow-md ${
                 selected ? 'ring-1 ring-sage-400' : ''
             }`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
@@ -271,6 +263,55 @@ function LabeledNode({ id, data, selected }) {
                             onPick={(c) => onNodeColorChange(id, c)}
                             onLive={(c) => onNodeColorLive(id, c)}
                         />
+                        <div className="flex flex-col gap-1 border-t border-border pt-1">
+                            <input
+                                type="text"
+                                value={data.label ?? ''}
+                                onChange={(e) => onLabelChange(id, e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()}
+                                placeholder="Name"
+                                aria-label="Node name"
+                                className="w-40 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                            />
+                            {props.map((p, i) => (
+                                <div key={i} className="flex items-center gap-1">
+                                    <input
+                                        type="text"
+                                        value={p.key}
+                                        onChange={(e) => onPropsChange(id, props.map((q, j) => j === i ? { ...q, key: e.target.value } : q))}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        placeholder="Key"
+                                        aria-label="Property key"
+                                        className="w-16 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={p.value}
+                                        onChange={(e) => onPropsChange(id, props.map((q, j) => j === i ? { ...q, value: e.target.value } : q))}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        placeholder="Value"
+                                        aria-label="Property value"
+                                        className="w-24 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => onPropsChange(id, props.filter((_, j) => j !== i))}
+                                        title="Remove property"
+                                        aria-label="Remove property"
+                                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-text-tertiary hover:bg-danger hover:text-text-inverse"
+                                    >
+                                        <IconX className="h-3.5 w-3.5" stroke={1.5} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => onPropsChange(id, [...props, { key: '', value: '' }])}
+                                className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-foreground"
+                            >
+                                <IconPlus className="h-3.5 w-3.5" stroke={1.5} /> Add property
+                            </button>
+                        </div>
                     </div>
                 </NodeToolbar>
             )}
@@ -294,27 +335,22 @@ function LabeledNode({ id, data, selected }) {
                 />
             ))}
 
-            {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0" stroke={1.5} style={{ color: color.accent }} />}
+            {/* Name row (icon + bold name) */}
+            <div className="flex items-center gap-1.5 font-bold">
+                {kind !== 'generic' && <Icon className="h-4 w-4 shrink-0" stroke={1.5} style={{ color: color.accent }} />}
+                <span className={props.length ? 'text-left' : 'text-center'}>{name || 'Node'}</span>
+            </div>
 
-            {editing ? (
-                <textarea
-                    autoFocus
-                    rows={Math.max(1, value.split('\n').length)}
-                    onFocus={(e) => e.target.select()}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    onBlur={commit}
-                    onKeyDown={(e) => {
-                        // Enter inserts a newline (free-form multi-line labels);
-                        // Escape reverts; blur commits. Stop keys reaching React
-                        // Flow's canvas shortcuts while typing.
-                        e.stopPropagation();
-                        if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setValue(data.label ?? ''); }
-                    }}
-                    className="w-full resize-none rounded-sm border border-sage-400 bg-canvas px-1 text-center text-xs leading-tight outline-none"
-                />
-            ) : (
-                <span className="whitespace-pre-line text-center">{data.label || 'Node'}</span>
+            {/* Property rows */}
+            {props.length > 0 && (
+                <div className="mt-0.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px] font-normal leading-tight">
+                    {props.map((p, i) => (
+                        <div key={i} className="contents">
+                            <span className="text-text-secondary">{p.key}</span>
+                            <span className="text-foreground">{p.value}</span>
+                        </div>
+                    ))}
+                </div>
             )}
         </div>
     );
@@ -555,11 +591,14 @@ const cleanNodes = (nodes) =>
                 data: { label: n.data?.label ?? 'Zone', color: n.data?.color ?? 'sage' },
             };
         }
+        const props = (Array.isArray(n.data?.props) ? n.data.props : [])
+            .map((p) => ({ key: (p?.key ?? '').trim(), value: (p?.value ?? '').trim() }))
+            .filter((p) => p.key !== '' || p.value !== '');
         const out = {
             id: n.id,
             type: 'labeled',
             position: n.position,
-            data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default' },
+            data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default', props },
         };
         if (n.parentId) out.parentId = n.parentId;   // membership in a zone
         if (n.width != null) out.width = n.width;     // present only once manually resized
@@ -576,14 +615,38 @@ const cleanEdges = (edges) =>
         data: edgeData(e),
     }));
 
+// Mirror of App\Support\DiagramSvg::normalizeNode — turns a node's data into a
+// name + ordered {key,value} props, migrating a legacy multi-line label (first
+// line = name, remaining lines = value-only props) when no structured props
+// exist. Keeps the client and the server SVG in agreement.
+const normalizeNodeData = (data = {}) => {
+    const rawProps = Array.isArray(data.props) ? data.props : [];
+    let props = rawProps
+        .map((p) => ({ key: (p?.key ?? '').trim(), value: (p?.value ?? '').trim() }))
+        .filter((p) => p.key !== '' || p.value !== '');
+
+    const lines = String(data.label ?? '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l !== '');
+    const name = lines[0] ?? '';
+
+    if (props.length === 0 && lines.length > 1) {
+        props = lines.slice(1).map((value) => ({ key: '', value }));
+    }
+    return { name, props };
+};
+
 // Inflate a persisted graph back into React Flow's working shape — used both to
 // seed the canvas and to restore a snapshot on undo/redo.
 const hydrateNodes = (raw) =>
-    sortGroupsFirst((raw ?? []).map((n) =>
-        n.type === 'group'
-            ? { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 }
-            : { ...n, type: 'labeled' },
-    ));
+    sortGroupsFirst((raw ?? []).map((n) => {
+        if (n.type === 'group') {
+            return { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 };
+        }
+        const { name, props } = normalizeNodeData(n.data ?? {});
+        return { ...n, type: 'labeled', data: { ...n.data, label: name, props } };
+    }));
 const hydrateEdges = (raw) =>
     (raw ?? []).map((e) => decorateEdge({
         ...e,
@@ -848,6 +911,11 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         commit();
     };
 
+    const onPropsChange = (id, props) => {
+        setNodes(nodesRef.current.map((n) => (n.id === id ? { ...n, data: { ...n.data, props } } : n)));
+        commit();
+    };
+
     const onKindChange = (id, kind) => {
         setNodes(nodesRef.current.map((n) => {
             if (n.id !== id) return n;
@@ -1108,11 +1176,12 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     // node and edge (all context consumers) re-renders on every drag frame — which
     // is what made dragging feel laggy. Now only the dragged node re-renders.
     const behaviorRef = useRef(null);
-    behaviorRef.current = { onLabelChange, onKindChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
+    behaviorRef.current = { onLabelChange, onKindChange, onPropsChange, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
     const behavior = useMemo(() => ({
         editable,
         onLabelChange: (...a) => behaviorRef.current.onLabelChange(...a),
         onKindChange: (...a) => behaviorRef.current.onKindChange(...a),
+        onPropsChange: (...a) => behaviorRef.current.onPropsChange(...a),
         onNodeColorChange: (...a) => behaviorRef.current.onNodeColorChange(...a),
         onNodeColorLive: (...a) => behaviorRef.current.onNodeColorLive(...a),
         onEdgeChange: (...a) => behaviorRef.current.onEdgeChange(...a),
