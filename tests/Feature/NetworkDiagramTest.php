@@ -50,6 +50,33 @@ test('a document is found by a network diagram node label', function () {
     );
 });
 
+test('a multi-line node label is searchable line by line', function () {
+    login();
+    Document::factory()->create([
+        'title'   => 'Server Room Layout',
+        'content' => diagramDoc(graphWithLabels(["WebHost\n192.168.5.5", 'edge-switch']), '/storage/assets/abc.png'),
+    ]);
+    Document::factory()->create([
+        'title'   => 'Unrelated Page Two',
+        'content' => DocumentFactory::tiptap('Nothing networky here either.'),
+    ]);
+
+    // First line is its own token:
+    $this->get('/search?q=WebHost')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'Server Room Layout')
+    );
+
+    // Second line (an IP) is its own token — newline acted as a separator, and
+    // Task 2's fix makes the dotted IP query match:
+    $this->get('/search?q=192.168.5.5')->assertInertia(
+        fn (Assert $page) => $page
+            ->has('results', 1)
+            ->where('results.0.title', 'Server Room Layout')
+    );
+});
+
 test('a document is found by its diagram name', function () {
     login();
     Document::factory()->create([
