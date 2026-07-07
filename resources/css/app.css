@@ -293,6 +293,10 @@
     white-space: pre-wrap;
 }
 
+.tiptap-edit-area {
+    position: relative;
+}
+
 .tiptap-edit-area .tiptap {
     min-height: 400px;
     padding: 1.25rem 1.5rem;
@@ -540,9 +544,18 @@
 }
 
 /* Table */
-.tiptap table { border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; margin: 1em 0; overflow-wrap: break-word; }
+.tiptap table {
+    border-collapse: collapse;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+    margin: 1em 0;
+    overflow-wrap: break-word;
+}
 .tiptap th,
 .tiptap td {
+    box-sizing: border-box;
     position: relative;
     border: 1px solid var(--sage-200);
     padding: 0.5em 0.75em;
@@ -550,6 +563,17 @@
     box-shadow: inset 0 0 0 9999px var(--surface);
     color: var(--text-primary);
     font-weight: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0 !important;
+}
+
+/* Prevent bottom margin from appearing when prosemirror injects the resize handle at the end of the cell */
+.tiptap th > p:last-child,
+.tiptap td > p:last-child,
+.tiptap th > p:has(+ .column-resize-handle),
+.tiptap td > p:has(+ .column-resize-handle) {
+    margin-bottom: 0;
 }
 
 /* Even row striping applies to ALL cells initially */
@@ -566,12 +590,29 @@
     text-align: left;
 }
 
-/* Header styles: Left column (only if it's a true header column, not a pushed-down header row) */
-.tiptap tr:not(:first-child) th:first-child:not(:has(+ th)) {
+/* Header styles: Left column (matches true header columns, and covers pushed-down header rows if header columns are active) */
+.tiptap tr:not(:first-child) th:first-child:not(:has(+ th)),
+.tiptap table:has(tr th:first-child + td) tr:not(:first-child) th:first-child {
     box-shadow: inset 0 0 0 9999px var(--sage-100);
     color: var(--sage-700);
     font-weight: 600;
     text-align: left;
+}
+
+/* TipTap table column resize handle (prevents row height jumping during resize) */
+.column-resize-handle {
+    background-color: var(--sage-400);
+    bottom: 0;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 0;
+    width: 4px;
+    z-index: 10;
+}
+
+.tiptap.resize-cursor {
+    cursor: col-resize;
 }
 
 /* Allow custom inline background colors to show through the box-shadow */
