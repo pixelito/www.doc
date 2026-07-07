@@ -537,7 +537,7 @@ trait HasTableAttributes
                 'parseHTML' => fn ($DOMNode) => \Tiptap\Utils\InlineStyle::getAttribute($DOMNode, 'background-color') ?: null,
                 'renderHTML' => function ($attributes) {
                     $color = \App\Services\RenderDocument::safeColor($attributes->backgroundColor ?? null);
-                    return $color ? ['style' => "background-color: {$color}"] : null;
+                    return $color ? ['style' => "background-color: {$color} !important;"] : null;
                 },
             ],
             'colwidth' => [
@@ -548,7 +548,7 @@ trait HasTableAttributes
                 'renderHTML' => function ($attributes) {
                     if (empty($attributes->colwidth)) return null;
                     $width = is_array($attributes->colwidth) ? (int) $attributes->colwidth[0] : (int) $attributes->colwidth;
-                    return ['data-colwidth' => $width, 'style' => "width: {$width}px"];
+                    return ['data-colwidth' => $width];
                 },
             ],
         ]);

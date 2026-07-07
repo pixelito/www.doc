@@ -159,13 +159,16 @@ class PdfExporter implements ExporterContract
                 table {
                     border-collapse: collapse; width: 100%;
                     margin: 0.7em 0; page-break-inside: avoid;
-                    font-size: 9pt;
+                    font-size: 9pt; table-layout: auto;
                 }
                 th, td {
                     border: 0.5pt solid #E2DFD4;
                     padding: 4pt 6pt; text-align: left;
+                    width: auto !important;
+                    word-wrap: break-word;
+                    word-break: break-word;
                 }
-                th { background: #EDF2EA; font-weight: 600; }
+                th { background-color: #EDF2EA; font-weight: 600; }
                 hr {
                     border: none; border-top: 0.5pt solid #E2DFD4;
                     margin: 1.2em 0;
