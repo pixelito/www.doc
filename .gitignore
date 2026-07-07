@@ -35,3 +35,4 @@ TODO.md
 /test-results
 playwright/.auth
 /.superpowers
+/docs/superpowers/
