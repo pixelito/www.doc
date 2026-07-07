@@ -107,9 +107,11 @@ test('wiki-link node survives rendering', function () {
 test('table nodes (row, header, cell) survive rendering', function () {
     expect($this->html)
         ->toContain('<table>')
-        ->toContain('<th>')
+        ->toContain('<th')
+        ->toContain('data-colwidth="100"')
+        ->toContain('background-color: #DAE6D4')
         ->toContain('<td>')
-        ->toContain('Head')
+        ->toContain('H1')
         ->toContain('Cell');
 });
 

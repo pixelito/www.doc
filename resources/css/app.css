@@ -540,25 +540,45 @@
 }
 
 /* Table */
-.tiptap table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.tiptap table { border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; margin: 1em 0; overflow-wrap: break-word; }
 .tiptap th,
 .tiptap td {
     position: relative;
     border: 1px solid var(--sage-200);
     padding: 0.5em 0.75em;
     vertical-align: top;
+    box-shadow: inset 0 0 0 9999px var(--surface);
+    color: var(--text-primary);
+    font-weight: normal;
 }
-/* Cell fills use an inset box-shadow rather than `background` so the sage
-   styling stays in-app but is NOT carried into the clipboard when a table is
-   copied (browsers inline background-color on copy, but not box-shadow). */
-.tiptap th {
+
+/* Even row striping applies to ALL cells initially */
+.tiptap tr:nth-child(even) th,
+.tiptap tr:nth-child(even) td {
+    box-shadow: inset 0 0 0 9999px var(--sage-50);
+}
+
+/* Header styles: Top row */
+.tiptap tr:first-child th {
     box-shadow: inset 0 0 0 9999px var(--sage-100);
     color: var(--sage-700);
     font-weight: 600;
     text-align: left;
 }
-.tiptap td { box-shadow: inset 0 0 0 9999px var(--surface); }
-.tiptap tbody tr:nth-child(even) td { box-shadow: inset 0 0 0 9999px var(--sage-50); }
+
+/* Header styles: Left column (only if it's a true header column, not a pushed-down header row) */
+.tiptap tr:not(:first-child) th:first-child:not(:has(+ th)) {
+    box-shadow: inset 0 0 0 9999px var(--sage-100);
+    color: var(--sage-700);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* Allow custom inline background colors to show through the box-shadow */
+.tiptap th[style*="background-color"],
+.tiptap td[style*="background-color"] {
+    box-shadow: none !important;
+}
 
 /* Cell selection (CellSelection) — a light sage overlay drawn as generated
    content, so it tints the selection without being copied to the clipboard. */

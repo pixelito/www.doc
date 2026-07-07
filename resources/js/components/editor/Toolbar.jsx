@@ -487,40 +487,55 @@ export default function Toolbar({ editor }) {
                 </div>
             )}
 
-            {/* Table context controls — visible only when cursor is inside a table */}
+            {/* Table context controls */}
             {inTable && (
                 <>
                     <Divider />
-                    <ToolbarButton title="Add row above" active={false}
-                        onClick={() => editor.chain().focus().addRowBefore().run()}>
-                        <IconRowInsertTop className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <ToolbarButton title="Add row below" active={false}
-                        onClick={() => editor.chain().focus().addRowAfter().run()}>
-                        <IconRowInsertBottom className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <ToolbarButton title="Delete row" active={false}
-                        onClick={() => editor.chain().focus().deleteRow().run()}>
-                        <IconRowRemove className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <Divider />
-                    <ToolbarButton title="Add column left" active={false}
-                        onClick={() => editor.chain().focus().addColumnBefore().run()}>
-                        <IconColumnInsertLeft className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <ToolbarButton title="Add column right" active={false}
-                        onClick={() => editor.chain().focus().addColumnAfter().run()}>
-                        <IconColumnInsertRight className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <ToolbarButton title="Delete column" active={false}
-                        onClick={() => editor.chain().focus().deleteColumn().run()}>
-                        <IconColumnRemove className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
-                    <Divider />
-                    <ToolbarButton title="Delete table" active={false}
-                        onClick={() => editor.chain().focus().deleteTable().run()}>
-                        <IconTableOff className="h-3.5 w-3.5" stroke={1.5} />
-                    </ToolbarButton>
+                    <div className="relative flex items-center">
+                        <ToolbarButton title="Table Options" active={openPicker === 'tableOptions'}
+                            onClick={() => togglePicker('tableOptions')}>
+                            <IconTable className="h-3.5 w-3.5" stroke={1.5} />
+                        </ToolbarButton>
+
+                        {openPicker === 'tableOptions' && (
+                            <div className="absolute top-full left-0 mt-1 z-30 flex flex-col gap-2 rounded-md border border-border bg-surface p-2 shadow-md min-w-max">
+                                <div className="flex gap-1 border-b border-border pb-2">
+                                    <ToolbarButton title="Add row above" onClick={() => editor.chain().focus().addRowBefore().run()}><IconRowInsertTop className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                    <ToolbarButton title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()}><IconRowInsertBottom className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                    <ToolbarButton title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()}><IconRowRemove className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                    <Divider />
+                                    <ToolbarButton title="Add column left" onClick={() => editor.chain().focus().addColumnBefore().run()}><IconColumnInsertLeft className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                    <ToolbarButton title="Add column right" onClick={() => editor.chain().focus().addColumnAfter().run()}><IconColumnInsertRight className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                    <ToolbarButton title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}><IconColumnRemove className="h-4 w-4" stroke={1.5} /></ToolbarButton>
+                                </div>
+                                <div className="flex items-center gap-2 border-b border-border pb-2">
+                                    <button type="button" onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor.can().mergeCells()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100 disabled:opacity-50">Merge</button>
+                                    <button type="button" onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor.can().splitCell()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100 disabled:opacity-50">Split</button>
+                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderRow().run()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100">Toggle Header Row</button>
+                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderColumn().run()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100">Toggle Header Col</button>
+                                </div>
+                                <div className="flex items-center gap-2 border-b border-border pb-2">
+                                    <span className="text-xs text-text-secondary">Cell Color:</span>
+                                    <ColorPicker
+                                        swatches={HIGHLIGHT_COLORS}
+                                        current={editor.getAttributes('tableCell').backgroundColor || editor.getAttributes('tableHeader').backgroundColor}
+                                        fallback="#ffffff"
+                                        clearLabel="Remove cell color"
+                                        onClose={() => setOpenPicker(null)}
+                                        onPick={(value) => {
+                                            if (value) editor.chain().focus().setCellAttribute('backgroundColor', value).run();
+                                            else editor.chain().focus().setCellAttribute('backgroundColor', null).run();
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <button type="button" onClick={() => { editor.chain().focus().deleteTable().run(); setOpenPicker(null); }} className="flex w-full items-center justify-center gap-1 rounded-sm bg-danger-surface px-2 py-1 text-xs text-danger hover:bg-danger hover:text-text-inverse">
+                                        <IconTableOff className="h-3.5 w-3.5" stroke={1.5} /> Delete Table
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </>
             )}
 
