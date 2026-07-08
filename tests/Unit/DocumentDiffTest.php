@@ -190,6 +190,84 @@ test('table add and cell-change are reported as coarse block entries', function 
     expect($modified['blocks'][0])->toMatchArray(['type' => 'table', 'status' => 'modified']);
 });
 
+test('table diffing with ampersands does not throw an ErrorException', function () {
+    // Regression: vendor TableDiff::diffCells un-escaped entities ("&amp;" → bare
+    // "&"), triggering a DOMDocument::loadHTML warning that Laravel promotes to
+    // an ErrorException. Fixed at the source in Utf8TableDiff.
+    $table = fn (string $cell) => ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
+        ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $cell]]]]],
+    ]]]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Me & You')]]),
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Me & You later')]]),
+    );
+
+    expect($diff['body']['html'])->toContain('later')
+        ->toContain('Me &amp; You');
+});
+
+test('table diffing preserves emoji', function () {
+    $table = fn (string $cell) => ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
+        ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $cell]]]]],
+    ]]]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Rocket 🚀')]]),
+        diffSide(content: ['type' => 'doc', 'content' => [$table('Rocket 🚀 later')]]),
+    );
+
+    expect($diff['body']['html'])->toContain('🚀');
+});
+
+test('special characters survive in added table rows', function () {
+    // Added/removed cells take the null-cell branch of diffCells — exercise it too.
+    $row = fn (string $cell) => ['type' => 'tableRow', 'content' => [
+        ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $cell]]]]],
+    ]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [['type' => 'table', 'content' => [$row('base')]]]]),
+        diffSide(content: ['type' => 'doc', 'content' => [['type' => 'table', 'content' => [$row('base'), $row('R&D 🚀')]]]]),
+    );
+
+    expect($diff['body']['html'])->toContain('R&amp;D')
+        ->toContain('🚀');
+});
+
+test('plain prose with ampersands and emoji diffs cleanly', function () {
+    // The numeric-entity decode pass runs over the WHOLE diff output — make
+    // sure non-table prose keeps its escaping and its emoji too.
+    $para = fn (string $text) => ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $text]]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [$para('Tom & Jerry 🎉')]]),
+        diffSide(content: ['type' => 'doc', 'content' => [$para('Tom & Jerry 🎉 forever')]]),
+    );
+
+    expect($diff['body']['html'])->toContain('Tom &amp; Jerry')
+        ->toContain('🎉')
+        ->toContain('<ins');
+});
+
+test('table diffing keeps literal markup in cell text escaped', function () {
+    // Regression (stored XSS): vendor TableDiff::diffCells ran cell HTML through
+    // mb_convert_encoding(…, 'HTML-ENTITIES'), un-escaping user text one level —
+    // "<img onerror=…>" typed as TEXT came back as a live element in the diff.
+    $table = fn (string $cell) => ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
+        ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $cell]]]]],
+    ]]]];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: ['type' => 'doc', 'content' => [$table('hi <img src=x onerror=alert(1)>')]]),
+        diffSide(content: ['type' => 'doc', 'content' => [$table('hi <img src=x onerror=alert(1)> later')]]),
+    );
+
+    expect($diff['body']['html'])
+        ->toContain('&lt;img')
+        ->not->toContain('<img');
+});
+
 // ── Diagrams ────────────────────────────────────────────────────────────────
 
 test('diagram node changes are detected per kind', function () {

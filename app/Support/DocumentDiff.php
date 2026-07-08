@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Services\RenderDocument;
-use Caxy\HtmlDiff\HtmlDiff;
 use Caxy\HtmlDiff\HtmlDiffConfig;
 use RuntimeException;
 
@@ -173,7 +172,24 @@ class DocumentDiff
         unset($isolated['ol'], $isolated['ul'], $isolated['dl']);
         $config->setIsolatedDiffTags($isolated);
 
-        $html = HtmlDiff::create($oldHtml, $newHtml, $config)->build();
+        // Defensive: table diffing round-trips cell HTML through DOMDocument;
+        // on anything libxml considers malformed it warns AND recovers, but
+        // Laravel's handler would promote the warning to an ErrorException —
+        // collect quietly instead. (The bare-"&" case that used to throw here
+        // is fixed at its source in Utf8TableDiff::diffCells.)
+        $useErrors = libxml_use_internal_errors(true);
+        try {
+            $html = Utf8HtmlDiff::create($oldHtml, $newHtml, $config)->build();
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($useErrors);
+        }
+
+        // Utf8TableDiff carries non-ASCII through libxml as numeric entities,
+        // so table cells come back as e.g. &#128640; — normalize to the raw
+        // characters. The convmap starts at 0x80: &amp;/&lt; escaping of user
+        // text is never touched.
+        $html = mb_decode_numericentity($html, [0x80, 0x10FFFF, 0, 0x1FFFFF], 'UTF-8');
 
         return [
             'changed'   => true,
