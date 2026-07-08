@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -26,20 +26,48 @@ function Row({ label, children }) {
     );
 }
 
+const POLL_MS = 2500;
+const POLL_LIMIT = 12; // ~30s, the job's own timeout; failed checks never bump checked_at
+
 export default function Updates({ status, notesHtml, releasesUrl, system }) {
     const [enabled, setEnabled] = useState(status.enabled);
     const [checking, setChecking] = useState(false);
+    const baseline = useRef(null); // checked_at as of the click
+    const polls = useRef(0);
 
     const toggle = (next) => {
         setEnabled(next); // optimistic; the page reloads its props on the redirect
         router.patch('/admin/settings/updates', { enabled: next }, { preserveScroll: true });
     };
 
+    // The check runs on the queue, so the POST returns before it finishes.
+    // Poll the props until checked_at moves past its pre-click value.
+    useEffect(() => {
+        if (!checking) return;
+        const timer = setInterval(() => {
+            if (polls.current >= POLL_LIMIT) {
+                setChecking(false);
+                return;
+            }
+            polls.current += 1;
+            router.reload({ only: ['status', 'notesHtml'] });
+        }, POLL_MS);
+        return () => clearInterval(timer);
+    }, [checking]);
+
+    useEffect(() => {
+        if (checking && status.checked_at && status.checked_at !== baseline.current) {
+            setChecking(false);
+        }
+    }, [checking, status.checked_at]);
+
     const checkNow = () => {
+        baseline.current = status.checked_at;
+        polls.current = 0;
         setChecking(true);
         router.post('/admin/settings/updates/check', {}, {
             preserveScroll: true,
-            onFinish: () => setChecking(false),
+            onError: () => setChecking(false),
         });
     };
 
@@ -87,10 +115,17 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
                                 <Row label="Last checked">{fmtDate(status.checked_at) ?? 'Never'}</Row>
                                 <div className="flex justify-end py-2">
                                     <Button variant="outline" size="sm" onClick={checkNow} disabled={checking}>
-                                        {checking
-                                            ? <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />
-                                            : <IconRefresh className="h-4 w-4" stroke={1.5} />}
-                                        Check now
+                                        {checking ? (
+                                            <>
+                                                <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />
+                                                Checking…
+                                            </>
+                                        ) : (
+                                            <>
+                                                <IconRefresh className="h-4 w-4" stroke={1.5} />
+                                                Check now
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </div>
