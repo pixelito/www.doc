@@ -88,7 +88,7 @@ function fixtureDoc(): array
         ['type' => 'image', 'attrs' => ['src' => '/storage/assets/x.png', 'alt' => 'pic', 'width' => 200, 'align' => 'center']],
         ['type' => 'wikiLink', 'attrs' => ['title' => 'Other Page', 'target_id' => 7]],
         ['type' => 'table', 'content' => [['type' => 'tableRow', 'content' => [
-            ['type' => 'tableHeader', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Head']]]]],
+            ['type' => 'tableHeader', 'attrs' => ['backgroundColor' => '#DAE6D4', 'colwidth' => [100]], 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'H1']]]]],
             ['type' => 'tableCell', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Cell']]]]],
         ]]]],
         ['type' => 'networkDiagram', 'attrs' => ['name' => 'My Net', 'graph' => [

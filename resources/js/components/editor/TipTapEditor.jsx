@@ -64,6 +64,36 @@ function sanitizeDoc(node) {
  *   workspaceId    – current document's workspace id, used when creating a
  *                    page from a broken wiki-link
  */
+
+const customCellAttributes = {
+    backgroundColor: {
+        default: null,
+        parseHTML: element => element.style.backgroundColor || null,
+        renderHTML: attributes => {
+            if (!attributes.backgroundColor) return {};
+            return { style: `background-color: ${attributes.backgroundColor}` };
+        },
+    },
+};
+
+const CustomTableCell = TableCell.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            ...customCellAttributes,
+        };
+    },
+});
+
+const CustomTableHeader = TableHeader.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            ...customCellAttributes,
+        };
+    },
+});
+
 export default function TipTapEditor({
     content,
     editable = true,
@@ -146,10 +176,10 @@ export default function TipTapEditor({
             Highlight.configure({ multicolor: true }),
             ResizableImage.configure({ inline: false, allowBase64: false }),
             Diagram,
-            Table.configure({ resizable: false }),
+            Table.configure({ resizable: true }),
             TableRow,
-            TableHeader,
-            TableCell,
+            CustomTableHeader,
+            CustomTableCell,
             Placeholder.configure({ placeholder }),
             WikiLink.configure({
                 suggestions,

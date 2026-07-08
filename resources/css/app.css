@@ -293,6 +293,10 @@
     white-space: pre-wrap;
 }
 
+.tiptap-edit-area {
+    position: relative;
+}
+
 .tiptap-edit-area .tiptap {
     min-height: 400px;
     padding: 1.25rem 1.5rem;
@@ -540,25 +544,82 @@
 }
 
 /* Table */
-.tiptap table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.tiptap table {
+    border-collapse: collapse;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+    margin: 1em 0;
+    overflow-wrap: break-word;
+}
 .tiptap th,
 .tiptap td {
+    box-sizing: border-box;
     position: relative;
     border: 1px solid var(--sage-200);
     padding: 0.5em 0.75em;
     vertical-align: top;
+    box-shadow: inset 0 0 0 9999px var(--surface);
+    color: var(--text-primary);
+    font-weight: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0 !important;
 }
-/* Cell fills use an inset box-shadow rather than `background` so the sage
-   styling stays in-app but is NOT carried into the clipboard when a table is
-   copied (browsers inline background-color on copy, but not box-shadow). */
-.tiptap th {
+
+/* Prevent bottom margin from appearing when prosemirror injects the resize handle at the end of the cell */
+.tiptap th > p:last-child,
+.tiptap td > p:last-child,
+.tiptap th > p:has(+ .column-resize-handle),
+.tiptap td > p:has(+ .column-resize-handle) {
+    margin-bottom: 0;
+}
+
+/* Even row striping applies to ALL cells initially */
+.tiptap tr:nth-child(even) th,
+.tiptap tr:nth-child(even) td {
+    box-shadow: inset 0 0 0 9999px var(--sage-50);
+}
+
+/* Header styles: Top row */
+.tiptap tr:first-child th {
     box-shadow: inset 0 0 0 9999px var(--sage-100);
     color: var(--sage-700);
     font-weight: 600;
     text-align: left;
 }
-.tiptap td { box-shadow: inset 0 0 0 9999px var(--surface); }
-.tiptap tbody tr:nth-child(even) td { box-shadow: inset 0 0 0 9999px var(--sage-50); }
+
+/* Header styles: Left column (matches true header columns, and covers pushed-down header rows if header columns are active) */
+.tiptap tr:not(:first-child) th:first-child:not(:has(+ th)),
+.tiptap table:has(tr th:first-child + td) tr:not(:first-child) th:first-child {
+    box-shadow: inset 0 0 0 9999px var(--sage-100);
+    color: var(--sage-700);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* TipTap table column resize handle (prevents row height jumping during resize) */
+.column-resize-handle {
+    background-color: var(--sage-400);
+    bottom: 0;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 0;
+    width: 4px;
+    z-index: 10;
+}
+
+.tiptap.resize-cursor {
+    cursor: col-resize;
+}
+
+/* Allow custom inline background colors to show through the box-shadow */
+.tiptap th[style*="background-color"],
+.tiptap td[style*="background-color"] {
+    box-shadow: none !important;
+}
 
 /* Cell selection (CellSelection) — a light sage overlay drawn as generated
    content, so it tints the selection without being copied to the clipboard. */
