@@ -55,7 +55,12 @@ class UpdateSettingsController extends Controller
         return back()->with('success', $enabled ? 'Update checks enabled.' : 'Update checks disabled.');
     }
 
-    /** Manual "Check now" — refreshes off the request; the page polls checked_at. */
+    /**
+     * Manual "Check now" — refreshes off the request; the page polls checked_at
+     * and shows progress/result inline (no ack toast — the button's own
+     * "Checking…" state already covers it; a toast here would repeat on every
+     * poll's Inertia visit).
+     */
     public function check(): RedirectResponse
     {
         if (! UpdateCheck::isEnabled()) {
@@ -68,7 +73,7 @@ class UpdateSettingsController extends Controller
 
         CheckForUpdatesJob::dispatch();
 
-        return back()->with('success', 'Checking for updates…');
+        return back();
     }
 
     /**

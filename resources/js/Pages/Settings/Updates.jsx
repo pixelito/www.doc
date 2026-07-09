@@ -29,12 +29,20 @@ function Row({ label, children }) {
 
 const POLL_MS = 2500;
 const POLL_LIMIT = 12; // ~30s, the job's own timeout; failed checks never bump checked_at
+const COOLDOWN_MS = 10000; // after a completed check, hold the button briefly (courtesy to GitHub's API)
 
 export default function Updates({ status, notesHtml, releasesUrl, system }) {
     const [enabled, setEnabled] = useState(status.enabled);
     const [checking, setChecking] = useState(false);
+    const [coolingDown, setCoolingDown] = useState(false);
+    // Inline result of the last completed check — replaces a toast, which
+    // used to repeat on every poll's Inertia visit (the redundant-toast bug).
+    const [result, setResult] = useState(null); // { available, version } | null
     const baseline = useRef(null); // checked_at as of the click
     const polls = useRef(0);
+    const cooldownTimer = useRef(null);
+
+    useEffect(() => () => clearTimeout(cooldownTimer.current), []);
 
     const toggle = (next) => {
         setEnabled(next); // optimistic; the page reloads its props on the redirect
@@ -57,20 +65,21 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
         return () => clearInterval(timer);
     }, [checking]);
 
-    // Close the loop the "Checking for updates…" flash opened: say what the
-    // check actually found once it lands.
+    // Say what the check found — inline, not a toast (the button's own
+    // "Checking…" state already told the admin it was running).
     useEffect(() => {
         if (checking && status.checked_at && status.checked_at !== baseline.current) {
             setChecking(false);
-            toast.success(status.update_available
-                ? `Update available: ${showVer(status.latest)}.`
-                : "You're up to date.");
+            setResult({ available: status.update_available, version: status.latest });
+            setCoolingDown(true);
+            cooldownTimer.current = setTimeout(() => setCoolingDown(false), COOLDOWN_MS);
         }
     }, [checking, status.checked_at]);
 
     const checkNow = () => {
         baseline.current = status.checked_at;
         polls.current = 0;
+        setResult(null);
         setChecking(true);
         router.post('/admin/settings/updates/check', {}, {
             preserveScroll: true,
@@ -120,8 +129,15 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
                                     </span>
                                 </Row>
                                 <Row label="Last checked">{fmtDate(status.checked_at) ?? 'Never'}</Row>
-                                <div className="flex justify-end py-2">
-                                    <Button variant="outline" size="sm" onClick={checkNow} disabled={checking}>
+                                <div className="flex items-center justify-end gap-3 py-2">
+                                    {result && !checking && (
+                                        <p className="text-xs text-text-secondary">
+                                            {result.available
+                                                ? `Update available: ${showVer(result.version)}.`
+                                                : "You're up to date."}
+                                        </p>
+                                    )}
+                                    <Button variant="outline" size="sm" onClick={checkNow} disabled={checking || coolingDown}>
                                         {checking ? (
                                             <>
                                                 <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />

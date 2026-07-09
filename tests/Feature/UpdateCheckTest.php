@@ -177,9 +177,10 @@ test('Check now dispatches a refresh when enabled, and is gated otherwise', func
     $this->post('/admin/settings/updates/check')->assertRedirect()->assertSessionHas('error');
     Queue::assertNothingPushed();
 
-    // Enabled → dispatches.
+    // Enabled → dispatches. No ack flash — the page shows progress inline
+    // (a toast here would repeat on every poll's Inertia visit).
     UpdateCheck::setEnabled(true);
-    $this->post('/admin/settings/updates/check')->assertRedirect()->assertSessionHas('success');
+    $this->post('/admin/settings/updates/check')->assertRedirect()->assertSessionMissing('success');
     Queue::assertPushed(CheckForUpdatesJob::class);
 });
 
