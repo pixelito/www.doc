@@ -27,6 +27,21 @@ test('a known user is emailed a reset link', function () {
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
+test('an SMTP outage never surfaces as an error on the forgot form', function () {
+    User::factory()->create(['email' => 'ada@example.com']);
+
+    // The mailer is down: the broker throws a transport error mid-send. The
+    // response must stay the generic anti-enumeration redirect, not a 500;
+    // the classified log diagnosis itself is covered by SmtpErrorClassifierTest.
+    // Only TransportExceptionInterface is absorbed — other bugs still surface.
+    Password::shouldReceive('sendResetLink')->andThrow(
+        new \Symfony\Component\Mailer\Exception\TransportException('stream_socket_client(): Unable to connect to tcp://192.0.2.27:587 (Connection timed out)'),
+    );
+
+    $this->post('/forgot-password', ['email' => 'ada@example.com'])
+        ->assertRedirect()->assertSessionHas('status');
+});
+
 test('an unknown email gets the same generic response and sends nothing', function () {
     Notification::fake();
 

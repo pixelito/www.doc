@@ -130,6 +130,18 @@ test('the wizard saves SMTP settings with the password encrypted at rest', funct
     expect(Crypt::decryptString($stored['password']))->toBe('s3cret');
 });
 
+test('the wizard test email flashes the staged connection report', function () {
+    freshInstall();
+    Illuminate\Support\Facades\Mail::fake();
+    fakeSmtpProbe();
+
+    $this->post('/setup/mail/test', [
+        'host' => 'smtp.acme.test', 'port' => 587, 'encryption' => 'tls',
+        'from_address' => 'docs@acme.test', 'to' => 'admin@acme.test',
+    ])->assertRedirect()->assertSessionHas('success')
+        ->assertSessionHas('smtpTest', fn ($r) => count($r['stages']) === 4 && $r['endpoint'] === 'smtp.acme.test:587');
+});
+
 test('setup write actions are forbidden once the instance is set up', function () {
     login(); // complete
 

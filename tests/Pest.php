@@ -22,6 +22,48 @@ pest()->extend(TestCase::class)->in('Unit');
 */
 
 /**
+ * Swap the staged SMTP prober for a canned pass-through in feature tests that
+ * hit a "Send test email" endpoint — no live DNS/socket probing in the suite.
+ * The fake still invokes the real send callable (so Mail::fake assertions
+ * work) and reports its outcome as the send stage. Pass explicit $stages to
+ * simulate a specific probe result instead (the send callable then never runs,
+ * mirroring a probe that failed before the send stage).
+ */
+function fakeSmtpProbe(?array $stages = null): void
+{
+    app()->bind(\App\Support\Smtp\SmtpProbe::class, fn () => new class($stages) extends \App\Support\Smtp\SmtpProbe
+    {
+        public function __construct(private ?array $canned)
+        {
+            parent::__construct();
+        }
+
+        public function run(string $host, int $port, string $encryption, ?callable $send = null): array
+        {
+            if ($this->canned !== null) {
+                return $this->canned;
+            }
+
+            $sendStage = ['stage' => 'send', 'status' => 'ok', 'detail' => 'sent'];
+            if ($send !== null) {
+                try {
+                    $send();
+                } catch (\Throwable $e) {
+                    $sendStage = ['stage' => 'send', 'status' => 'failed', 'detail' => $e->getMessage()];
+                }
+            }
+
+            return [
+                ['stage' => 'dns', 'status' => 'ok', 'detail' => 'resolved'],
+                ['stage' => 'connect', 'status' => 'ok', 'detail' => 'connected'],
+                ['stage' => 'tls', 'status' => 'ok', 'detail' => 'secured'],
+                $sendStage,
+            ];
+        }
+    });
+}
+
+/**
  * Create and authenticate a user, returning it. Mirrors the v1 "everyone-admin"
  * default so policy-gated routes are reachable; pass $role to test a narrower
  * role. Roles are created on demand since RefreshDatabase doesn't seed them.

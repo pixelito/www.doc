@@ -11,6 +11,7 @@ use App\Models\Workspace;
 use App\Support\MailSettings;
 use App\Support\MailTester;
 use App\Support\Setup;
+use App\Support\Smtp\TestRun;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,7 +90,7 @@ class SetupController extends Controller
     }
 
     /** Send a test email through the entered (possibly unsaved) SMTP settings. */
-    public function testMail(Request $request, MailTester $tester): RedirectResponse
+    public function testMail(Request $request, MailTester $tester, TestRun $test): RedirectResponse
     {
         $this->abortIfComplete();
 
@@ -104,13 +105,15 @@ class SetupController extends Controller
             'to'           => ['required', 'email'],
         ]);
 
-        try {
-            $tester->send(MailSettings::testConfig($validated), $validated['to']);
-        } catch (\Throwable $e) {
-            throw ValidationException::withMessages(['mail_test' => $e->getMessage()]);
-        }
+        // Same staged connection check + inline panel as the admin Email tab
+        // (the wizard step reuses SmtpTestPanel via the shared smtpTest flash).
+        $config = MailSettings::testConfig($validated);
 
-        return back()->with('success', 'Test email sent to ' . $validated['to'] . '.');
+        return $test->flash(
+            $config,
+            fn () => $tester->send($config, $validated['to']),
+            'Test email sent to ' . $validated['to'] . '.',
+        );
     }
 
     /** Finish — create the admin, mark setup complete and sign that admin in. */

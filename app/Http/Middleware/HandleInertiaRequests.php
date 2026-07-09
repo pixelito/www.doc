@@ -58,6 +58,9 @@ class HandleInertiaRequests extends Middleware
                 // Fresh server state when an optimistic-locking check rejects a save;
                 // the document editor opens a conflict dialog when this is present.
                 'saveConflict'     => $request->session()->get('saveConflict'),
+                // Staged SMTP connection report from a "Send test email" run;
+                // rendered by SmtpTestPanel under the test button.
+                'smtpTest'         => $request->session()->get('smtpTest'),
             ],
             // Persistent backup notices (admin-only): UNATTENDED runs whose result
             // wasn't emailed — mail off, or the report email failed — so a

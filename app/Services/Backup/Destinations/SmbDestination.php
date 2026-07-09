@@ -7,6 +7,7 @@ use Icewind\SMB\Exception\AccessDeniedException;
 use Icewind\SMB\Exception\AlreadyExistsException;
 use Icewind\SMB\Exception\AuthenticationException;
 use Icewind\SMB\Exception\ConnectException;
+use Icewind\SMB\Exception\ConnectionRefusedException;
 use Icewind\SMB\Exception\DependencyException;
 use Icewind\SMB\Exception\ForbiddenException;
 use Icewind\SMB\Exception\HostDownException;
@@ -18,8 +19,8 @@ use Icewind\SMB\IShare;
 use Icewind\SMB\ServerFactory;
 
 /**
- * Writes backups to an SMB/Windows network share (e.g. \\192.168.100.100\backup\docs
- * → host=192.168.100.100, share=backup, path=docs). Uses icewind/smb, which needs
+ * Writes backups to an SMB/Windows network share (e.g. \\192.0.2.100\backup\docs
+ * → host=192.0.2.100, share=backup, path=docs). Uses icewind/smb, which needs
  * the `smbclient` binary (or libsmbclient ext) present in the container image.
  *
  * @param array{host:string,share:string,path:string,username:string,password:string,domain:string} cfg
@@ -150,20 +151,45 @@ class SmbDestination implements Destination
         }
     }
 
+    /**
+     * Same conventions as Smtp\ErrorClassifier: say WHAT WAS ATTEMPTED (host,
+     * share, path), keep distinct failures distinct where the driver actually
+     * lets us, and append the raw driver text for forensics.
+     *
+     * icewind/smb throws ConnectionRefusedException (a ConnectException
+     * subclass) for BOTH a bad password and a nonexistent share — the SMB
+     * tree-connect step fails the same way either way, so AuthenticationException
+     * is never actually thrown at this stage (confirmed empirically against a
+     * real server, 2026-07-09 QA). Rather than claim precision the protocol
+     * doesn't give us, that case gets one honest combined message. The other
+     * arms below (AuthenticationException, NotFoundException, …) are kept for
+     * paths where icewind DOES distinguish — e.g. a missing sub-path once
+     * already connected to a valid share — so this match must stay ordered
+     * with ConnectionRefusedException before the generic ConnectException.
+     */
     private function friendly(\Throwable $e): string
     {
-        return match (true) {
+        $host = $this->cfg['host'];
+        $unc = '\\\\' . $host . '\\' . $this->cfg['share']
+            . ($this->dir() !== '' ? '\\' . str_replace('/', '\\', $this->dir()) : '');
+
+        $message = match (true) {
             $e instanceof DependencyException   => 'The server is missing the smbclient client needed to reach SMB shares. Install `smbclient` in the app image.',
-            $e instanceof AuthenticationException => 'Authentication failed — check the username, password and domain.',
+            $e instanceof AuthenticationException => "The SMB host {$host} rejected the credentials — check the username, password and domain.",
             $e instanceof ForbiddenException,
-            $e instanceof AccessDeniedException => 'Connected, but the account cannot write to that path.',
-            $e instanceof NotFoundException     => 'The share or path was not found on the host.',
-            $e instanceof InvalidHostException,
-            $e instanceof NoRouteToHostException,
-            $e instanceof HostDownException,
-            $e instanceof TimedOutException,
-            $e instanceof ConnectException     => 'Could not reach the host — check the address and that the share is online.',
-            default                            => 'SMB error: ' . $e->getMessage(),
+            $e instanceof AccessDeniedException => "Connected to {$unc}, but the account cannot write there — check the share permissions for this user.",
+            $e instanceof NotFoundException     => "The share or path {$unc} was not found on {$host} — check the share name and sub-path.",
+            $e instanceof InvalidHostException  => "Could not resolve the SMB host \"{$host}\" — check the address, or use its IP directly.",
+            $e instanceof NoRouteToHostException => "No route to {$host} — the network cannot deliver packets there (routing/gateway problem).",
+            $e instanceof HostDownException     => "The SMB host {$host} is not responding — is it online?",
+            $e instanceof TimedOutException     => "Connection to {$host} timed out — traffic is being dropped on the way (firewall, VLAN routing, or the host is offline).",
+            $e instanceof ConnectionRefusedException => "Could not connect to {$unc} — check the share name AND the username/password (the server rejects the connection either way, without saying which is wrong).",
+            $e instanceof ConnectException      => "Could not reach {$host} — check the address, that port 445 is open, and that the share is online.",
+            default                             => "SMB operation against {$unc} failed.",
         };
+
+        $raw = trim($e->getMessage());
+
+        return $raw === '' ? $message : $message . ' (raw: ' . \Illuminate\Support\Str::limit($raw, 300) . ')';
     }
 }

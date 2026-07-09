@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MailSettings;
+use App\Support\Smtp\ErrorClassifier;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +13,7 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 /**
  * Forgot-password → emailed reset link → set a new password. Backed by
@@ -35,8 +38,18 @@ class PasswordResetController extends Controller
         $request->validate(['email' => ['required', 'email']]);
 
         // Fire the broker but ignore its specific status, so timing/response
-        // can't be used to enumerate accounts.
-        Password::sendResetLink($request->only('email'));
+        // can't be used to enumerate accounts. An SMTP outage must not leak
+        // through as a 500 either — log the classified diagnosis (host:port,
+        // failure category) and keep the generic response. Only TRANSPORT
+        // failures are absorbed; genuine bugs still surface.
+        try {
+            Password::sendResetLink($request->only('email'));
+        } catch (TransportExceptionInterface $e) {
+            report(new \RuntimeException(
+                'Password-reset email failed: '.ErrorClassifier::message($e, MailSettings::get()),
+                previous: $e,
+            ));
+        }
 
         return back()->with('status', 'If that email matches an account, a reset link is on its way.');
     }

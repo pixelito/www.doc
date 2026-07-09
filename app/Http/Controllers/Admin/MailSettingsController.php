@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MailSettingsRequest;
 use App\Support\MailSettings;
 use App\Support\MailTester;
+use App\Support\Smtp\TestRun;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,7 +41,7 @@ class MailSettingsController extends Controller
         return back()->with('success', 'Email settings saved.');
     }
 
-    public function test(Request $request, MailTester $tester): RedirectResponse
+    public function test(Request $request, MailTester $tester, TestRun $test): RedirectResponse
     {
         $validated = $request->validate([
             'host'         => ['required', 'string', 'max:255'],
@@ -53,13 +54,15 @@ class MailSettingsController extends Controller
             'to'           => ['required', 'email'],
         ]);
 
-        try {
-            $tester->send(MailSettings::testConfig($validated), $validated['to']);
-        } catch (\Throwable $e) {
-            // Flash as an error toast (app-wide pattern), not a field error.
-            return back()->with('error', $e->getMessage());
-        }
+        // Staged connection check (DNS → TCP → TLS → send): the report renders
+        // as the inline panel under the test button, naming the failing layer
+        // instead of one vague hint. The real test send is the final stage.
+        $config = MailSettings::testConfig($validated);
 
-        return back()->with('success', 'Test email sent to ' . $validated['to'] . '.');
+        return $test->flash(
+            $config,
+            fn () => $tester->send($config, $validated['to']),
+            'Test email sent to ' . $validated['to'] . '.',
+        );
     }
 }

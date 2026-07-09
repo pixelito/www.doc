@@ -84,9 +84,33 @@ test('an unconfigured mailer is left untouched', function () {
 test('the test-email endpoint sends through the entered settings', function () {
     login();
     Mail::fake();
+    fakeSmtpProbe();
 
     $this->post('/admin/settings/mail/test', mailPayload(['to' => 'me@acme.test']))
-        ->assertRedirect()->assertSessionHas('success');
+        ->assertRedirect()->assertSessionHas('success')
+        // The staged connection report rides along for the inline panel.
+        ->assertSessionHas('smtpTest', fn ($r) => count($r['stages']) === 4 && $r['endpoint'] === 'smtp.acme.test:587');
 
     Mail::assertSent(TestMail::class);
+});
+
+test('a failing probe flashes an error and the stage report, and skips the send', function () {
+    login();
+    Mail::fake();
+
+    // A probe that died at the TCP stage: the send stage must be skipped and
+    // the response must carry the report for the panel plus an error toast.
+    fakeSmtpProbe([
+        ['stage' => 'dns', 'status' => 'skipped', 'detail' => 'IP address'],
+        ['stage' => 'connect', 'status' => 'failed', 'detail' => 'TCP connection to 192.0.2.27:587 failed: connection timed out'],
+        ['stage' => 'tls', 'status' => 'skipped', 'detail' => 'Not attempted'],
+        ['stage' => 'send', 'status' => 'skipped', 'detail' => 'Not attempted'],
+    ]);
+
+    $this->post('/admin/settings/mail/test', mailPayload(['host' => '192.0.2.27', 'to' => 'me@acme.test']))
+        ->assertRedirect()
+        ->assertSessionHas('error')
+        ->assertSessionHas('smtpTest', fn ($r) => $r['stages'][1]['status'] === 'failed');
+
+    Mail::assertNothingSent();
 });

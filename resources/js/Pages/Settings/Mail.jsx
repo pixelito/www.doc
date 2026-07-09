@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import MailFields from '@/components/MailFields';
+import SmtpTestPanel from '@/components/SmtpTestPanel';
 import { isEmail } from '@/lib/utils';
 import { IconMailFast, IconLoader2, IconCheck } from '@tabler/icons-react';
 
 export default function Mail({ settings }) {
+    const smtpTest = usePage().props.flash?.smtpTest;
     const form = useForm({
         host: settings.host ?? '',
         port: settings.port ?? 587,
@@ -92,6 +94,7 @@ export default function Mail({ settings }) {
                             {!mailReady && (
                                 <p className="mt-2 text-xs text-text-tertiary">Fill in the host, port and from address first.</p>
                             )}
+                            <SmtpTestPanel result={smtpTest} />
                         </div>
                     </CardContent>
                 </Card>

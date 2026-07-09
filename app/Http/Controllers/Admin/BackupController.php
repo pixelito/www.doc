@@ -12,6 +12,7 @@ use App\Services\Backup\BackupNotifier;
 use App\Services\Backup\Destinations\DestinationFactory;
 use App\Support\Audit;
 use App\Support\BackupSettings;
+use App\Support\Smtp\TestRun;
 use App\Support\MailSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -313,7 +314,7 @@ class BackupController extends Controller
     }
 
     /** Send a test email using the (possibly unsaved) mail settings in the request. */
-    public function testEmail(Request $request, BackupNotifier $notifier): RedirectResponse
+    public function testEmail(Request $request, BackupNotifier $notifier, TestRun $test): RedirectResponse
     {
         $this->authorize('create', Backup::class);
 
@@ -329,13 +330,18 @@ class BackupController extends Controller
 
         $this->assertMailAuthPaired($request);
 
-        try {
-            $notifier->sendTest($this->resolveMailForTest($request));
-        } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
-        }
+        // Staged connection check against the EFFECTIVE transport (the backup
+        // block's own SMTP, or the global one it falls back to). The report's
+        // `transport` label names which one was tested, so a diagnosis is
+        // never pinned to the wrong server's config.
+        $mail = $this->resolveMailForTest($request);
 
-        return back()->with('success', 'Test email sent to ' . $request->input('mail.to') . '.');
+        return $test->flash(
+            $mail,
+            fn () => $notifier->sendTest($mail),
+            'Test email sent to ' . $request->input('mail.to') . '.',
+            ['transport' => trim((string) $request->input('mail.host', '')) === '' ? 'global' : 'own'],
+        );
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────

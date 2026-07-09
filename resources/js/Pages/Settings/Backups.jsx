@@ -18,6 +18,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import SmtpTestPanel from '@/components/SmtpTestPanel';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { formatDateTime } from '@/lib/date';
 import { isEmail, formatBytes } from '@/lib/utils';
@@ -97,6 +98,7 @@ const selectCls =
 
 export default function Backups() {
     const { backups, settings, intervals, drivers } = usePage().props;
+    const smtpTest = usePage().props.flash?.smtpTest;
     const [confirm, setConfirm] = useState(null); // { type: 'restore'|'delete', backup }
     const [testing, setTesting] = useState(null);  // 'destination' | 'email' | null
     const [starting, setStarting] = useState(false); // manual "Back up now" in flight
@@ -515,8 +517,8 @@ export default function Backups() {
                     {isSmb && (
                         <div className="space-y-4 rounded-md border border-border bg-surface-hover/40 p-4">
                             <p className="text-xs text-text-tertiary">
-                                For <span className="font-mono">\\192.168.100.100\backup\docs</span> use host{' '}
-                                <span className="font-mono">192.168.100.100</span>, share{' '}
+                                For <span className="font-mono">\\192.0.2.100\backup\docs</span> use host{' '}
+                                <span className="font-mono">192.0.2.100</span>, share{' '}
                                 <span className="font-mono">backup</span>, path <span className="font-mono">docs</span>.
                             </p>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -524,7 +526,7 @@ export default function Backups() {
                                     <Label htmlFor="smb-host">Host / IP <span className="text-danger">*</span></Label>
                                     <Input id="smb-host" value={form.data.smb.host}
                                         onChange={(e) => setNested('smb', 'host', e.target.value)}
-                                        placeholder="192.168.100.100" className="mt-1" />
+                                        placeholder="192.0.2.100" className="mt-1" />
                                     {form.errors['smb.host'] && <p className="mt-1 text-xs text-danger">{form.errors['smb.host']}</p>}
                                 </div>
                                 <div>
@@ -796,6 +798,7 @@ export default function Backups() {
                                         </span>
                                     )}
                                 </div>
+                                <SmtpTestPanel result={smtpTest} />
                             </div>
                         )}
                     </CardContent>

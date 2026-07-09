@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Mail\BackupReport;
 use App\Models\Backup;
 use App\Support\BackupSettings;
+use App\Support\Smtp\ErrorClassifier;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -32,7 +33,7 @@ class BackupNotifier
         } catch (\Throwable $e) {
             // A failed notification must never fail the backup itself — but record
             // why so the in-app banner can surface the email problem too.
-            $backup->update(['report_error' => $this->friendly($e)]);
+            $backup->update(['report_error' => ErrorClassifier::message($e, $mail)]);
             report($e);
         }
     }
@@ -48,40 +49,8 @@ class BackupNotifier
         try {
             $this->send($mail, new BackupReport(isTest: true));
         } catch (\Throwable $e) {
-            throw new \RuntimeException($this->friendly($e), previous: $e);
+            throw new \RuntimeException(ErrorClassifier::message($e, $mail), previous: $e);
         }
-    }
-
-    /** Turn a raw SMTP/transport failure into an admin-readable hint. */
-    private function friendly(\Throwable $e): string
-    {
-        $msg = $e->getMessage();
-
-        return match (true) {
-            str_contains($msg, 'getaddrinfo')
-            || str_contains($msg, 'Name or service not known')
-            || str_contains($msg, 'name resolution')
-                => 'Could not find the SMTP host — check the server address.',
-
-            str_contains($msg, 'Connection refused')
-            || str_contains($msg, 'Connection could not be established')
-            || str_contains($msg, 'timed out')
-            || str_contains($msg, 'timeout')
-                => 'Could not reach the SMTP server — check the host, port and that it is online.',
-
-            str_contains($msg, 'Authentication')
-            || str_contains($msg, 'authenticate')
-            || str_contains($msg, '535')
-                => 'Authentication failed — check the username and password.',
-
-            str_contains($msg, 'crypto')
-            || str_contains($msg, 'TLS')
-            || str_contains($msg, 'SSL')
-            || str_contains($msg, 'certificate')
-                => 'Secure connection failed — check the encryption setting (TLS/SSL) and port.',
-
-            default => 'Could not send the email: ' . $msg,
-        };
     }
 
     private function send(array $mail, BackupReport $mailable): void

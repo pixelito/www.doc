@@ -249,6 +249,7 @@ test('the local destination can be tested', function () {
 
 test('a test email is sent through the configured mailer', function () {
     Mail::fake();
+    fakeSmtpProbe();
     login();
 
     $this->post('/admin/backups/test-email', [
@@ -257,7 +258,9 @@ test('a test email is sent through the configured mailer', function () {
             'encryption' => 'tls', 'username' => 'u', 'password' => 'p',
             'from_address' => 'backups@company.com', 'from_name' => 'Backups',
         ],
-    ])->assertRedirect()->assertSessionHas('success');
+    ])->assertRedirect()->assertSessionHas('success')
+        // The staged connection report rides along for the inline panel.
+        ->assertSessionHas('smtpTest', fn ($r) => count($r['stages']) === 4 && $r['endpoint'] === 'smtp.test:587' && $r['transport'] === 'own');
 
     Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) => $m->hasTo('admin@company.com') && $m->isTest);
 });
@@ -307,6 +310,7 @@ test('a backup-specific SMTP host overrides the global one', function () {
 
 test('the backup test email can use the global SMTP when no backup host is set', function () {
     Mail::fake();
+    fakeSmtpProbe();
     login();
 
     \App\Support\MailSettings::save([
@@ -315,8 +319,11 @@ test('the backup test email can use the global SMTP when no backup host is set',
     ]);
 
     // Only a recipient + encryption — host left blank, leaning on the global SMTP.
+    // The probe must test the EFFECTIVE transport: the panel's endpoint names
+    // the global server the test actually went through.
     $this->post('/admin/backups/test-email', ['mail' => ['to' => 'ops@acme.test', 'encryption' => 'tls']])
-        ->assertRedirect()->assertSessionHas('success');
+        ->assertRedirect()->assertSessionHas('success')
+        ->assertSessionHas('smtpTest', fn ($r) => $r['endpoint'] === 'smtp.global.test:587' && $r['transport'] === 'global');
 
     Mail::assertSent(\App\Mail\BackupReport::class, fn ($m) => $m->hasTo('ops@acme.test') && $m->isTest);
 });
@@ -939,7 +946,9 @@ test('a failed report email is recorded as a notice with a friendly reason', fun
     $backup->refresh();
 
     expect($backup->report_emailed)->toBeFalse();
-    expect($backup->report_error)->toContain('Could not find the SMTP host');
+    // Classified diagnosis: names the failure AND keeps the raw transport text.
+    expect($backup->report_error)->toContain('Could not resolve SMTP host')
+        ->and($backup->report_error)->toContain('(raw: Connection could not be established');
 });
 
 test('acknowledging a backup clears its notice', function () {

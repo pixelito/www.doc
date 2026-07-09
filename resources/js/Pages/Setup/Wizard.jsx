@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import MailFields from '@/components/MailFields';
+import SmtpTestPanel from '@/components/SmtpTestPanel';
 import { isEmail } from '@/lib/utils';
 import {
     IconCheck, IconLoader2, IconMailFast, IconArrowRight, IconArrowLeft,
@@ -57,8 +58,15 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
         router.post('/setup/mail/test', { ...mailForm.data, to: testRecipient }, {
             preserveState: true,
             preserveScroll: true,
-            onSuccess: () => setTestResult({ ok: true, message: props.flash?.success || 'Test email sent.' }),
-            onError: (errs) => setTestResult({ ok: false, message: errs.mail_test || 'Could not send the test email.' }),
+            // Both outcomes redirect back with a flash now (the stage panel
+            // carries the diagnosis); onError only fires for validation.
+            onSuccess: (page) => {
+                const flash = page.props.flash || {};
+                setTestResult(flash.error
+                    ? { ok: false, message: flash.error }
+                    : { ok: true, message: flash.success || 'Test email sent.' });
+            },
+            onError: () => setTestResult({ ok: false, message: 'Could not send the test email.' }),
             onFinish: () => setTesting(false),
         });
     }
@@ -235,6 +243,7 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
                                     {testResult && (
                                         <p className={`text-xs ${testResult.ok ? 'text-sage-700' : 'text-danger'}`}>{testResult.message}</p>
                                     )}
+                                    <SmtpTestPanel result={props.flash?.smtpTest} />
 
                                     <div className="flex justify-between pt-1">
                                         <Button type="button" variant="outline" onClick={back}>
