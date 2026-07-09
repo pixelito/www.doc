@@ -6,23 +6,17 @@ import TipTapEditor from '@/components/editor/TipTapEditor';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDateTime } from '@/lib/date';
+import { formatBytes } from '@/lib/utils';
 
-const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-
-function timeAgo(ts) {
-    return ts ? (formatDateTime(ts) || '—') : '—';
-}
+const savedAt = (ts) => formatDateTime(ts) || '—';
 
 export default function VersionShow({ document: doc, workspace, version }) {
     const [restoreOpen, setRestoreOpen] = useState(false);
 
     function confirmRestore() {
         setRestoreOpen(false);
-        router.post(
-            `/documents/${doc.id}/versions/${version.id}/restore`,
-            {},
-            { headers: { 'X-CSRF-TOKEN': CSRF() } }
-        );
+        // Inertia sends the CSRF token itself — no manual header needed.
+        router.post(`/documents/${doc.id}/versions/${version.id}/restore`);
     }
 
     return (
@@ -47,7 +41,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
             <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-warning-border bg-warning-surface px-4 py-3">
                 <div className="text-sm text-warning-text">
                     <span className="font-medium">Read-only snapshot</span>
-                    {' · '}Saved {timeAgo(version.created_at)}
+                    {' · '}Saved {savedAt(version.created_at)}
                     {version.creator && <> by <span className="font-medium">{version.creator.name}</span></>}
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -104,7 +98,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                                         <span className="font-medium text-text-secondary">{att.original_name}</span>
                                         <span className="text-[11px] text-text-tertiary">
-                                            {att.size ? (att.size < 1048576 ? Math.round(att.size/1024) + ' KB' : (att.size/1048576).toFixed(1) + ' MB') : '0 KB'}
+                                            {formatBytes(att.size)}
                                         </span>
                                     </div>
                                 ))}
@@ -128,7 +122,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
         <ConfirmDialog
             open={restoreOpen}
             title="Restore this version?"
-            message={`The current page will be saved as a new version first, then this snapshot from ${timeAgo(version.created_at)} — its content, title and tags — will become the active version.`}
+            message={`The current page will be saved as a new version first, then this snapshot from ${savedAt(version.created_at)} — its content, title and tags — will become the active version.`}
             confirmLabel="Restore"
             cancelLabel="Cancel"
             variant="primary"

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { IconX } from '@tabler/icons-react';
+import { IconX, IconLoader2 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -15,6 +15,9 @@ import { useScrollLock } from '@/hooks/useScrollLock';
  *   confirmLabel  – confirm button label  (default "Confirm")
  *   cancelLabel   – cancel button label   (default "Cancel")
  *   variant       – 'danger' | 'primary'  (default "danger")
+ *   busy          – request in flight: disables both buttons (and Escape/
+ *                   backdrop close) so the action can't fire twice. Pass it
+ *                   whenever the dialog stays open until the request finishes.
  *   onConfirm     – called when the confirm button is clicked
  *   onCancel      – called when Cancel or × is clicked
  */
@@ -25,6 +28,7 @@ export default function ConfirmDialog({
     confirmLabel = 'Confirm',
     cancelLabel  = 'Cancel',
     variant      = 'danger',
+    busy         = false,
     onConfirm,
     onCancel,
 }) {
@@ -33,13 +37,13 @@ export default function ConfirmDialog({
 
     // Close on Escape
     useEffect(() => {
-        if (!open) return;
+        if (!open || busy) return;
         function onKey(e) {
             if (e.key === 'Escape') onCancel?.();
         }
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [open, onCancel]);
+    }, [open, busy, onCancel]);
 
     if (!open) return null;
 
@@ -47,7 +51,7 @@ export default function ConfirmDialog({
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-6"
             style={{ background: 'rgba(31, 37, 32, 0.42)' }}
-            onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel?.(); }}
+            onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel?.(); }}
         >
             <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
                  style={{ boxShadow: 'var(--shadow-lg)' }}>
@@ -58,7 +62,8 @@ export default function ConfirmDialog({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+                        disabled={busy}
+                        className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                     >
                         <IconX className="h-4 w-4" stroke={1.5} />
                     </button>
@@ -71,14 +76,16 @@ export default function ConfirmDialog({
 
                 {/* Footer */}
                 <div className="flex justify-end gap-2 border-t border-border-subtle bg-canvas px-5 py-3.5">
-                    <Button type="button" variant="outline" onClick={onCancel}>
+                    <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
                         {cancelLabel}
                     </Button>
                     <Button
                         type="button"
                         variant={variant === 'danger' ? 'destructive' : 'default'}
                         onClick={onConfirm}
+                        disabled={busy}
                     >
+                        {busy && <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />}
                         {confirmLabel}
                     </Button>
                 </div>

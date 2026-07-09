@@ -47,9 +47,9 @@ class TagController extends Controller
     {
         $this->authorize('create', Tag::class);
 
-        Tag::create($request->validated());
+        $tag = Tag::create($request->validated());
 
-        return back();
+        return back()->with('success', "Tag \"{$tag->name}\" created.");
     }
 
     public function update(UpdateTagRequest $request, Tag $tag): RedirectResponse
@@ -58,15 +58,16 @@ class TagController extends Controller
 
         $tag->update($request->validated());
 
-        return back();
+        return back()->with('success', "Tag \"{$tag->name}\" updated.");
     }
 
     public function destroy(Tag $tag): RedirectResponse
     {
         $this->authorize('delete', $tag);
 
+        $name = $tag->name;
         $tag->delete();
 
-        return back();
+        return back()->with('success', "Deleted tag \"{$name}\".");
     }
 }

@@ -2,19 +2,9 @@ import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconSearch, IconFileText, IconFolder, IconTag } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
-import { formatDate } from '@/lib/date';
+import { timeAgo } from '@/lib/date';
 
 const INITIAL_LIMIT = 6;
-
-function timeAgo(dateStr) {
-    if (!dateStr) return null;
-    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-    if (diff < 60)      return 'just now';
-    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return formatDate(dateStr);
-}
 
 function HighlightText({ text, query }) {
     if (!query || !text) return text;

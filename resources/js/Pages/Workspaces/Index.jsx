@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
     IconArrowsSort, IconCheck, IconChevronRight, IconDots, IconHistory, IconStarFilled,
@@ -20,17 +21,7 @@ import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
-import { formatDate } from '@/lib/date';
-
-function timeAgo(dateStr) {
-    if (!dateStr) return '—';
-    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-    if (diff < 60)      return 'just now';
-    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return formatDate(dateStr);
-}
+import { timeAgo } from '@/lib/date';
 
 function SortableRow({ workspace, draggable }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -76,7 +67,7 @@ function SortableRow({ workspace, draggable }) {
                 </span>
             </div>
             <div className="py-3 pr-4">
-                <span className="text-xs text-text-tertiary">{timeAgo(workspace.updated_at)}</span>
+                <span className="text-xs text-text-tertiary">{timeAgo(workspace.updated_at) ?? '—'}</span>
             </div>
         </li>
     );
@@ -187,9 +178,25 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [], star
         setReordering(false);
         if (!reorderDirty.current) return;
         reorderDirty.current = false;
+        // The local list still holds the new order but the server doesn't —
+        // silently snapping back on the next reload would lose the user's
+        // arrangement. Re-enter reorder mode so "Done" can retry it.
+        // onError only covers validation (422); an offline/unreachable server
+        // surfaces as onNetworkError instead — handle both or the failure is silent.
+        const keepOrderForRetry = () => {
+            reorderDirty.current = true;
+            setReordering(true);
+            toast.error("Couldn't save the new order — it's still here, click Done to retry.");
+        };
+
         router.patch('/workspaces/reorder', { ids: workspaces.map(w => w.id) }, {
             preserveState: true,
             preserveScroll: true,
+            onError: keepOrderForRetry,
+            onNetworkError: () => {
+                keepOrderForRetry();
+                return false; // handled — suppress Inertia's default rejection
+            },
         });
     }
 
@@ -285,7 +292,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [], star
                             title="Recently viewed"
                             icon={IconHistory}
                             items={recentlyViewed}
-                            meta={(doc) => timeAgo(doc.viewed_at)}
+                            meta={(doc) => timeAgo(doc.viewed_at) ?? '—'}
                         />
                     )}
                 </div>

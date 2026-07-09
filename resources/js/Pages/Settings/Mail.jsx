@@ -9,7 +9,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import MailFields from '@/components/MailFields';
 import { isEmail } from '@/lib/utils';
-import { IconMailFast, IconLoader2 } from '@tabler/icons-react';
+import { IconMailFast, IconLoader2, IconCheck } from '@tabler/icons-react';
 
 export default function Mail({ settings }) {
     const form = useForm({
@@ -98,7 +98,12 @@ export default function Mail({ settings }) {
 
                 <div className="flex justify-end">
                     <Button type="submit" disabled={form.processing || !form.isDirty}>
-                        {form.processing ? 'Saving…' : 'Save changes'}
+                        {form.processing
+                            ? <IconLoader2 className="h-3.5 w-3.5 animate-spin" stroke={1.5} />
+                            : form.recentlySuccessful
+                            ? <IconCheck className="h-3.5 w-3.5" stroke={1.5} />
+                            : null}
+                        {form.processing ? 'Saving…' : form.recentlySuccessful ? 'Saved' : 'Save changes'}
                     </Button>
                 </div>
             </form>

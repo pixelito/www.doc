@@ -32,6 +32,7 @@ function FieldError({ error }) {
 export default function Users() {
     const { users, roles, auth } = usePage().props;
     const [confirm, setConfirm] = useState(null); // user pending deletion
+    const [deleting, setDeleting] = useState(false);
 
     const form = useForm({ name: '', email: '', password: '', password_confirmation: '', role: 'editor' });
 
@@ -51,9 +52,10 @@ export default function Users() {
     }
 
     function deleteUser() {
+        setDeleting(true);
         router.delete(`/admin/users/${confirm.id}`, {
             preserveScroll: true,
-            onFinish: () => setConfirm(null),
+            onFinish: () => { setDeleting(false); setConfirm(null); },
         });
     }
 
@@ -75,7 +77,7 @@ export default function Users() {
                                 <TooltipContent 
                                     side="right" 
                                     sideOffset={6}
-                                    className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[260px] text-[12px] leading-[1.5] space-y-2"
+                                    className="max-w-[260px] space-y-2"
                                 >
                                     <p><strong>Admin:</strong> Full access. Can delete content, manage settings, and handle backups.</p>
                                     <p><strong>Editor:</strong> Can write and edit content. Cannot delete anything.</p>
@@ -175,6 +177,7 @@ export default function Users() {
 
             <ConfirmDialog
                 open={Boolean(confirm)}
+                busy={deleting}
                 title="Delete user"
                 message={confirm ? `Delete ${confirm.name}? This permanently removes their account.` : ''}
                 confirmLabel="Delete user"

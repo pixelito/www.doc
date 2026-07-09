@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
+import { toast } from 'sonner';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
         const timer = setInterval(() => {
             if (polls.current >= POLL_LIMIT) {
                 setChecking(false);
+                toast.error("The check didn't finish — the instance may be offline, or the background worker may not be running.");
                 return;
             }
             polls.current += 1;
@@ -55,9 +57,14 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
         return () => clearInterval(timer);
     }, [checking]);
 
+    // Close the loop the "Checking for updates…" flash opened: say what the
+    // check actually found once it lands.
     useEffect(() => {
         if (checking && status.checked_at && status.checked_at !== baseline.current) {
             setChecking(false);
+            toast.success(status.update_available
+                ? `Update available: ${showVer(status.latest)}.`
+                : "You're up to date.");
         }
     }, [checking, status.checked_at]);
 

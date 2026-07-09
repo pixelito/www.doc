@@ -18,6 +18,7 @@ export default function TemplatesIndex({ templates }) {
     const [error, setError]           = useState('');
     const [processing, setProcessing] = useState(false);
     const [toDelete, setToDelete]     = useState(null);
+    const [deleting, setDeleting]     = useState(false);
 
     function submit(e) {
         e.preventDefault();
@@ -29,8 +30,9 @@ export default function TemplatesIndex({ templates }) {
     }
 
     function confirmDelete() {
+        setDeleting(true);
         router.delete(`/templates/${toDelete.id}`, {
-            onFinish: () => setToDelete(null),
+            onFinish: () => { setDeleting(false); setToDelete(null); },
         });
     }
 
@@ -150,6 +152,7 @@ export default function TemplatesIndex({ templates }) {
 
         <ConfirmDialog
             open={toDelete !== null}
+            busy={deleting}
             title={`Delete template "${toDelete?.name}"?`}
             message="Pages already created from it are not affected. This cannot be undone."
             confirmLabel="Delete template"

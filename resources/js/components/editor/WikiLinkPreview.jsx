@@ -21,6 +21,7 @@ export default function WikiLinkPreview({ canCreate = false, workspaceId = null 
     const [hover, setHover]     = useState(null);  // { title, href, broken, rect }
     const [preview, setPreview] = useState(null);  // { id, title, excerpt }
     const [loading, setLoading] = useState(false);
+    const [creating, setCreating] = useState(false);
     const abortRef              = useRef(null);
     const lastHrefRef           = useRef(null);
     const hideTimer             = useRef(null);
@@ -109,11 +110,22 @@ export default function WikiLinkPreview({ canCreate = false, workspaceId = null 
                     {canCreate && (
                         <button
                             type="button"
-                            onClick={() => router.post('/documents', { title: hover.title, workspace_id: workspaceId })}
-                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-sage-600 hover:bg-surface-hover"
+                            disabled={creating}
+                            onClick={() => {
+                                // Guard against a double click creating two pages
+                                // with the same title before the redirect lands.
+                                setCreating(true);
+                                router.post('/documents',
+                                    { title: hover.title, workspace_id: workspaceId },
+                                    { onFinish: () => setCreating(false) },
+                                );
+                            }}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-sage-600 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-60"
                         >
-                            <IconPlus size={13} stroke={1.5} />
-                            Create page
+                            {creating
+                                ? <IconLoader2 size={13} stroke={1.5} className="animate-spin" />
+                                : <IconPlus size={13} stroke={1.5} />}
+                            {creating ? 'Creating…' : 'Create page'}
                         </button>
                     )}
                 </div>

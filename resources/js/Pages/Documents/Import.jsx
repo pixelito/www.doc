@@ -1,11 +1,16 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { IconUpload, IconFileTypePdf, IconFileTypeDocx, IconLoader2, IconCircleCheck, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { csrfToken } from '@/lib/utils';
 
-const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+// Give up polling the conversion after ~2 minutes: a healthy import takes
+// seconds, so by then the queue worker is almost certainly not running and an
+// explanation beats an infinite spinner.
+const POLL_MS = 1500;
+const POLL_LIMIT = 80;
 
 function FileDrop({ onFile, file }) {
     const [dragging, setDragging] = useState(false);
@@ -77,11 +82,24 @@ export default function Import({ workspace, pages = [], initialParentId = null }
         }
     }
 
+    // Stop polling when the user navigates away mid-conversion — the SPA keeps
+    // running, so an uncleared interval would keep fetching forever.
+    useEffect(() => stopPolling, []);
+
     function startPolling(jobId) {
+        let polls = 0;
         pollRef.current = setInterval(async () => {
+            if (++polls > POLL_LIMIT) {
+                stopPolling();
+                setError('The import is taking unusually long — the background worker may not be running. '
+                    + 'The file was uploaded, so the page may still appear once the worker catches up; '
+                    + 'ask your administrator before retrying.');
+                setStatus('failed');
+                return;
+            }
             try {
                 const res = await fetch(`/imports/${jobId}`, {
-                    headers: { 'X-CSRF-TOKEN': CSRF(), Accept: 'application/json' },
+                    headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
                 });
                 const data = await res.json();
 
@@ -109,7 +127,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
 
         const form = new FormData();
         form.append('file', file);
-        form.append('_token', CSRF());
+        form.append('_token', csrfToken());
         if (title.trim()) form.append('title', title.trim());
         if (parentId) form.append('parent_id', parentId);
 

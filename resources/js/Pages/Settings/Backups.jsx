@@ -20,19 +20,11 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { formatDateTime } from '@/lib/date';
-import { isEmail } from '@/lib/utils';
+import { isEmail, formatBytes } from '@/lib/utils';
 
 const INTERVAL_LABELS = { daily: 'Every 24 hours', '2days': 'Every 2 days', weekly: 'Weekly' };
 const DRIVER_LABELS = { local: 'Local disk (private)', smb: 'Network share (SMB)' };
 const TRIGGER_LABELS = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Safety snapshot', import: 'Imported' };
-
-function formatBytes(bytes) {
-    if (!bytes) return '—';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let n = bytes, i = 0;
-    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-    return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
-}
 
 function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
     const map = {
@@ -57,7 +49,6 @@ function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
                         </TooltipTrigger>
                         <TooltipContent
                             side="top"
-                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                         >
                             This archive is encrypted and could not be decrypted with the key provided at import (or your environment key). It cannot be restored.
                         </TooltipContent>
@@ -76,7 +67,6 @@ function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
                         </TooltipTrigger>
                         <TooltipContent 
                             side="top" 
-                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                         >
                             The encryption key used for this backup does not match your current environment key. Restore is disabled.
                         </TooltipContent>
@@ -246,7 +236,24 @@ export default function Backups() {
     const backupRunning = starting || backupInFlight;
     const restoreInFlight = backups.some((b) => b.restore_status === 'restoring');
     const restoreRunning = restoring || restoreInFlight;
-    useScrollLock(backupRunning || restoreRunning); // lock body scroll behind a progress modal
+
+    // Stall detection: a run that hasn't resolved after ~2 minutes usually means
+    // the queue worker isn't running. Surface that in the blocking overlay and
+    // let the admin dismiss it — polling continues and the archives list still
+    // resolves the run either way.
+    const [stalled, setStalled] = useState(false);
+    const [progressHidden, setProgressHidden] = useState(false);
+    useEffect(() => {
+        if (!backupRunning && !restoreRunning) {
+            setStalled(false);
+            setProgressHidden(false);
+            return;
+        }
+        const t = setTimeout(() => setStalled(true), 120000);
+        return () => clearTimeout(t);
+    }, [backupRunning, restoreRunning]);
+
+    useScrollLock((backupRunning || restoreRunning) && !progressHidden); // lock body scroll behind a progress modal
     // Heading reflects the real phase: queued (waiting for the worker) vs running.
     const phaseTitle = backups.some((b) => b.status === 'processing' && b.trigger !== 'import') ? 'Backing up…' : 'Backup queued';
     const timer = useRef(null);
@@ -633,7 +640,7 @@ export default function Backups() {
                                             }
                                             const base64 = btoa(binary);
                                             navigator.clipboard.writeText(base64);
-                                            toast.success('Encryption key copied to clipboard');
+                                            toast.success('Encryption key copied to clipboard.');
                                         }}
                                     >
                                         <IconKey className="h-3.5 w-3.5 text-sage-600" />
@@ -647,7 +654,6 @@ export default function Backups() {
                                             <TooltipContent 
                                                 side="right" 
                                                 sideOffset={6} 
-                                                className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                                             >
                                                 Encryption prevents unauthorized access to your backups if the files are ever exposed. Without the key, the archive is completely unreadable.
                                             </TooltipContent>
@@ -842,7 +848,6 @@ export default function Backups() {
                                         <TooltipContent 
                                             side="top" 
                                             sideOffset={6} 
-                                            className="bg-text-primary text-text-inverse px-[11px] py-[8px] rounded-lg shadow-[0_8px_22px_rgba(31,37,32,0.22)] border-none max-w-[224px] text-[12px] leading-[1.5]"
                                         >
                                             Safety snapshots are lightweight, canonical-only backups taken automatically before any restore to protect your current data.
                                         </TooltipContent>
@@ -1055,7 +1060,7 @@ export default function Backups() {
             />
 
             {/* Blocking progress modal while a backup runs (auto-closes when done). */}
-            {backupRunning && createPortal(
+            {backupRunning && !progressHidden && createPortal(
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-6"
                     style={{ background: 'rgba(31, 37, 32, 0.42)' }}
@@ -1071,6 +1076,18 @@ export default function Backups() {
                                 Your knowledge base is being archived to the configured destination.
                                 Please keep this page open — don’t refresh or navigate away until it finishes.
                             </p>
+                            {stalled && (
+                                <>
+                                    <div className="mt-4 w-full rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-xs leading-relaxed text-warning-text">
+                                        This is taking longer than expected — the background worker may not be
+                                        running. The run resolves in the archives list either way.
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" className="mt-3"
+                                        onClick={() => setProgressHidden(true)}>
+                                        Hide this and keep waiting
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>,
@@ -1078,7 +1095,7 @@ export default function Backups() {
             )}
 
             {/* Blocking progress modal while a restore runs (auto-closes when done). */}
-            {restoreRunning && createPortal(
+            {restoreRunning && !progressHidden && createPortal(
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-6"
                     style={{ background: 'rgba(31, 37, 32, 0.42)' }}
@@ -1095,6 +1112,18 @@ export default function Backups() {
                                 the current state is taken first). Please keep this page open — don’t refresh
                                 or navigate away until it finishes.
                             </p>
+                            {stalled && (
+                                <>
+                                    <div className="mt-4 w-full rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-xs leading-relaxed text-warning-text">
+                                        This is taking longer than expected — the background worker may not be
+                                        running. The run resolves in the archives list either way.
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" className="mt-3"
+                                        onClick={() => setProgressHidden(true)}>
+                                        Hide this and keep waiting
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>,

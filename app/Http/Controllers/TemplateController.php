@@ -95,7 +95,9 @@ class TemplateController extends Controller
 
         Audit::record('template.updated', $template, ['name' => $template->name]);
 
-        return redirect()->route('templates.index')->with('success', 'Template saved.');
+        // Stay in the editor — its unsaved-changes baseline resets on save and
+        // the user may keep working; bouncing to the index threw them out.
+        return back()->with('success', "Saved template \"{$template->name}\".");
     }
 
     public function destroy(Template $template): RedirectResponse

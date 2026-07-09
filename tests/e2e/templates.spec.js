@@ -24,7 +24,9 @@ test('create a template, instantiate it, then delete it', async ({ page }) => {
     await editor.click();
     await page.keyboard.type('Template boilerplate body');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText('Template saved.')).toBeVisible();
+    await expect(page.getByText(`Saved template "${templateName}".`)).toBeVisible();
+    // Saving stays in the editor (it used to bounce back to the index).
+    await expect(page).toHaveURL(/\/templates\/\d+\/edit/);
 
     // ── Instantiate it from the New page modal ──────────────────────────────
     await openWorkspace(page, WS);

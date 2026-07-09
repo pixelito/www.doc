@@ -23,9 +23,8 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ConflictDialog from '@/components/documents/ConflictDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
-import { formatDate } from '@/lib/date';
-
-const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+import { formatDate, timeAgo } from '@/lib/date';
+import { csrfToken } from '@/lib/utils';
 
 function isDocEmpty(content) {
     const nodes = content?.content ?? [];
@@ -40,16 +39,6 @@ function isDocEmpty(content) {
 function fmtDate(iso) {
     if (!iso) return null;
     return formatDate(iso);
-}
-
-function timeAgo(iso) {
-    if (!iso) return null;
-    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
-    if (diff < 60)      return 'just now';
-    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return fmtDate(iso);
 }
 
 function MetaItem({ icon: Icon, children }) {
@@ -88,6 +77,13 @@ function PageMeta({ document, versionsCount }) {
     );
 }
 
+// Give up polling a conversion job after ~2 minutes: a healthy export takes
+// seconds, so by then the queue worker is almost certainly not running and an
+// explanation beats an infinite spinner.
+const EXPORT_POLL_MS = 1500;
+const EXPORT_POLL_LIMIT = 80;
+const WORKER_HINT = 'The export is taking unusually long — the background worker may not be running. Ask your administrator to check it, then retry.';
+
 function ExportModal({ documentId, open, onClose }) {
     const [format, setFormat]   = useState('pdf');
     const [state, setState]     = useState('idle'); // idle | pending | done | failed
@@ -116,7 +112,7 @@ function ExportModal({ documentId, open, onClose }) {
         try {
             const res = await fetch(`/documents/${documentId}/exports`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
                 body: JSON.stringify({ format }),
             });
 
@@ -124,7 +120,14 @@ function ExportModal({ documentId, open, onClose }) {
             const { id } = await res.json();
             jobIdRef.current = id;
 
+            let polls = 0;
             pollRef.current = setInterval(async () => {
+                if (++polls > EXPORT_POLL_LIMIT) {
+                    clearInterval(pollRef.current);
+                    setState('failed');
+                    setError(WORKER_HINT);
+                    return;
+                }
                 try {
                     const poll = await fetch(`/documents/${documentId}/exports/${id}`, {
                         headers: { 'Accept': 'application/json' },
@@ -142,7 +145,7 @@ function ExportModal({ documentId, open, onClose }) {
                 } catch {
                     // keep polling
                 }
-            }, 1500);
+            }, EXPORT_POLL_MS);
         } catch (e) {
             setState('failed');
             setError(e.message);
@@ -264,14 +267,9 @@ function SaveAsTemplateModal({ open, onClose, documentId, documentTitle }) {
             description: description.trim() || null,
         }, {
             preserveScroll: true,
-            onSuccess: () => {
-                onClose();
-                setTimeout(() => {
-                    document.body.style.pointerEvents = '';
-                    document.body.removeAttribute('data-scroll-locked');
-                    router.visit('/templates');
-                }, 150);
-            },
+            // Stay on the page — the success toast confirms it, and navigating
+            // away would remount the layout and kill that toast mid-display.
+            onSuccess: () => onClose(),
             onError: (errs) => setError(errs.name ?? 'Something went wrong.'),
             onFinish: () => setSaving(false),
         });
@@ -532,7 +530,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
             for (const id of [...removals]) {
                 const res = await fetch(`/documents/${document.id}/attachments/${id}`, {
                     method: 'DELETE',
-                    headers: { 'X-CSRF-TOKEN': CSRF(), 'Accept': 'application/json' },
+                    headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
                 });
                 if (!res.ok && res.status !== 404) throw new Error('remove');
                 removals = removals.filter((x) => x !== id);
@@ -543,7 +541,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 body.append('name', item.name);
                 const res = await fetch(`/documents/${document.id}/attachments`, {
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': CSRF(), 'Accept': 'application/json' },
+                    headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
                     body,
                 });
                 if (!res.ok) throw new Error('upload');
@@ -630,6 +628,9 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
 
     function handleExplicitSave(e) {
         e.preventDefault();
+        // A second click while the PATCH is in flight would reuse the same
+        // base_version and bounce off optimistic locking as a self-conflict.
+        if (saveStatus === 'saving') return;
         performSave(editorContentRef.current);
     }
 
@@ -767,6 +768,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             )}
                             <Button
                                 onClick={handleExplicitSave}
+                                disabled={saveStatus === 'saving'}
                                 className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
                             >
                                 <IconDeviceFloppy stroke={1.5} />

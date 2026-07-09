@@ -281,7 +281,12 @@ class DocumentController extends Controller
                 'nullable', 'integer',
                 \Illuminate\Validation\Rule::exists('documents', 'id')->whereNull('deleted_at'),
             ],
-            'workspace_id' => ['nullable', 'integer', 'exists:workspaces,id'],
+            // Same soft-delete trap as parent_id: a trashed destination would
+            // pass a plain `exists` and swallow the subtree invisibly.
+            'workspace_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('workspaces', 'id')->whereNull('deleted_at'),
+            ],
             'position' => ['nullable', 'integer'],
             // Optional: the destination parent's full child order (page ids) so a
             // re-parent and the sibling reordering happen in one atomic request.
@@ -352,6 +357,13 @@ class DocumentController extends Controller
             Document::withoutTimestamps(fn () => Document::whereKey($id)
                 ->where('parent_id', $parentId)
                 ->update(['position' => $position]));
+        }
+
+        // A cross-workspace move gets a confirmation like trash/restore do;
+        // re-parents and sibling reorders stay silent (layout, not a "result").
+        // Nullsafe: the destination could be trashed between validation and here.
+        if ($workspaceChanged && ($destination = Workspace::find((int) $newWorkspaceId))) {
+            return back()->with('success', "Moved \"{$document->title}\" to \"{$destination->name}\".");
         }
 
         return back();

@@ -4,19 +4,7 @@ import { IconTrash, IconRestore, IconFileText, IconFolder, IconTrashX } from '@t
 import DocsLayout from '@/Layouts/DocsLayout';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { formatDate } from '@/lib/date';
-
-function timeAgo(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '—';
-    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (diff < 60)    return 'just now';
-    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return formatDate(d);
-}
+import { timeAgo } from '@/lib/date';
 
 function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, onPurge }) {
     return (
@@ -36,7 +24,7 @@ function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, 
                     </span>
                 )}
             </div>
-            <span className="text-xs text-text-tertiary">{timeAgo(deletedAt)}</span>
+            <span className="text-xs text-text-tertiary">{timeAgo(deletedAt) ?? '—'}</span>
             <div className="flex items-center justify-end gap-1.5">
                 <Button
                     type="button"
@@ -191,6 +179,7 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
 
             <ConfirmDialog
                 open={!!purge}
+                busy={!!purge && busyKey === `${purge.type}-${purge.id}`}
                 title={purge ? `Permanently delete "${purge.title}"?` : ''}
                 message={
                     purge?.type === 'workspaces'
@@ -208,6 +197,7 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
 
             <ConfirmDialog
                 open={emptyOpen}
+                busy={busyKey === 'empty'}
                 title="Empty the trash?"
                 message={`This will permanently delete all ${totalItems} item${totalItems !== 1 ? 's' : ''} in the trash, everything inside them, and their version history. This cannot be undone.`}
                 confirmLabel="Empty trash"

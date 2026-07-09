@@ -3,18 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { IconChevronRight, IconClock, IconGitCompare, IconHistory, IconUser } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
-import { formatDate } from '@/lib/date';
-
-function timeAgo(ts) {
-    if (!ts) return '—';
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return '—';
-    const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60)   return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return formatDate(d);
-}
+import { timeAgo } from '@/lib/date';
 
 /** "+12 −3 · diagram" change badges from the version's stored summary. */
 function SummaryBadges({ summary }) {
@@ -140,7 +129,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
                                     <IconClock className="h-3.5 w-3.5" stroke={1.5} />
-                                    {timeAgo(v.created_at)}
+                                    {timeAgo(v.created_at) ?? '—'}
                                 </div>
                             </li>
                         ))}

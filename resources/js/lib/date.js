@@ -23,3 +23,19 @@ export function formatDateTime(value) {
     const min = String(d.getMinutes()).padStart(2, '0');
     return `${formatDate(d)}, ${hh}:${min}`;
 }
+
+/**
+ * Relative age for list rows — "just now", "5m ago", "3h ago", "12d ago",
+ * then the absolute date once it's older than ~30 days. Returns null for
+ * empty/invalid input; callers render their own placeholder (`?? '—'`).
+ */
+export function timeAgo(value) {
+    const d = toDate(value);
+    if (!d) return null;
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 60)      return 'just now';
+    if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+    return formatDate(d);
+}

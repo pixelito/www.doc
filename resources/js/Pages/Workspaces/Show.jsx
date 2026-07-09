@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -431,8 +432,26 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
             return { id: i.id, parent_id: i.parentId ?? null, position };
         });
 
-        router.patch(`/workspaces/${workspace.id}/tree`, { nodes },
-            { preserveState: true, preserveScroll: true });
+        // The local tree still holds the new order but the server doesn't —
+        // silently snapping back on the next reload would lose the user's
+        // arrangement. Re-enter reorder mode so "Done" can retry it.
+        // onError only covers validation (422); an offline/unreachable server
+        // surfaces as onNetworkError instead — handle both or the failure is silent.
+        const keepOrderForRetry = () => {
+            reorderDirty.current = true;
+            setReordering(true);
+            toast.error("Couldn't save the new page order — it's still here, click Done to retry.");
+        };
+
+        router.patch(`/workspaces/${workspace.id}/tree`, { nodes }, {
+            preserveState: true,
+            preserveScroll: true,
+            onError: keepOrderForRetry,
+            onNetworkError: () => {
+                keepOrderForRetry();
+                return false; // handled — suppress Inertia's default rejection
+            },
+        });
     }
 
     function destroyWorkspace() {

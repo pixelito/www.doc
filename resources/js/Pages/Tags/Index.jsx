@@ -14,6 +14,7 @@ export default function TagsIndex({ tags }) {
     const [error, setError]             = useState('');
     const [processing, setProcessing]   = useState(false);
     const [tagToDelete, setTagToDelete] = useState(null);
+    const [deleting, setDeleting]       = useState(false);
 
     function submit(e) {
         e.preventDefault();
@@ -26,8 +27,9 @@ export default function TagsIndex({ tags }) {
     }
 
     function confirmDelete() {
+        setDeleting(true);
         router.delete(`/tags/${tagToDelete.id}`, {
-            onFinish: () => setTagToDelete(null),
+            onFinish: () => { setDeleting(false); setTagToDelete(null); },
         });
     }
 
@@ -142,6 +144,7 @@ export default function TagsIndex({ tags }) {
 
         <ConfirmDialog
             open={tagToDelete !== null}
+            busy={deleting}
             title={`Delete tag "${tagToDelete?.name}"?`}
             message={`This tag will be removed from all ${tagToDelete?.documents_count ?? 0} page${(tagToDelete?.documents_count ?? 0) !== 1 ? 's' : ''} that use it. This cannot be undone.`}
             confirmLabel="Delete tag"

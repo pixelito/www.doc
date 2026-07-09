@@ -11,6 +11,7 @@ use App\Support\BulkReorder;
 use App\Support\DocumentTree;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,9 +51,15 @@ class WorkspaceController extends Controller
         $starred = $user->starredDocuments()->with('workspace:id,name')
             ->get()->map($docRow)->values();
 
+        // Pivot columns aren't cast: last_viewed_at arrives as a bare
+        // "Y-m-d H:i:s" string, which browsers parse as LOCAL time — every
+        // row would be off by the viewer's UTC offset. Ship it as ISO 8601
+        // with timezone like every other date prop.
         $recentlyViewed = $user->recentlyViewedDocuments()->with('workspace:id,name')
             ->limit(15)->get()
-            ->map(fn (Document $d) => $docRow($d) + ['viewed_at' => $d->pivot->last_viewed_at])
+            ->map(fn (Document $d) => $docRow($d) + [
+                'viewed_at' => Carbon::parse($d->pivot->last_viewed_at)->toIso8601String(),
+            ])
             ->values();
 
         return Inertia::render('Workspaces/Index', [
