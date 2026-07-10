@@ -39,9 +39,9 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
-  # Docker (Dockerfile, docker-compose)
+  # Docker (Dockerfile lives in docker/app/, not the repo root)
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/docker/app"
     schedule:
       interval: "weekly"
     labels:
