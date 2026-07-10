@@ -49,3 +49,10 @@ updates:
       - "docker"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # The app targets PHP 8.3; major/minor PHP bumps are deliberate
+      # upgrades (phpredis et al. must catch up first) — patch bumps only.
+      - dependency-name: "php"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
