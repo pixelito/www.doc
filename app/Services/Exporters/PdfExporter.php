@@ -49,7 +49,7 @@ class PdfExporter implements ExporterContract
             $text  = "Page {$pageNum} of {$pageCount}";
             $x     = $cvs->get_width() - $rightMargin - $cvs->get_text_width($text, $font, $fontSize);
             $y     = $cvs->get_height() - (6 / 25.4 * 72); // 6 mm from physical bottom
-            $cvs->text($x, $y, $text, $font, $fontSize, [0.557, 0.576, 0.557]);
+            $cvs->text($x, $y, $text, $font, $fontSize, [0.54, 0.54, 0.54]);
         });
 
         $slug     = $document->slug;
@@ -72,7 +72,6 @@ class PdfExporter implements ExporterContract
             RenderDocument::$embedImages = false;
         }
         $title = e($document->title);
-        $date  = now()->format('d M Y');
 
         $lexendRegular = base64_encode(file_get_contents(base_path('fonts/Lexend-Regular.ttf')));
         $lexendBold = base64_encode(file_get_contents(base_path('fonts/Lexend-Bold.ttf')));
@@ -106,35 +105,22 @@ class PdfExporter implements ExporterContract
                 @page {
                     margin: 20mm 18mm 22mm 18mm;
                 }
+                /* Neutral document chrome: black/gray only — no app branding,
+                   no theme hues. Semantic color (callouts, diagram content)
+                   is deliberately kept below. */
                 body {
                     font-family: "Lexend", sans-serif;
                     font-size: 10pt;
                     line-height: 1.6;
-                    color: #1F2520;
-                }
-                /* Running header */
-                .page-header {
-                    position: fixed; top: -15mm; left: 0; right: 0;
-                    font-size: 8pt; color: #8E938E;
-                    border-bottom: 0.5pt solid #E2DFD4;
-                    padding-bottom: 2mm;
-                    display: flex; justify-content: space-between;
-                }
-                /* Running footer */
-                .page-footer {
-                    position: fixed; bottom: -16mm; left: 0; right: 0;
-                    font-size: 8pt; color: #8E938E;
-                    border-top: 0.5pt solid #E2DFD4;
-                    padding-top: 2mm;
-                    display: flex; justify-content: space-between;
+                    color: #1A1A1A;
                 }
                 h1, h2, h3, h4, h5, h6 {
                     font-weight: 600; line-height: 1.25;
                     margin-top: 1.4em; margin-bottom: 0.4em;
-                    color: #1F2520; page-break-after: avoid;
+                    color: #1A1A1A; page-break-after: avoid;
                 }
                 h1 { font-size: 18pt; margin-top: 0; }
-                h2 { font-size: 14pt; border-bottom: 0.5pt solid #E2DFD4; padding-bottom: 2pt; }
+                h2 { font-size: 14pt; border-bottom: 0.5pt solid #D6D6D6; padding-bottom: 2pt; }
                 h3 { font-size: 12pt; }
                 h4, h5, h6 { font-size: 10pt; }
                 p { margin: 0 0 0.7em; }
@@ -142,35 +128,35 @@ class PdfExporter implements ExporterContract
                 li { margin-bottom: 0.25em; }
                 blockquote {
                     margin: 0.7em 0; padding: 0.4em 0.8em;
-                    border-left: 3pt solid #9FB994; color: #5C625C;
-                    background: #EDF2EA;
+                    border-left: 3pt solid #D6D6D6; color: #555555;
+                    background: #F7F7F7;
                 }
                 pre, code {
                     font-family: "DejaVu Sans Mono", monospace;
                     font-size: 8.5pt;
                 }
                 pre {
-                    background: #F5F4ED; border: 0.5pt solid #E2DFD4;
+                    background: #F5F5F5; border: 0.5pt solid #D6D6D6;
                     padding: 0.6em 0.8em; border-radius: 4pt;
                     white-space: pre-wrap; word-wrap: break-word;
                     page-break-inside: avoid;
                 }
-                code { background: #EDF2EA; padding: 0 2pt; border-radius: 2pt; }
+                code { background: #F0F0F0; padding: 0 2pt; border-radius: 2pt; }
                 table {
                     border-collapse: collapse; width: 100%;
                     margin: 0.7em 0; page-break-inside: avoid;
                     font-size: 9pt; table-layout: auto;
                 }
                 th, td {
-                    border: 0.5pt solid #E2DFD4;
+                    border: 0.5pt solid #D6D6D6;
                     padding: 4pt 6pt; text-align: left;
                     width: auto !important;
                     word-wrap: break-word;
                     word-break: break-word;
                 }
-                th { background-color: #EDF2EA; font-weight: 600; }
+                th { background-color: #F0F0F0; font-weight: 600; }
                 hr {
-                    border: none; border-top: 0.5pt solid #E2DFD4;
+                    border: none; border-top: 0.5pt solid #D6D6D6;
                     margin: 1.2em 0;
                 }
                 /* Task lists: hide the HTML checkbox (Dompdf draws form
@@ -182,11 +168,11 @@ class PdfExporter implements ExporterContract
                 li[data-type="taskItem"]::before {
                     content: "\\2610  ";
                     font-family: "DejaVu Sans", sans-serif;
-                    color: #5C625C;
+                    color: #555555;
                 }
                 li[data-type="taskItem"][data-checked="true"]::before {
                     content: "\\2611  ";
-                    color: #648354;
+                    color: #333333;
                 }
                 li[data-type="taskItem"] div, li[data-type="taskItem"] label { display: inline; }
                 li[data-type="taskItem"] div p { display: inline; margin: 0; }
@@ -202,23 +188,13 @@ class PdfExporter implements ExporterContract
                 .callout-warning { background: #FAF1E2; border-color: #E8C58E; color: #7A5520; }
                 .callout-danger  { background: #F3E7E2; border-color: #DDB3A6; color: #B5573E; }
                 img { max-width: 100%; height: auto; }
-                a { color: #4A6741; text-decoration: none; }
-                /* Sage accent-600 text, accent-300 underline — exports always render light sage. */
-                .wiki-link {
-                    color: #4B6840; font-weight: 500;
-                    text-decoration: underline;
-                    text-decoration-color: #9FB994;
-                }
+                /* Links (wiki and external alike): plain underlined text —
+                   no hue survives into the neutral document. */
+                a { color: #1A1A1A; text-decoration: underline; }
+                .wiki-link { color: #1A1A1A; text-decoration: underline; }
             </style>
         </head>
         <body>
-            <div class="page-header">
-                <span>{$title}</span>
-                <span>{$date}</span>
-            </div>
-            <div class="page-footer">
-                <span>www.doc</span>
-            </div>
             <h1>{$title}</h1>
             {$body}
         </body>

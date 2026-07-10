@@ -680,7 +680,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
 
     return (
         <>
-        <DocsLayout>
+        <DocsLayout wideable>
             <Head title={document.title} />
 
             {/* Breadcrumb */}

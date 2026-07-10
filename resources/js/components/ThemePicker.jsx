@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { IconSun, IconMoon, IconDeviceDesktop, IconPalette } from '@tabler/icons-react';
+import { IconSun, IconMoon, IconDeviceDesktop, IconPalette, IconViewportNarrow, IconViewportWide } from '@tabler/icons-react';
 import {
     THEMES,
     ACCENTS,
+    WIDTHS,
     SYSTEM,
     getPreference,
     setPreference,
@@ -10,11 +11,15 @@ import {
     getAccent,
     setAccent,
     onAccentChange,
+    getWidth,
+    setWidth,
+    onWidthChange,
 } from '@/lib/theme';
 
 // Options render from the theme registries so a future scheme or accent only
 // needs its app.css block + a registry row (and an icon here if it wants one).
 const ICONS = { [SYSTEM]: IconDeviceDesktop, light: IconSun, dark: IconMoon };
+const WIDTH_ICONS = { boxed: IconViewportNarrow, full: IconViewportWide };
 const OPTIONS = [{ id: SYSTEM, label: 'System' }, ...THEMES];
 
 function iconFor(id) {
@@ -70,6 +75,28 @@ export function ThemeSegments() {
     chip, like the avatar picker), independent of the active scheme. The
     role=group wrapper keeps these buttons distinguishable from the avatar
     picker's, which shares names like "Sage" and "Rose" on the same page. */
+/** Segmented width control — reading/editing column boxed vs full width.
+    Applies on document pages only (DocsLayout `wideable`); grouped for the
+    same reason as AccentSegments. */
+export function WidthSegments() {
+    const [width, setPref] = useState(getWidth);
+    useEffect(() => onWidthChange(setPref), []);
+
+    return (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Page width">
+            {WIDTHS.map((opt) => {
+                const Icon = WIDTH_ICONS[opt.id] ?? IconPalette;
+                return (
+                    <SegmentButton key={opt.id} selected={width === opt.id} onClick={() => setWidth(opt.id)}>
+                        <Icon className="h-3.5 w-3.5" stroke={1.5} aria-hidden="true" />
+                        {opt.label}
+                    </SegmentButton>
+                );
+            })}
+        </div>
+    );
+}
+
 export function AccentSegments() {
     const [accent, setPref] = useState(getAccent);
     useEffect(() => onAccentChange(setPref), []);

@@ -4,7 +4,14 @@ namespace App\Services\Importers;
 
 use App\Contracts\ImporterContract;
 use DOMDocument;
+use PhpOffice\PhpWord\Element\ListItem as ListItemElement;
+use PhpOffice\PhpWord\Element\ListItemRun;
+use PhpOffice\PhpWord\Element\Table as TableElement;
 use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\Style;
+use PhpOffice\PhpWord\Style\ListItem as ListItemStyle;
+use PhpOffice\PhpWord\Style\Numbering;
 use Tiptap\Editor;
 use Tiptap\Extensions\StarterKit;
 use Tiptap\Marks\Link;
@@ -17,6 +24,19 @@ use Tiptap\Nodes\TableRow;
 
 class DocxImporter implements ImporterContract
 {
+    // Private-use-area sentinels: survive PhpWord's escapeHTML untouched and
+    // cannot collide with real document text.
+    private const LIST_MARK_START = "\u{E000}";
+    private const LIST_MARK_END   = "\u{E001}";
+    private const LIST_MARK_RE    = '/\x{E000}(\d+):(ul|ol)\x{E001}/u';
+
+    // OOXML numbering formats that read as an ordered list. Everything else
+    // ('bullet', 'none', unknown) stays a bullet list.
+    private const ORDERED_FORMATS = [
+        'decimal', 'decimalZero', 'decimalEnclosedCircle', 'decimalEnclosedFullstop',
+        'decimalEnclosedParen', 'upperRoman', 'lowerRoman', 'upperLetter', 'lowerLetter',
+    ];
+
     public function __construct(private readonly AssetStore $assetStore) {}
 
     public function import(string $filePath, ?int $uploadedById = null): array
@@ -28,6 +48,12 @@ class DocxImporter implements ImporterContract
         $this->unNumberHeadings($filePath);
 
         $phpWord = IOFactory::load($filePath, 'Word2007');
+
+        // PhpWord's HTML writer flattens every list item to a bare <p> — the
+        // model's depth and numbering type never reach the HTML. Tag each list
+        // item's text with a sentinel carrying that structure now, so
+        // rebuildLists() can reconstruct <ul>/<ol> nesting from the flat HTML.
+        $this->tagListItems($phpWord);
 
         // Extract title from document properties before rendering HTML
         $props = $phpWord->getDocInfo();
@@ -99,6 +125,190 @@ class DocxImporter implements ImporterContract
         $zip->close();
     }
 
+    /** Append a depth/type sentinel to every list item's text, recursively. */
+    private function tagListItems(PhpWord $phpWord): void
+    {
+        foreach ($phpWord->getSections() as $section) {
+            $this->tagListItemsIn($section);
+        }
+    }
+
+    private function tagListItemsIn(object $container): void
+    {
+        if (! method_exists($container, 'getElements')) {
+            return;
+        }
+
+        foreach ($container->getElements() as $el) {
+            if ($el instanceof ListItemElement) {
+                // Simple item: one text object we can extend in place.
+                $text = $el->getTextObject();
+                $text->setText($text->getText() . $this->listMarker($el->getDepth(), $el->getStyle()));
+            } elseif ($el instanceof ListItemRun) {
+                // Run container (what the Word2007 reader produces): append the
+                // sentinel as a final run so formatting/link runs stay intact,
+                // then demote to TextRun — the HTML Container writer inlines a
+                // TextRun's runs into ONE <p>, but shreds a ListItemRun into
+                // one <p> PER RUN (it matches the class name 'TextRun'
+                // literally), which would scatter the item across paragraphs.
+                $el->addText($this->listMarker($el->getDepth(), $el->getStyle()));
+                $this->demoteToTextRun($container, $el);
+            } elseif ($el instanceof TableElement) {
+                foreach ($el->getRows() as $row) {
+                    foreach ($row->getCells() as $cell) {
+                        $this->tagListItemsIn($cell);
+                    }
+                }
+            } else {
+                $this->tagListItemsIn($el);
+            }
+        }
+    }
+
+    /**
+     * Swap a ListItemRun for a plain TextRun carrying the same child runs, in
+     * place in its parent container. The list structure is already encoded in
+     * the sentinel by the time this runs, and TextRun is the parent class —
+     * only the class NAME changes as far as the HTML writer is concerned.
+     * PhpWord offers no public elements accessor, hence the reflection;
+     * the dependency is locked (composer.lock) and covered by import tests.
+     */
+    private function demoteToTextRun(object $parent, ListItemRun $run): void
+    {
+        $textRun = new \PhpOffice\PhpWord\Element\TextRun($run->getParagraphStyle());
+
+        $elements = new \ReflectionProperty(\PhpOffice\PhpWord\Element\AbstractContainer::class, 'elements');
+        $elements->setAccessible(true);
+        $elements->setValue($textRun, $elements->getValue($run));
+
+        $siblings = $elements->getValue($parent);
+        $idx = array_search($run, $siblings, true);
+        if ($idx !== false) {
+            $siblings[$idx] = $textRun;
+            $elements->setValue($parent, $siblings);
+        }
+    }
+
+    /** `depth:tag` sentinel for one list item. */
+    private function listMarker(int $depth, ?ListItemStyle $style): string
+    {
+        $tag = 'ul';
+
+        if ($style !== null) {
+            $numbering = $style->getNumStyle() ? Style::getStyle($style->getNumStyle()) : null;
+
+            if ($numbering instanceof Numbering) {
+                // Real Word numbering definition: the format at this item's
+                // depth decides (a numbered list can nest bulleted levels and
+                // vice versa).
+                $format = null;
+                foreach ($numbering->getLevels() as $level) {
+                    if ((int) $level->getLevel() === $depth) {
+                        $format = $level->getFormat();
+                        break;
+                    }
+                }
+                $tag = in_array($format, self::ORDERED_FORMATS, true) ? 'ol' : 'ul';
+            } else {
+                // Legacy/simple style (addListItem fixtures, older producers).
+                $tag = $style->getListType() >= ListItemStyle::TYPE_NUMBER ? 'ol' : 'ul';
+            }
+        }
+
+        return self::LIST_MARK_START . $depth . ':' . $tag . self::LIST_MARK_END;
+    }
+
+    /**
+     * Rebuild <ul>/<ol> nesting from sentinel-tagged flat <p> runs. Groups of
+     * consecutive tagged paragraphs (per parent, so table cells group
+     * independently) become one list tree; depth increases nest inside the
+     * previous item, and a type flip at the same depth starts a sibling list.
+     */
+    private function rebuildLists(DOMDocument $dom): void
+    {
+        $xpath = new \DOMXPath($dom);
+
+        $tagged = [];
+        foreach ($xpath->query('//p') as $p) {
+            if (preg_match(self::LIST_MARK_RE, $p->textContent, $m)) {
+                $tagged[] = ['p' => $p, 'depth' => (int) $m[1], 'tag' => $m[2]];
+            }
+        }
+
+        $byNode = [];
+        foreach ($tagged as $t) {
+            $byNode[spl_object_id($t['p'])] = $t;
+        }
+
+        $consumed = new \SplObjectStorage();
+        foreach ($tagged as $item) {
+            if ($consumed->contains($item['p'])) {
+                continue;
+            }
+
+            // Collect the run of consecutive tagged <p> siblings starting here
+            // (whitespace-only text nodes between them don't break the run).
+            $group = [$item];
+            $node  = $item['p']->nextSibling;
+            while ($node !== null) {
+                if ($node instanceof \DOMText && trim($node->textContent) === '') {
+                    $node = $node->nextSibling;
+                    continue;
+                }
+                $t = $byNode[spl_object_id($node)] ?? null;
+                if ($t === null) {
+                    break;
+                }
+                $group[] = $t;
+                $node = $node->nextSibling;
+            }
+
+            // Placeholder marks where the rebuilt list tree goes.
+            $anchor = $dom->createComment('lists');
+            $item['p']->parentNode->insertBefore($anchor, $item['p']);
+
+            /** @var array<int, array{list: \DOMElement, depth: int, tag: string}> $stack */
+            $stack = [];
+            foreach ($group as $g) {
+                $consumed->attach($g['p']);
+
+                while ($stack !== [] && $g['depth'] < end($stack)['depth']) {
+                    array_pop($stack);
+                }
+
+                $top = $stack === [] ? null : end($stack);
+                if ($top === null || $g['depth'] > $top['depth'] || $g['tag'] !== $top['tag']) {
+                    $list = $dom->createElement($g['tag']);
+                    if ($top === null) {
+                        $anchor->parentNode->insertBefore($list, $anchor);
+                    } elseif ($g['depth'] > $top['depth']) {
+                        // Nest inside the previous item (or the list itself if
+                        // a malformed document starts a group above depth 0).
+                        ($top['list']->lastChild ?? $top['list'])->appendChild($list);
+                    } else {
+                        // Type flip at the same depth: sibling list.
+                        array_pop($stack);
+                        $top['list']->parentNode->insertBefore($list, $top['list']->nextSibling);
+                    }
+                    $stack[] = ['list' => $list, 'depth' => $g['depth'], 'tag' => $g['tag']];
+                }
+
+                $li = $dom->createElement('li');
+                end($stack)['list']->appendChild($li);
+                $li->appendChild($g['p']); // moves the <p> out of the flat run
+            }
+
+            $anchor->parentNode->removeChild($anchor);
+        }
+
+        // Strip every sentinel (grouped or not) so PUA chars never reach content.
+        foreach ($xpath->query('//text()') as $text) {
+            if (str_contains($text->textContent, self::LIST_MARK_START)) {
+                $text->textContent = preg_replace(self::LIST_MARK_RE, '', $text->textContent);
+            }
+        }
+    }
+
     /**
      * Single DOM pass over PhpWord's HTML that (1) normalises inline-style
      * whitespace and (2) rehosts embedded base64 images.
@@ -114,6 +324,10 @@ class DocxImporter implements ImporterContract
         $dom = new DOMDocument();
         // Suppress malformed HTML warnings from PhpWord output
         @$dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOERROR);
+
+        // Lists first: the style pass below may wrap <p> elements in
+        // <strong>/<em>, which would break the sibling grouping.
+        $this->rebuildLists($dom);
 
         $xpath = new \DOMXPath($dom);
 

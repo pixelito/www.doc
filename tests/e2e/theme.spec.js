@@ -74,6 +74,23 @@ test.describe('Theme', () => {
     await expect(page.locator('html')).toHaveAttribute('data-accent', 'pink');
   });
 
+  test('page width preference stamps, persists, and leaves non-document pages boxed', async ({ page }) => {
+    await page.goto('/settings/profile');
+    await expect(page.locator('html')).toHaveAttribute('data-width', 'boxed');
+
+    await page.getByRole('group', { name: 'Page width' }).getByRole('button', { name: 'Full width', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-width', 'full');
+
+    // Persists across navigation via the pre-paint script.
+    await page.goto('/workspaces');
+    await expect(page.locator('html')).toHaveAttribute('data-width', 'full');
+
+    // Only document pages opt in (DocsLayout `wideable`): the workspaces
+    // page keeps its boxed column even with "full" stored.
+    const maxWidth = await page.evaluate(() => getComputedStyle(document.querySelector('main')).maxWidth);
+    expect(maxWidth).not.toBe('none');
+  });
+
   test('accent and scheme compose independently', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/settings/profile');

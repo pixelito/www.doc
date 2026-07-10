@@ -42,15 +42,12 @@ class DocxExporter implements ExporterContract
             'marginRight'  => 1440,
         ]);
 
-        // Header
-        $header = $this->section->addHeader();
-        $header->addText(htmlspecialchars($document->title, ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['bold' => true, 'size' => 9], ['alignment' => 'left']);
-
-        // Footer with page number
+        // No running header: exports are neutral documents (the title is the
+        // in-body H1). The footer keeps only the page number.
         $footer = $this->section->addFooter();
         $footer->addPreserveText(
             'Page {PAGE} of {NUMPAGES}',
-            ['size' => 9, 'color' => '8E938E'],
+            ['size' => 9, 'color' => '8A8A8A'],
             ['alignment' => 'center']
         );
 
@@ -86,12 +83,12 @@ class DocxExporter implements ExporterContract
         $w->setDefaultFontName('Century Gothic');
         $w->setDefaultFontSize(11);
 
-        // Heading styles
+        // Heading styles — neutral black/gray chrome, like the PDF export.
         foreach ([1 => 24, 2 => 18, 3 => 14, 4 => 12] as $level => $size) {
             $w->addTitleStyle($level, [
                 'bold'  => true,
                 'size'  => $size,
-                'color' => '1F2520',
+                'color' => '1A1A1A',
             ], [
                 'spaceAfter'  => 120,
                 'spaceBefore' => $level === 1 ? 0 : 240,
@@ -101,7 +98,7 @@ class DocxExporter implements ExporterContract
         $w->addFontStyle('Code', [
             'name'  => 'Courier New',
             'size'  => 9,
-            'color' => '364E2E',
+            'color' => '333333',
         ]);
 
         return $w;
@@ -214,7 +211,7 @@ class DocxExporter implements ExporterContract
                         'indentation' => ['left' => 240 + $depth * 360],
                         'spaceAfter'  => 60,
                     ]);
-                    $run->addText($glyph . ' ', ['size' => 11, 'color' => $checked ? '648354' : '5C625C']);
+                    $run->addText($glyph . ' ', ['size' => 11, 'color' => $checked ? '333333' : '555555']);
                     $this->addInline($run, $child);
                 }
             }
@@ -254,7 +251,7 @@ class DocxExporter implements ExporterContract
             $text    = $this->extractText($child);
             $para    = $this->section->addText(
                 htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'),
-                ['italic' => true, 'color' => '5C625C', 'size' => 10],
+                ['italic' => true, 'color' => '555555', 'size' => 10],
                 ['indentation' => ['left' => 720], 'spaceAfter' => 100]
             );
         }
@@ -265,14 +262,14 @@ class DocxExporter implements ExporterContract
         $text = $this->extractText($node);
 
         // Split lines so each line is a separate text in a shaded table cell
-        $table = $this->section->addTable(['borderColor' => 'E2DFD4', 'borderSize' => 6]);
+        $table = $this->section->addTable(['borderColor' => 'D6D6D6', 'borderSize' => 6]);
         $row   = $table->addRow();
-        $cell  = $row->addCell(null, ['bgColor' => 'F5F4ED']);
+        $cell  = $row->addCell(null, ['bgColor' => 'F5F5F5']);
 
         foreach (explode("\n", $text) as $line) {
             $cell->addText(
                 htmlspecialchars($line !== '' ? $line : ' '),
-                ['name' => 'Courier New', 'size' => 9, 'color' => '364E2E']
+                ['name' => 'Courier New', 'size' => 9, 'color' => '333333']
             );
         }
 
@@ -282,7 +279,7 @@ class DocxExporter implements ExporterContract
     private function addTable(array $node): void
     {
         $table = $this->section->addTable([
-            'borderColor' => 'E2DFD4',
+            'borderColor' => 'D6D6D6',
             'borderSize'  => 6,
             'cellMargin'  => 80,
         ]);
@@ -291,7 +288,7 @@ class DocxExporter implements ExporterContract
             $row = $table->addRow();
             foreach ($rowNode['content'] ?? [] as $cellNode) {
                 $isHeader = ($cellNode['type'] ?? '') === 'tableHeader';
-                $cell     = $row->addCell(null, $isHeader ? ['bgColor' => 'EDF2EA'] : []);
+                $cell     = $row->addCell(null, $isHeader ? ['bgColor' => 'F0F0F0'] : []);
                 $text     = $this->extractText($cellNode);
                 $cell->addText(htmlspecialchars($text, ENT_XML1 | ENT_COMPAT, 'UTF-8'), $isHeader ? ['bold' => true, 'size' => 10] : ['size' => 10]);
             }
@@ -302,7 +299,7 @@ class DocxExporter implements ExporterContract
 
     private function addHr(): void
     {
-        $this->section->addText('', [], ['borderBottomColor' => 'E2DFD4', 'borderBottomSize' => 6]);
+        $this->section->addText('', [], ['borderBottomColor' => 'D6D6D6', 'borderBottomSize' => 6]);
     }
 
     private function addImage(array $node): void
@@ -329,7 +326,7 @@ class DocxExporter implements ExporterContract
         $label = $name !== '' ? $name : 'Untitled diagram';
         $this->section->addText(
             htmlspecialchars($label),
-            ['italic' => true, 'size' => 9, 'color' => '5C625C'],
+            ['italic' => true, 'size' => 9, 'color' => '555555'],
             ['alignment' => 'center', 'spaceAfter' => 120]
         );
     }
@@ -387,7 +384,8 @@ class DocxExporter implements ExporterContract
             // export() unlinks everything in $tempFiles afterwards.
             array_push($this->tempFiles, $svgFileIn, $svgFileOut, $pngFile);
 
-            $output = shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile) . " 2>&1");
+            // Trailing "2" = 2x PNG supersampling, matching the PDF embed scale.
+            $output = shell_exec("node " . escapeshellarg($scriptPath) . " " . escapeshellarg($svgFileIn) . " " . escapeshellarg($svgFileOut) . " " . escapeshellarg($pngFile) . " 2 2>&1");
 
             // A missing output means the Node pass died (e.g. the @resvg native
             // binary for this platform isn't installed). Log it loudly — this
@@ -495,8 +493,9 @@ class DocxExporter implements ExporterContract
         }
 
         if ($type === 'wikiLink') {
+            // Neutral export: a wiki-link is just underlined text, like any link.
             $title = $node['attrs']['title'] ?? '';
-            $run->addText(htmlspecialchars($title, ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['color' => '42637E']);
+            $run->addText(htmlspecialchars($title, ENT_XML1 | ENT_COMPAT, 'UTF-8'), ['underline' => 'single']);
             return;
         }
 

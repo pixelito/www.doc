@@ -303,26 +303,37 @@ class NetworkDiagramNode extends Node
             $src = 'data:image/svg+xml;base64,' . base64_encode($svg['svg']);
             
             if (\App\Services\RenderDocument::$embedImages) {
-                // PDF export: Dompdf's php-svg-lib draws our SVG's icons, transforms
-                // and geometry correctly but IGNORES the embedded @font-face, so
-                // diagram text would fall back to a serif default. process_svg.js
-                // bakes the text into Lexend vector PATHS (and strips the
-                // unsupported <style>/<defs>/filters), giving an SVG that stays
-                // crisp at any zoom — unlike a rasterised PNG. We keep embedding
-                // it as SVG (vector), not PNG, and only fall back to the raw inline
-                // SVG if the Node pass is unavailable.
+                // PDF export: Dompdf's php-svg-lib mis-composes the icon glyphs'
+                // nested transforms (icons render rotated) and ignores embedded
+                // @font-face, so the PDF never gets our SVG directly. Instead
+                // process_svg.js renders it through resvg — the same engine the
+                // DOCX export uses — to a 2× PNG (print-sharp at the embedded
+                // width). The text-baked SVG remains only as a fallback when the
+                // PNG pass fails, and the raw inline SVG below that.
                 $scriptPath = base_path('process_svg.js');
                 if (file_exists($scriptPath)) {
                     $svgFileIn  = sys_get_temp_dir() . '/' . uniqid('pdf_svg_in_') . '.svg';
                     $svgFileOut = sys_get_temp_dir() . '/' . uniqid('pdf_svg_out_') . '.svg';
+                    $pngFile    = sys_get_temp_dir() . '/' . uniqid('pdf_svg_png_') . '.png';
 
                     file_put_contents($svgFileIn, $svg['svg']);
-                    shell_exec('node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($svgFileIn) . ' ' . escapeshellarg($svgFileOut));
+                    $output = shell_exec('node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($svgFileIn)
+                        . ' ' . escapeshellarg($svgFileOut) . ' ' . escapeshellarg($pngFile) . ' 2 2>&1');
 
-                    if (is_file($svgFileOut) && filesize($svgFileOut) > 0) {
-                        $src = 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($svgFileOut));
-                        @unlink($svgFileOut);
+                    if (is_file($pngFile) && filesize($pngFile) > 0) {
+                        $src = 'data:image/png;base64,' . base64_encode(file_get_contents($pngFile));
+                    } else {
+                        // Falling back to SVG re-exposes php-svg-lib's transform
+                        // bugs (rotated icons) — degrade loudly, like DocxExporter.
+                        \Illuminate\Support\Facades\Log::warning('PDF export: process_svg.js produced no PNG; diagram falls back to SVG.', [
+                            'output' => trim((string) $output),
+                        ]);
+                        if (is_file($svgFileOut) && filesize($svgFileOut) > 0) {
+                            $src = 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($svgFileOut));
+                        }
                     }
+                    @unlink($pngFile);
+                    @unlink($svgFileOut);
                     @unlink($svgFileIn);
                 }
             }

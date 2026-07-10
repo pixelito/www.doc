@@ -54,7 +54,10 @@ function noticeText(n) {
         : 'Backup completed successfully.';
 }
 
-export default function DocsLayout({ children }) {
+// `wideable` opts the content area into the user's page-width preference
+// (data-width on <html>, set in Settings › Profile › Appearance). Document
+// view/editor pass it; admin and list pages stay boxed by design.
+export default function DocsLayout({ children, wideable = false }) {
     const { auth, flash, backupNotices = [] } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
     const [mobileNav, setMobileNav] = useState(false);
@@ -222,7 +225,7 @@ export default function DocsLayout({ children }) {
                 );
             })}
 
-            <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
+            <main className={`mx-auto max-w-7xl px-5 py-6 ${wideable ? '[[data-width=full]_&]:max-w-none' : ''}`}>{children}</main>
             <Toaster />
         </div>
     );

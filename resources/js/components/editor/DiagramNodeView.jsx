@@ -12,8 +12,9 @@ const EMPTY_GRAPH = { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } };
 /**
  * NodeView for the diagram block (persisted node type: `networkDiagram`).
  *   editable  → live React Flow canvas (edits write back to the `graph` attr)
- *   read-only → the derived PNG (`imageSrc`); a placeholder until one exists
- *               (the PNG is generated in phase 3).
+ *   read-only → the same React Flow canvas, non-interactive. No-JS consumers
+ *               (PDF/DOCX/search/version snapshots) render server-side via
+ *               App\Support\DiagramSvg instead.
  */
 export default function DiagramNodeView({ node, updateAttributes, editor, deleteNode, getPos }) {
     const editable = editor.isEditable;

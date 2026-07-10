@@ -7,13 +7,14 @@
         <title inertia>{{ config('app.name') }}</title>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="icon" href="/favicon.ico" sizes="any">
-        {{-- Stamp BOTH theme axes BEFORE the bundle loads so the first paint
+        {{-- Stamp ALL theme axes BEFORE the bundle loads so the first paint
              is already themed (no flash). Mirrors resources/js/lib/theme.js:
-             keep the storage keys, accent id list, and fallbacks in sync. --}}
+             keep the storage keys, id lists, and fallbacks in sync. --}}
         <script>
             (function () {
                 var theme = 'light';
                 var accent = 'sage';
+                var width = 'boxed';
                 try {
                     var pref = localStorage.getItem('wwwdoc:theme') || 'system';
                     theme = pref === 'system'
@@ -21,9 +22,12 @@
                         : pref;
                     var a = localStorage.getItem('wwwdoc:accent');
                     if (['sage', 'pink', 'blue', 'rose', 'ochre'].indexOf(a) !== -1) accent = a;
+                    var w = localStorage.getItem('wwwdoc:width');
+                    if (['boxed', 'full'].indexOf(w) !== -1) width = w;
                 } catch (e) { /* storage unavailable — keep defaults */ }
                 document.documentElement.setAttribute('data-theme', theme);
                 document.documentElement.setAttribute('data-accent', accent);
+                document.documentElement.setAttribute('data-width', width);
             })();
         </script>
         @viteReactRefresh

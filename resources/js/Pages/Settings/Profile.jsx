@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { ThemeSegments, AccentSegments } from '@/components/ThemePicker';
+import { ThemeSegments, AccentSegments, WidthSegments } from '@/components/ThemePicker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
@@ -174,6 +174,11 @@ export default function ProfilePage({ user }) {
                     <div className="space-y-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Accent</p>
                         <AccentSegments />
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Page width</p>
+                        <WidthSegments />
+                        <p className="text-xs text-text-tertiary">Applies to pages and the editor.</p>
                     </div>
                 </CardContent>
             </Card>

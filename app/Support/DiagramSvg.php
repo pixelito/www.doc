@@ -4,11 +4,12 @@ namespace App\Support;
 
 /**
  * Server-side renderer: a diagram's canonical graph JSON -> a standalone SVG
- * string. The PHP twin of `resources/js/components/editor/diagramSvg.js` so PDF
- * export (and any no-JS consumer) draws a diagram straight from its graph, with
- * NO dependence on a client-captured PNG (`imageSrc`). Keep the two in sync —
+ * string, so PDF/DOCX export (and any no-JS consumer) draws a diagram straight
+ * from its graph, with NO dependence on a client-captured PNG. The fidelity
+ * reference is the LIVE canvas (`DiagramCanvas.jsx` node/edge components):
  * same palette, icon set, node layout and edge geometry (React Flow's bezier /
- * smooth-step / straight paths).
+ * smooth-step / straight paths) — keep this file in step with canvas styling
+ * changes.
  *
  * Node icons are the real Tabler glyphs, shared via diagramIcons.json (generated
  * by scripts/extract-diagram-icons.mjs). Arrowheads are `<polygon>` (not SVG
@@ -123,7 +124,7 @@ class DiagramSvg
                 if ($fit['props'] !== []) {
                     $fitKind = $data['kind'] ?? null;
                     $fitIcon = $fitKind && $fitKind !== 'generic' && isset(self::icons()[$fitKind]);
-                    $fitPad  = 10.0;
+                    $fitPad  = 12.0;
                     $fitIconW = $fitIcon ? 22 : 0;
                     $fitKeyW = 0.0;
                     $fitValW = 0.0;
@@ -490,12 +491,15 @@ class DiagramSvg
                 $parts[] = self::arrowhead($s['x'], $s['y'], $p['sdx'], $p['sdy'], $color);
             }
             if (! empty($data['label'])) {
-                $lw = self::textWidth($data['label'], 6.5) + 14;
-                $lh = 18;
+                // Live-canvas pill: 10px medium text, 4px side padding, 2px
+                // radius. Medium isn't an embedded weight, so Regular is the
+                // closer of the two (Bold read visibly heavier in exports).
+                $lw = self::textWidth($data['label'], 5.2) + 10;
+                $lh = 16;
                 $parts[] = '<rect x="' . self::n($p['lx'] - $lw / 2) . '" y="' . self::n($p['ly'] - $lh / 2)
-                    . '" width="' . self::n($lw) . '" height="' . $lh . '" rx="3" fill="#FBFAF5" fill-opacity="0.95" stroke="#E9E7DC" stroke-width="1"/>';
+                    . '" width="' . self::n($lw) . '" height="' . $lh . '" rx="2" fill="#FBFAF5" fill-opacity="0.95" stroke="#E9E7DC" stroke-width="1"/>';
                 $parts[] = '<text x="' . self::n($p['lx']) . '" y="' . self::n($p['ly'] + 3.5)
-                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="10" font-weight="bold" fill="#5C625C">'
+                    . '" text-anchor="middle" font-family="Lexend, sans-serif" font-size="10" fill="#5C625C">'
                     . self::esc($data['label']) . '</text>';
             }
         }
@@ -541,7 +545,8 @@ class DiagramSvg
                 }
             } else {
                 // Device card: left-aligned name (bold) + property rows below.
-                $pad     = 10.0;
+                // 12px pad = the live canvas card's px-3.
+                $pad     = 12.0;
                 $nameX   = $b['x'] + $pad + ($hasIcon ? 22 : 0);
                 $nameY   = $b['y'] + 18;
                 $nameMaxW = $b['w'] - ($nameX - $b['x']) - $pad;
