@@ -93,13 +93,13 @@ function AddAttachmentModal({ open, onClose, onAdd }) {
                             onDrop={(e) => { e.preventDefault(); setDragActive(false); chooseFile(e.dataTransfer.files); }}
                             className={`mt-1 flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed px-4 py-8 text-center transition-colors ${
                                 dragActive
-                                    ? 'border-sage-400 bg-sage-50'
-                                    : 'border-border hover:border-sage-300 hover:bg-surface-hover'
+                                    ? 'border-accent-400 bg-accent-50'
+                                    : 'border-border hover:border-accent-300 hover:bg-surface-hover'
                             }`}
                         >
                             <IconUpload className="h-5 w-5 text-text-tertiary" stroke={1.5} />
                             <p className="text-sm text-text-secondary">
-                                <span className="font-medium text-sage-600">Drag a file here or browse</span>
+                                <span className="font-medium text-accent-600">Drag a file here or browse</span>
                             </p>
                             <p className="text-[11px] text-text-tertiary">Up to 25 MB</p>
                         </div>
@@ -145,7 +145,7 @@ function AddAttachmentModal({ open, onClose, onAdd }) {
                         <div className="flex justify-end gap-2 pt-1">
                             <Button variant="outline" onClick={onClose}>Cancel</Button>
                             <Button
-                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                className="bg-accent-400 hover:bg-accent-500 text-text-inverse"
                                 onClick={confirm}
                                 disabled={!baseName.trim()}
                             >
@@ -225,7 +225,7 @@ export default function AttachmentsPanel({
                                         <button
                                             type="button"
                                             onClick={() => onUndoRemove(att.id)}
-                                            className="shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium text-sage-600 transition-colors hover:bg-surface-hover"
+                                            className="shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium text-accent-600 transition-colors hover:bg-surface-hover"
                                         >
                                             Undo
                                         </button>
@@ -241,7 +241,7 @@ export default function AttachmentsPanel({
                                         <a
                                             href={href}
                                             title="Download"
-                                            className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-sage-600"
+                                            className="shrink-0 rounded-sm p-1 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-accent-600"
                                         >
                                             <IconDownload className="h-4 w-4" stroke={1.5} />
                                         </a>
@@ -269,7 +269,7 @@ export default function AttachmentsPanel({
                             <IconFile className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                             <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{item.name}</span>
                             <span className="shrink-0 text-xs text-text-tertiary">{humanSize(item.file.size)}</span>
-                            <span className="shrink-0 rounded-sm bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-600">New</span>
+                            <span className="shrink-0 rounded-sm bg-accent-100 px-1.5 py-0.5 text-[10px] font-medium text-accent-600">New</span>
                             <button
                                 type="button"
                                 onClick={() => onRemovePending(i)}

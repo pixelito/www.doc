@@ -203,7 +203,7 @@ class PdfExporter implements ExporterContract
                 .callout-danger  { background: #F3E7E2; border-color: #DDB3A6; color: #B5573E; }
                 img { max-width: 100%; height: auto; }
                 a { color: #4A6741; text-decoration: none; }
-                /* Match the live read view: sage-600 text, sage-300 underline. */
+                /* Sage accent-600 text, accent-300 underline — exports always render light sage. */
                 .wiki-link {
                     color: #4B6840; font-weight: 500;
                     text-decoration: underline;

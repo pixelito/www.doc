@@ -19,7 +19,7 @@ export default function ErrorPage({ status }) {
         <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
             <Head title={`${status} — ${title}`} />
 
-            <p className="text-6xl font-bold tracking-tight text-sage-600">{status}</p>
+            <p className="text-6xl font-bold tracking-tight text-accent-600">{status}</p>
             <h1 className="mt-4 text-xl font-semibold text-foreground">{title}</h1>
             <p className="mt-2 max-w-sm text-sm text-text-secondary">{body}</p>
 

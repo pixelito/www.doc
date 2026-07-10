@@ -60,14 +60,14 @@ export default function SettingsLayout({ children }) {
                                     href={tab.href}
                                     className={`-mb-px flex items-center gap-1.5 border-b-[1.5px] px-3 py-2 text-sm font-medium transition-colors ${
                                         active
-                                            ? 'border-sage-400 text-sage-600'
+                                            ? 'border-accent-400 text-accent-600'
                                             : 'border-transparent text-text-secondary hover:text-foreground'
                                     }`}
                                 >
                                     <Icon className="h-4 w-4" stroke={1.5} />
                                     {tab.label}
                                     {dot && (
-                                        <span className="h-1.5 w-1.5 rounded-full bg-sage-400" aria-label="Update available" />
+                                        <span className="h-1.5 w-1.5 rounded-full bg-accent-400" aria-label="Update available" />
                                     )}
                                 </Link>
                             );
@@ -85,7 +85,7 @@ export default function SettingsLayout({ children }) {
                         <Link href={UPDATES_HREF} className="inline-flex items-center gap-1.5 transition-colors hover:text-text-secondary">
                             www.doc {version}
                             {updateAvailable && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-sage-400" aria-label="Update available" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-accent-400" aria-label="Update available" />
                             )}
                         </Link>
                     ) : (

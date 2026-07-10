@@ -68,7 +68,7 @@ function PageMeta({ document, versionsCount }) {
             <Link
                 href={`/documents/${document.id}/versions`}
                 title="View version history"
-                className="flex items-center gap-1.5 text-sage-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-sage-700"
+                className="flex items-center gap-1.5 text-accent-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-accent-700"
             >
                 <IconHistory className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
                 <span>{versionsCount} {versionsCount === 1 ? 'version' : 'versions'} · View history</span>
@@ -182,7 +182,7 @@ function ExportModal({ documentId, open, onClose }) {
                                 onClick={() => setFormat(f.value)}
                                 className={`w-full rounded-sm border px-4 py-3 text-left transition-all ${
                                     format === f.value
-                                        ? 'border-sage-400 bg-sage-50 ring-[3px] ring-sage-200/60'
+                                        ? 'border-accent-400 bg-accent-50 ring-[3px] ring-accent-200/60'
                                         : 'border-border bg-surface hover:bg-surface-hover'
                                 }`}
                             >
@@ -194,7 +194,7 @@ function ExportModal({ documentId, open, onClose }) {
                         <div className="flex justify-end gap-2 pt-2">
                             <Button variant="outline" onClick={handleClose}>Cancel</Button>
                             <Button
-                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                className="bg-accent-400 hover:bg-accent-500 text-text-inverse"
                                 onClick={startExport}
                             >
                                 <IconDownload stroke={1.5} />
@@ -207,7 +207,7 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Pending */}
                 {state === 'pending' && (
                     <div className="flex flex-col items-center gap-3 py-8 text-text-secondary">
-                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-600" stroke={1.5} />
+                        <IconLoader2 className="h-8 w-8 animate-spin text-accent-600" stroke={1.5} />
                         <p className="text-sm">Generating {format.toUpperCase()}…</p>
                     </div>
                 )}
@@ -215,12 +215,12 @@ function ExportModal({ documentId, open, onClose }) {
                 {/* Done */}
                 {state === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-6">
-                        <IconCircleCheck className="h-10 w-10 text-sage-600" stroke={1.5} />
+                        <IconCircleCheck className="h-10 w-10 text-accent-600" stroke={1.5} />
                         <p className="text-sm font-medium text-text-primary">Your file is ready!</p>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleClose}>Close</Button>
                             <Button
-                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse disabled:opacity-50"
+                                className="bg-accent-400 hover:bg-accent-500 text-text-inverse disabled:opacity-50"
                                 onClick={triggerDownload}
                                 disabled={downloaded}
                             >
@@ -311,7 +311,7 @@ function SaveAsTemplateModal({ open, onClose, documentId, documentTitle }) {
                         <Button
                             type="submit"
                             disabled={saving || !name.trim()}
-                            className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                            className="bg-accent-400 hover:bg-accent-500 text-text-inverse"
                         >
                             <IconTemplate stroke={1.5} />
                             {saving ? 'Saving…' : 'Save template'}
@@ -357,7 +357,7 @@ function MoveModal({ open, onClose, documentId, workspaces, currentWorkspaceId }
                         id="move-target"
                         value={target}
                         onChange={(e) => setTarget(e.target.value)}
-                        className="ui-select h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="ui-select h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     >
                         <option value="" disabled>Select a workspace…</option>
                         {targets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -381,7 +381,7 @@ function formatContext(text) {
         if (part.startsWith('[[') && part.endsWith(']]')) {
             const innerText = part.slice(2, -2);
             return (
-                <span key={index} className="mx-0.5 inline-block rounded-[3px] bg-sage-50 px-1 font-medium text-sage-600 underline decoration-sage-300 underline-offset-2">
+                <span key={index} className="mx-0.5 inline-block rounded-[3px] bg-accent-50 px-1 font-medium text-accent-600 underline decoration-accent-300 underline-offset-2">
                     {innerText}
                 </span>
             );
@@ -721,7 +721,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             value={editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
                             placeholder="Page title"
-                            className="w-full bg-transparent text-2xl font-semibold text-foreground outline-none placeholder:text-text-tertiary border-b border-border-subtle focus:border-sage-400 transition-colors duration-150"
+                            className="w-full bg-transparent text-2xl font-semibold text-foreground outline-none placeholder:text-text-tertiary border-b border-border-subtle focus:border-accent-400 transition-colors duration-150"
                         />
                     </div>
                 ) : (
@@ -733,7 +733,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             <Link
                                 href={`/documents/${document.id}/versions`}
                                 title="View version history"
-                                className="flex items-center gap-1 text-sage-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-sage-700"
+                                className="flex items-center gap-1 text-accent-600 underline decoration-dotted underline-offset-2 transition-colors hover:text-accent-700"
                             >
                                 <IconHistory className="h-3.5 w-3.5" stroke={1.5} />
                                 {versionsCount} {versionsCount === 1 ? 'version' : 'versions'}
@@ -761,7 +761,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                                 </span>
                             )}
                             {saveStatus === 'saved' && (
-                                <span className="flex items-center gap-1 text-xs text-sage-600">
+                                <span className="flex items-center gap-1 text-xs text-accent-600">
                                     <IconCircleCheck className="h-3.5 w-3.5" stroke={1.5} />
                                     Saved
                                 </span>
@@ -769,7 +769,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             <Button
                                 onClick={handleExplicitSave}
                                 disabled={saveStatus === 'saving'}
-                                className="bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                                className="bg-accent-400 hover:bg-accent-500 text-text-inverse"
                             >
                                 <IconDeviceFloppy stroke={1.5} />
                                 Save
@@ -877,7 +877,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                                     onClick={() => handleTagToggle(tag.id)}
                                     className={`inline-flex cursor-pointer items-center rounded-sm border px-2.5 py-0.5 text-xs font-medium transition-all ${
                                         selected
-                                            ? 'border-sage-200 bg-sage-100 text-sage-600'
+                                            ? 'border-accent-200 bg-accent-100 text-accent-600'
                                             : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
                                     }`}
                                 >
@@ -896,12 +896,12 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                                     onChange={(e) => { setNewTagName(e.target.value); setNewTagError(''); }}
                                     onKeyDown={(e) => { if (e.key === 'Escape') { setShowNewTag(false); setNewTagName(''); setNewTagError(''); } }}
                                     placeholder="Tag name"
-                                    className="h-[22px] w-28 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none placeholder:text-text-tertiary focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="h-[22px] w-28 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none placeholder:text-text-tertiary focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newTagName.trim() || newTagProcessing}
-                                    className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500 disabled:opacity-50"
+                                    className="rounded-sm bg-accent-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-accent-500 disabled:opacity-50"
                                 >
                                     {newTagProcessing ? '…' : 'Add'}
                                 </button>
@@ -917,7 +917,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             <button
                                 type="button"
                                 onClick={() => setShowNewTag(true)}
-                                className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-0.5 text-xs text-text-tertiary transition-colors hover:border-sage-300 hover:text-sage-600"
+                                className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-0.5 text-xs text-text-tertiary transition-colors hover:border-accent-300 hover:text-accent-600"
                             >
                                 <IconPlus className="h-3 w-3" stroke={1.5} />
                                 New tag
@@ -937,7 +937,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                         <Link
                             key={tag.id}
                             href={`/tags/${tag.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600 transition-colors hover:bg-sage-200"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-600 transition-colors hover:bg-accent-200"
                         >
                             <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
                             {tag.name}
@@ -964,8 +964,8 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 <Card className="overflow-clip">
                     {!isEditing && isDocEmpty(document.content) ? (
                         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
-                                <IconPencil className="h-6 w-6 text-sage-600" stroke={1.5} />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-200 bg-accent-50">
+                                <IconPencil className="h-6 w-6 text-accent-600" stroke={1.5} />
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-foreground">This page is empty</p>

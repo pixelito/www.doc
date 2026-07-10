@@ -22,7 +22,7 @@ export function Toaster(props) {
                     toast: 'flex w-full items-center gap-2.5 rounded-lg border bg-surface px-4 py-3 font-sans text-sm shadow-sm',
                     title: 'font-medium',
                     icon: 'shrink-0',
-                    success: '!border-sage-200 !bg-sage-50 text-sage-700 [&_[data-icon]]:text-sage-600',
+                    success: '!border-success-border !bg-success-tint text-success-ink [&_[data-icon]]:text-success-text',
                     error: '!border-danger-border !bg-danger-surface text-danger [&_[data-icon]]:text-danger',
                 },
             }}

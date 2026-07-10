@@ -58,7 +58,7 @@ export default function Login() {
                                     <input
                                         id="remember"
                                         type="checkbox"
-                                        className="h-3.5 w-3.5 accent-sage-400"
+                                        className="h-3.5 w-3.5 accent-accent-400"
                                         checked={data.remember}
                                         onChange={(e) => setData('remember', e.target.checked)}
                                     />
@@ -69,7 +69,7 @@ export default function Login() {
                                 </Button>
                             </form>
                             <p className="mt-6 text-center text-sm text-text-secondary">
-                                <Link href="/forgot-password" className="text-sage-600 hover:underline">Forgot your password?</Link>
+                                <Link href="/forgot-password" className="text-accent-600 hover:underline">Forgot your password?</Link>
                             </p>
                         </CardContent>
                     </Card>

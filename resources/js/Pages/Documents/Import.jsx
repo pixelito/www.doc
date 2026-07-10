@@ -40,7 +40,7 @@ function FileDrop({ onFile, file }) {
             onClick={() => inputRef.current?.click()}
             className={[
                 'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed px-6 py-10 transition-colors duration-150',
-                dragging ? 'border-sage-400 bg-sage-50' : 'border-border hover:border-sage-300 hover:bg-surface-hover',
+                dragging ? 'border-accent-400 bg-accent-50' : 'border-border hover:border-accent-300 hover:bg-surface-hover',
             ].join(' ')}
         >
             <input
@@ -206,7 +206,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
                                 <select
                                     value={parentId}
                                     onChange={(e) => setParentId(e.target.value)}
-                                    className="ui-select h-9 w-full rounded-sm border border-border bg-surface px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="ui-select h-9 w-full rounded-sm border border-border bg-surface px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 >
                                     <option value="">— Root level (no parent)</option>
                                     {pages.map(p => (
@@ -246,7 +246,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
 
                 {(status === 'uploading' || status === 'processing') && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
-                        <IconLoader2 className="h-8 w-8 animate-spin text-sage-600" stroke={1.5} />
+                        <IconLoader2 className="h-8 w-8 animate-spin text-accent-600" stroke={1.5} />
                         <div>
                             <p className="font-medium text-foreground">
                                 {status === 'uploading' ? 'Uploading…' : 'Converting…'}
@@ -262,7 +262,7 @@ export default function Import({ workspace, pages = [], initialParentId = null }
 
                 {status === 'done' && (
                     <div className="flex flex-col items-center gap-4 py-12 text-center">
-                        <IconCircleCheck className="h-10 w-10 text-sage-600" stroke={1.5} />
+                        <IconCircleCheck className="h-10 w-10 text-accent-600" stroke={1.5} />
                         <div>
                             <p className="font-semibold text-foreground">Import complete!</p>
                             <p className="mt-0.5 text-sm text-text-secondary">Your document is ready to edit.</p>

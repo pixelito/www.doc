@@ -143,7 +143,7 @@ export default function DocsLayout({ children }) {
                             value={searchQ}
                             onChange={(e) => setSearchQ(e.target.value)}
                             placeholder="Search docs…"
-                            className="h-8 w-full rounded-sm border border-border bg-canvas pl-8 pr-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                            className="h-8 w-full rounded-sm border border-border bg-canvas pl-8 pr-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                         />
                     </form>
 
@@ -205,7 +205,7 @@ export default function DocsLayout({ children }) {
                         className={`flex items-start gap-2 border-b px-5 py-2.5 text-sm ${
                             isErr
                                 ? 'border-danger-border bg-danger-surface text-danger'
-                                : 'border-sage-200 bg-sage-50 text-sage-700'
+                                : 'border-accent-200 bg-accent-50 text-accent-700'
                         }`}
                     >
                         <Icon className="mt-0.5 h-4 w-4 shrink-0" stroke={1.5} />

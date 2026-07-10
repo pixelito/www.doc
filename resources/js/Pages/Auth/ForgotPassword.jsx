@@ -25,7 +25,7 @@ export default function ForgotPassword({ status }) {
                         </CardHeader>
                         <CardContent className="px-8 pb-10 pt-8">
                             {status && (
-                                <div className="mb-5 rounded-md border border-sage-200 bg-sage-50 px-3.5 py-2.5 text-sm text-sage-700">
+                                <div className="mb-5 rounded-md border border-accent-200 bg-accent-50 px-3.5 py-2.5 text-sm text-accent-700">
                                     {status}
                                 </div>
                             )}
@@ -52,7 +52,7 @@ export default function ForgotPassword({ status }) {
                                 </Button>
                             </form>
                             <p className="mt-6 text-center text-sm text-text-secondary">
-                                <Link href="/login" className="text-sage-600 hover:underline">Back to sign in</Link>
+                                <Link href="/login" className="text-accent-600 hover:underline">Back to sign in</Link>
                             </p>
                         </CardContent>
                     </Card>

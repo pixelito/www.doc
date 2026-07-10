@@ -103,7 +103,7 @@ const EXTRA_KIND_IDS = new Set(NODE_KINDS.filter((k) => ! k.core).map((k) => k.i
 // node.data.color; the rest is render-only (light fill + matching border +
 // accent for the icon). `swatch` is the palette button colour.
 const NODE_COLORS = [
-    { id: 'default',    bg: 'var(--surface)', border: 'var(--border)', accent: 'var(--sage-600)', swatch: '#FBFAF5' },
+    { id: 'default',    bg: 'var(--surface)', border: 'var(--border)', accent: 'var(--accent-600)', swatch: '#FBFAF5' },
     { id: 'sage',       bg: '#EAF1E5', border: '#BFD2B5', accent: '#4B6840', swatch: '#CDDEC4' },
     { id: 'blue',       bg: '#E9EFF4', border: '#B8CCDD', accent: '#42637E', swatch: '#C4D6E4' },
     { id: 'amber',      bg: '#F6EEDC', border: '#E5CF9F', accent: '#9A6F2E', swatch: '#EBD6A6' },
@@ -132,7 +132,7 @@ const colorMeta = (id) => {
 const miniMapNodeColor = (n) => {
     const id = n.data?.color ?? (n.type === 'group' ? 'sage' : 'default');
     if (isHexColor(id)) return id;
-    if (id === 'default') return '#9FB994'; // sage-300 for the plain box / zone
+    if (id === 'default') return '#9FB994'; // accent-300 for the plain box / zone
     const c = colorMeta(id);
     return n.type === 'group' ? c.border : c.accent;
 };
@@ -215,7 +215,7 @@ function LabeledNode({ id, data, selected }) {
         // (minWidth keeps small labels legible).
         <div
             className={`group flex h-full w-full ${props.length ? 'flex-col items-start justify-start gap-0.5' : 'items-center justify-center'} gap-1.5 rounded-md border px-3 py-2 text-xs text-foreground shadow-md ${
-                selected ? 'ring-1 ring-sage-400' : ''
+                selected ? 'ring-1 ring-accent-400' : ''
             }`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
         >
@@ -224,8 +224,8 @@ function LabeledNode({ id, data, selected }) {
                     minWidth={90}
                     minHeight={40}
                     isVisible={selected}
-                    lineClassName="!border-sage-400"
-                    handleClassName="!h-3 !w-3 !rounded-sm !border-sage-400 !bg-surface"
+                    lineClassName="!border-accent-400"
+                    handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
@@ -242,7 +242,7 @@ function LabeledNode({ id, data, selected }) {
                                     title={k.label}
                                     onClick={() => onKindChange(id, k.id)}
                                     className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors ${
-                                        kind === k.id ? 'bg-sage-100 text-sage-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
+                                        kind === k.id ? 'bg-accent-100 text-accent-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
                                     }`}
                                 >
                                     <k.Icon className="h-3.5 w-3.5" stroke={1.5} />
@@ -273,7 +273,7 @@ function LabeledNode({ id, data, selected }) {
                                 onKeyDown={(e) => e.stopPropagation()}
                                 placeholder="Name"
                                 aria-label="Node name"
-                                className="w-40 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                                className="w-40 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-accent-400"
                             />
                             {props.map((p, i) => (
                                 <div key={i} className="flex items-center gap-1">
@@ -285,7 +285,7 @@ function LabeledNode({ id, data, selected }) {
                                         onKeyDown={(e) => e.stopPropagation()}
                                         placeholder="Key"
                                         aria-label="Property key"
-                                        className="w-16 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                                        className="w-16 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-accent-400"
                                     />
                                     <input
                                         type="text"
@@ -295,7 +295,7 @@ function LabeledNode({ id, data, selected }) {
                                         onKeyDown={(e) => e.stopPropagation()}
                                         placeholder="Value"
                                         aria-label="Property value"
-                                        className="w-24 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-sage-400"
+                                        className="w-24 rounded-sm border border-border bg-canvas px-1.5 py-0.5 text-xs outline-none focus:border-accent-400"
                                     />
                                     <button
                                         type="button"
@@ -331,7 +331,7 @@ function LabeledNode({ id, data, selected }) {
                     type="source"
                     position={position}
                     isConnectable={editable}
-                    className={`!h-2 !w-2 !border !border-border !bg-sage-300 !transition-opacity ${
+                    className={`!h-2 !w-2 !border !border-border !bg-accent-300 !transition-opacity ${
                         editable
                             ? (selected ? '!opacity-100' : '!opacity-0 group-hover:!opacity-100')
                             : '!opacity-0 !pointer-events-none'
@@ -382,8 +382,8 @@ function GroupNode({ id, data, selected }) {
                     minWidth={140}
                     minHeight={90}
                     isVisible={selected}
-                    lineClassName="!border-sage-400"
-                    handleClassName="!h-3 !w-3 !rounded-sm !border-sage-400 !bg-surface"
+                    lineClassName="!border-accent-400"
+                    handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
@@ -411,7 +411,7 @@ function GroupNode({ id, data, selected }) {
                             if (e.key === 'Enter') { e.preventDefault(); commit(); }
                             if (e.key === 'Escape') { setEditing(false); setVal(data.label ?? 'Zone'); }
                         }}
-                        className="nodrag rounded-sm border border-sage-400 bg-canvas px-1 text-xs outline-none"
+                        className="nodrag rounded-sm border border-accent-400 bg-canvas px-1 text-xs outline-none"
                     />
                 ) : (
                     <span className="text-xs font-semibold" style={{ color: color.accent }}>{data.label || 'Zone'}</span>
@@ -570,7 +570,7 @@ function EdgeIconButton({ active, danger, title, onClick, children }) {
             title={title}
             onClick={onClick}
             className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
-                active ? 'bg-sage-100 text-sage-700'
+                active ? 'bg-accent-100 text-accent-700'
                 : danger ? 'text-text-secondary hover:bg-danger hover:text-text-inverse'
                 : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
             }`}
@@ -1309,7 +1309,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                             zoomable
                             nodeColor={miniMapNodeColor}
                             nodeStrokeWidth={2}
-                            maskColor="color-mix(in srgb, var(--sage-600) 12%, transparent)"
+                            maskColor="color-mix(in srgb, var(--accent-600) 12%, transparent)"
                             className="!bottom-2 !right-2 !rounded-md !border !border-border !bg-card !shadow-sm"
                             style={{ width: 140, height: 96 }}
                         />
@@ -1360,7 +1360,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                                 title={snap ? 'Snap to grid: on' : 'Snap to grid: off'}
                                 className={`flex items-center justify-center rounded-sm border px-1.5 py-1 shadow-sm transition-colors ${
                                     snap
-                                        ? 'border-sage-300 bg-sage-100 text-sage-700'
+                                        ? 'border-accent-300 bg-accent-100 text-accent-700'
                                         : 'border-border bg-card text-text-secondary hover:bg-surface-hover hover:text-foreground'
                                 }`}
                             >
@@ -1383,7 +1383,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                                 title={showMap ? 'Minimap: on' : 'Minimap: off'}
                                 className={`flex items-center justify-center rounded-sm border px-1.5 py-1 shadow-sm transition-colors ${
                                     showMap
-                                        ? 'border-sage-300 bg-sage-100 text-sage-700'
+                                        ? 'border-accent-300 bg-accent-100 text-accent-700'
                                         : 'border-border bg-card text-text-secondary hover:bg-surface-hover hover:text-foreground'
                                 }`}
                             >

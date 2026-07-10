@@ -29,18 +29,18 @@ function TemplateOption({ name, description, selected, onSelect }) {
             role="radio"
             aria-checked={selected}
             className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                selected ? 'bg-sage-50' : 'hover:bg-surface-hover'
+                selected ? 'bg-accent-50' : 'hover:bg-surface-hover'
             }`}
         >
             <span className="min-w-0 flex-1">
-                <span className={`block truncate text-sm font-medium ${selected ? 'text-sage-600' : 'text-foreground'}`}>
+                <span className={`block truncate text-sm font-medium ${selected ? 'text-accent-600' : 'text-foreground'}`}>
                     {name}
                 </span>
                 {description && (
                     <span className="mt-0.5 block truncate text-xs text-text-tertiary">{description}</span>
                 )}
             </span>
-            {selected && <IconCheck className="h-4 w-4 shrink-0 text-sage-600" stroke={2} />}
+            {selected && <IconCheck className="h-4 w-4 shrink-0 text-accent-600" stroke={2} />}
         </button>
     );
 }
@@ -128,7 +128,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
                                 onChange={(e) => { setTitle(e.target.value); setError(''); }}
                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSubmit(e); } }}
                                 placeholder="e.g. VPN setup"
-                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             />
                             {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
                         </div>
@@ -172,7 +172,7 @@ export default function NewPageModal({ open, onClose, workspaceId, parentOptions
                             <select
                                 value={parentId}
                                 onChange={(e) => setParentId(e.target.value)}
-                                className="ui-select h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="ui-select h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             >
                                 <option value="">None — top-level page</option>
                                 {parentOptions.map((o) => (

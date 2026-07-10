@@ -94,8 +94,8 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
                         {STEPS.map((label, i) => (
                             <div key={label} className="flex items-center gap-2">
                                 <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                                    i < step ? 'bg-sage-400 text-text-inverse'
-                                        : i === step ? 'bg-sage-200 text-sage-700'
+                                    i < step ? 'bg-accent-400 text-text-inverse'
+                                        : i === step ? 'bg-accent-200 text-accent-700'
                                         : 'bg-surface-hover text-text-tertiary'
                                 }`}>
                                     {i < step ? <IconCheck className="h-3.5 w-3.5" stroke={2} /> : i + 1}
@@ -242,7 +242,7 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
                                         )}
                                     </div>
                                     {testResult && (
-                                        <p className={`text-xs ${testResult.ok ? 'text-sage-700' : 'text-danger'}`}>{testResult.message}</p>
+                                        <p className={`text-xs ${testResult.ok ? 'text-accent-700' : 'text-danger'}`}>{testResult.message}</p>
                                     )}
                                     <SmtpTestPanel result={props.flash?.smtpTest} />
 

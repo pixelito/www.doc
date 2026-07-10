@@ -230,7 +230,7 @@ export default function TipTapEditor({
                     keyHandlerRef={wikiKeyRef}
                     renderItem={(item) =>
                         item.__create ? (
-                            <div className="flex items-center gap-1.5 text-left leading-tight text-sage-600">
+                            <div className="flex items-center gap-1.5 text-left leading-tight text-accent-600">
                                 <IconPlus size={13} stroke={1.5} />
                                 <span>Create new page '{item.title}'</span>
                             </div>

@@ -13,7 +13,7 @@ function SummaryBadges({ summary }) {
 
     return (
         <span className="ml-2 inline-flex items-center gap-1.5 align-middle text-[11px]">
-            {summary.words_added > 0 && <span className="font-medium text-sage-600">+{summary.words_added}</span>}
+            {summary.words_added > 0 && <span className="font-medium text-accent-600">+{summary.words_added}</span>}
             {summary.words_removed > 0 && <span className="font-medium text-danger">−{summary.words_removed}</span>}
             {blocks > 0 && (
                 <span className="text-text-tertiary">
@@ -68,7 +68,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
             </nav>
 
             <div className="mb-4 flex items-center gap-2">
-                <IconHistory className="h-5 w-5 text-sage-600" stroke={1.5} />
+                <IconHistory className="h-5 w-5 text-accent-600" stroke={1.5} />
                 <h1 className="text-[19px] font-semibold text-foreground">Version history</h1>
                 <span className="ml-1 text-sm text-text-tertiary">({versions.length})</span>
 
@@ -102,7 +102,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                 className="grid grid-cols-[28px_1fr_140px_140px] items-center border-b border-border-subtle last:border-0 px-4 py-3 transition-colors hover:bg-surface-hover">
                                 <input
                                     type="checkbox"
-                                    className="h-3.5 w-3.5 accent-sage-400"
+                                    className="h-3.5 w-3.5 accent-accent-400"
                                     checked={selected.includes(i)}
                                     onChange={() => toggle(i)}
                                     aria-label={`Select version from ${timeAgo(v.created_at)} for comparison`}
@@ -112,12 +112,12 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                         href={i === 0
                                             ? `/documents/${document.id}`
                                             : `/documents/${document.id}/versions/${v.id}`}
-                                        className="truncate text-sm font-medium text-sage-600 hover:underline"
+                                        className="truncate text-sm font-medium text-accent-600 hover:underline"
                                     >
                                         {v.title}
                                     </Link>
                                     {i === 0 && (
-                                        <span className="ml-2 rounded-sm bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold text-sage-600">
+                                        <span className="ml-2 rounded-sm bg-accent-100 px-1.5 py-0.5 text-[10px] font-semibold text-accent-600">
                                             current
                                         </span>
                                     )}

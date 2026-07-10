@@ -116,7 +116,7 @@ function flattenOptions(nodes, depth = 0, acc = []) {
 function TagPill({ name, active }) {
     return (
         <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-            active ? 'bg-sage-100 text-sage-600' : 'bg-surface border border-border text-text-secondary'
+            active ? 'bg-accent-100 text-accent-600' : 'bg-surface border border-border text-text-secondary'
         }`}>
             {name}
         </span>
@@ -139,7 +139,7 @@ function GripHandle({ listeners, attributes }) {
 }
 
 function ActionButton({ onClick, href, title, children }) {
-    const cls = "flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 hover:text-sage-600";
+    const cls = "flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-text-tertiary opacity-0 transition-all duration-150 group-hover:opacity-100 group-hover:border-border hover:bg-accent-50 hover:border-accent-200 hover:text-accent-600";
     return href
         ? <Link href={href} title={title} onClick={(e) => e.stopPropagation()} className={cls}>{children}</Link>
         : <button type="button" onClick={onClick} title={title} className={cls}>{children}</button>;
@@ -169,7 +169,7 @@ function StarButton({ node, starred }) {
             onClick={() => router.post(`/documents/${node.id}/star`, {}, { preserveScroll: true, preserveState: true })}
             title={starred ? 'Unstar' : 'Star'}
             aria-pressed={starred}
-            className={`flex h-6 w-6 items-center justify-center rounded-sm border border-transparent transition-all duration-150 group-hover:border-border hover:bg-sage-50 hover:border-sage-200 ${
+            className={`flex h-6 w-6 items-center justify-center rounded-sm border border-transparent transition-all duration-150 group-hover:border-border hover:bg-accent-50 hover:border-accent-200 ${
                 starred
                     ? 'text-warning opacity-100'
                     : 'text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-warning'
@@ -210,7 +210,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             ref={setNodeRef}
             style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
             className={`group relative grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors ${
-                isDropParent ? 'bg-sage-50 ring-1 ring-inset ring-sage-300' : 'hover:bg-surface-hover/60'
+                isDropParent ? 'bg-accent-50 ring-1 ring-inset ring-accent-300' : 'hover:bg-surface-hover/60'
             }`}
         >
             {/* Tree guides on a full-height layer anchored to the <li> (not the
@@ -260,7 +260,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                     <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                     <Link
                         href={`/documents/${node.id}`}
-                        className={`truncate text-sm transition-colors group-hover:text-sage-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
+                        className={`truncate text-sm transition-colors group-hover:text-accent-600 ${isRoot ? 'font-medium text-foreground' : 'text-text-secondary'}`}
                     >
                         {node.title}
                     </Link>
@@ -268,7 +268,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
                         <TagPill key={t.id} name={t.name} active={activeTagId === t.id} />
                     ))}
                     {isDropParent && (
-                        <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700">
+                        <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-100 px-1.5 py-0.5 text-[10px] font-medium text-accent-700">
                             <IconCornerDownRight className="h-3 w-3" stroke={1.5} />
                             New parent
                         </span>
@@ -292,7 +292,7 @@ function FilteredRow({ node }) {
         <li className="group grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2 py-3 pl-4 pr-4">
                 <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-sage-600">
+                <Link href={`/documents/${node.id}`} className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-accent-600">
                     {node.title}
                 </Link>
                 {node.tags.map((t) => <TagPill key={t.id} name={t.name} active={true} />)}
@@ -560,7 +560,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                             onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
                             className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
                                 activeTag === tag.id
-                                    ? 'bg-sage-100 text-sage-600'
+                                    ? 'bg-accent-100 text-accent-600'
                                     : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'
                             }`}
                         >
@@ -639,7 +639,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
             </div>
 
             {reordering && rootNodes.length > 0 && !filteredRows && (
-                <p className="mt-2 px-1 text-xs text-sage-600">
+                <p className="mt-2 px-1 text-xs text-accent-600">
                     Drag a page up or down to reorder, or sideways to nest it under another page. Click “Done” when finished.
                 </p>
             )}

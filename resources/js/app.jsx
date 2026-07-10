@@ -33,7 +33,8 @@ createInertiaApp({
         createRoot(el).render(<App {...props} />);
     },
     progress: {
-        // Sage primary (--sage-400) so the loading bar matches the palette
+        // Seed color only — app.css overrides #nprogress with var(--accent-400)
+        // so the bar follows the active accent live.
         color: '#7E9D72',
     },
 });
