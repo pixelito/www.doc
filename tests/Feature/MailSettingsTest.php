@@ -73,6 +73,30 @@ test('configured SMTP settings drive the default mailer', function () {
         ->and(config('mail.from.address'))->toBe('docs@acme.test');
 });
 
+test('certificate verification defaults to on and can be disabled', function () {
+    login();
+
+    // Default: on — and the mailer config says so.
+    MailSettings::save(mailPayload());
+    MailSettings::applyToMailer();
+    expect(MailSettings::get()['verify_peer'])->toBeTrue()
+        ->and(config('mail.mailers.smtp.verify_peer'))->toBeTrue();
+
+    // Disabled via the settings form: persists, reaches the mailer config
+    // (Symfony's EsmtpTransportFactory reads it), and lands in the audit trail.
+    $this->patch('/admin/settings/mail', mailPayload(['verify_peer' => false]))
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    MailSettings::applyToMailer();
+
+    expect(MailSettings::get()['verify_peer'])->toBeFalse()
+        ->and(config('mail.mailers.smtp.verify_peer'))->toBeFalse()
+        ->and(MailSettings::forDisplay()['verify_peer'])->toBeFalse();
+
+    $event = \App\Models\AuditEvent::where('event', 'settings.mail_updated')->latest('id')->first();
+    expect($event->context['verify_peer'])->toBeFalse();
+});
+
 test('an unconfigured mailer is left untouched', function () {
     config(['mail.default' => 'log']);
 

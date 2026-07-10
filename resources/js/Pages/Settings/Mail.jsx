@@ -18,6 +18,7 @@ export default function Mail({ settings }) {
         host: settings.host ?? '',
         port: settings.port ?? 587,
         encryption: settings.encryption ?? 'tls',
+        verify_peer: settings.verify_peer ?? true,
         username: settings.username ?? '',
         password: '',
         from_address: settings.from_address ?? '',

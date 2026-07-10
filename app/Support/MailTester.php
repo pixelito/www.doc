@@ -33,6 +33,7 @@ class MailTester
             'host'       => $mail['host'] ?? '',
             'port'       => (int) ($mail['port'] ?? 587),
             'encryption' => $encryption,
+            'verify_peer' => (bool) ($mail['verify_peer'] ?? true),
             'username'   => ($mail['username'] ?? '') ?: null,
             'password'   => ($mail['password'] ?? '') ?: null,
             'timeout'    => 15,

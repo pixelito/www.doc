@@ -27,6 +27,7 @@ class MailSettings
             'host'         => '',
             'port'         => 587,
             'encryption'   => 'tls', // tls | ssl | none
+            'verify_peer'  => true,  // TLS certificate verification (off = self-signed/internal-CA relays)
             'username'     => '',
             'password'     => '',    // stored encrypted
             'from_address' => '',
@@ -62,6 +63,7 @@ class MailSettings
             'host'         => $input['host'] ?? '',
             'port'         => (int) ($input['port'] ?? 587),
             'encryption'   => $input['encryption'] ?? 'tls',
+            'verify_peer'  => (bool) ($input['verify_peer'] ?? true),
             'username'     => $input['username'] ?? '',
             'password'     => $password,
             'from_address' => $input['from_address'] ?? '',
@@ -82,6 +84,7 @@ class MailSettings
             'host'         => $input['host'] ?? $current['host'],
             'port'         => (int) ($input['port'] ?? $current['port']),
             'encryption'   => $input['encryption'] ?? $current['encryption'],
+            'verify_peer'  => (bool) ($input['verify_peer'] ?? $current['verify_peer']),
             'username'     => $input['username'] ?? $current['username'],
             'password'     => ($input['password'] ?? '') !== '' ? $input['password'] : self::password(),
             'from_address' => $input['from_address'] ?? $current['from_address'],
@@ -116,6 +119,9 @@ class MailSettings
                 'host'       => $mail['host'] ?? '',
                 'port'       => (int) ($mail['port'] ?? 587),
                 'encryption' => $encryption,
+                // Symfony's EsmtpTransportFactory reads this from the DSN
+                // options and drops peer + peer-name verification when false.
+                'verify_peer' => (bool) ($mail['verify_peer'] ?? true),
                 'username'   => ($mail['username'] ?? '') ?: null,
                 'password'   => self::password() ?: null,
                 'timeout'    => 15,

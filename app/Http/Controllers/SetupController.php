@@ -98,6 +98,7 @@ class SetupController extends Controller
             'host'         => ['required', 'string', 'max:255'],
             'port'         => ['required', 'integer', 'min:1', 'max:65535'],
             'encryption'   => ['required', 'in:tls,ssl,none'],
+            'verify_peer'  => ['boolean'],
             'username'     => ['nullable', 'string', 'max:255'],
             'password'     => ['nullable', 'string', 'max:255'],
             'from_address' => ['required', 'email', 'max:255'],

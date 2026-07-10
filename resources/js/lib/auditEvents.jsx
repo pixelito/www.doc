@@ -71,7 +71,7 @@ const EVENTS = {
     'auth.password_changed': { tone: 'neutral', text: () => 'changed their password' },
     'auth.password_reset':   { tone: 'neutral', text: () => 'reset their password via an email link' },
 
-    'settings.mail_updated':   { tone: 'warning', text: (c) => <>updated the email (SMTP) settings{c?.host ? <> (<span className="font-medium">{c.host}</span>)</> : ''}</> },
+    'settings.mail_updated':   { tone: 'warning', text: (c) => <>updated the email (SMTP) settings{c?.host ? <> (<span className="font-medium">{c.host}</span>)</> : ''}{c?.verify_peer === false ? ', certificate verification off' : ''}</> },
     'settings.backup_updated': { tone: 'warning', text: () => 'updated the backup settings' },
     'settings.updates_updated': { tone: 'neutral', text: (c) => <>{c?.enabled ? 'enabled' : 'disabled'} the update check</> },
 

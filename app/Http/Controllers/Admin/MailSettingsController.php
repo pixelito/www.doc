@@ -33,9 +33,12 @@ class MailSettingsController extends Controller
         MailSettings::save($validated);
 
         // Connection endpoint only — never credentials — in the audit snapshot.
+        // verify_peer is security-relevant (disabling it weakens TLS), so it
+        // belongs in the trail.
         \App\Support\Audit::record('settings.mail_updated', null, [
-            'host' => $validated['host'] ?? null,
-            'port' => $validated['port'] ?? null,
+            'host'        => $validated['host'] ?? null,
+            'port'        => $validated['port'] ?? null,
+            'verify_peer' => (bool) ($validated['verify_peer'] ?? true),
         ]);
 
         return back()->with('success', 'Email settings saved.');
@@ -47,6 +50,7 @@ class MailSettingsController extends Controller
             'host'         => ['required', 'string', 'max:255'],
             'port'         => ['required', 'integer', 'min:1', 'max:65535'],
             'encryption'   => ['required', 'in:tls,ssl,none'],
+            'verify_peer'  => ['boolean'],
             'username'     => ['nullable', 'string', 'max:255'],
             'password'     => ['nullable', 'string', 'max:255'],
             'from_address' => ['required', 'email', 'max:255'],
