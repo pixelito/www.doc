@@ -21,6 +21,12 @@ updates:
       - "js"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      # TipTap packages pin exact-version peer deps on their siblings,
+      # so they must be bumped in lockstep or npm ci fails with ERESOLVE.
+      tiptap:
+        patterns:
+          - "@tiptap/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
