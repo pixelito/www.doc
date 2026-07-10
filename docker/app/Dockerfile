@@ -75,7 +75,7 @@ CMD ["php-fpm"]
 # Copying public/ from the app stage also brings favicon.ico, robots.txt and the
 # content-hashed build/ assets (immutable per-deploy, so never stale). Uploaded
 # /storage/* arrives via the shared volume through the public/storage symlink.
-FROM nginx:1.27-alpine AS web
+FROM nginx:1.31-alpine AS web
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=app /var/www/html/public /var/www/html/public
 RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
