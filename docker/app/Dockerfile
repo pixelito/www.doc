@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 2: PHP runtime (php-fpm), with code + vendor + built assets baked in ─
-FROM php:8.3-fpm-bookworm AS app
+FROM php:8.5-fpm-bookworm AS app
 ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
