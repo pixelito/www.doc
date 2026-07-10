@@ -125,9 +125,9 @@ export default function TemplatesIndex({ templates }) {
                                     className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4 text-sm font-medium text-foreground transition-colors hover:text-accent-600"
                                 >
                                     <IconTemplate className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                                    <span className="truncate">{template.name}</span>
+                                    <span className="truncate" title={template.name}>{template.name}</span>
                                 </Link>
-                                <div className="truncate py-2.5 pr-4 text-sm text-text-secondary">
+                                <div className="truncate py-2.5 pr-4 text-sm text-text-secondary" title={template.description || undefined}>
                                     {template.description}
                                 </div>
                                 <div className="py-2.5 pr-4 text-xs text-text-tertiary">

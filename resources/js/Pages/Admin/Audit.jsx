@@ -108,7 +108,7 @@ export default function Audit() {
 
                                         <div className="min-w-0 flex-1">
                                             {/* Human sentence first; the actor is bold, the phrase comes from the event map. */}
-                                            <p className="truncate text-sm text-foreground">
+                                            <p className="truncate text-sm text-foreground" title={`${actorless ? '' : (event.user?.name ?? 'System') + ' '}${text}`}>
                                                 {!actorless && (
                                                     <span className="font-medium">{event.user?.name ?? 'System'} </span>
                                                 )}

@@ -108,7 +108,7 @@ function AddAttachmentModal({ open, onClose, onAdd }) {
                     <div className="space-y-3 py-1">
                         <div className="flex items-center gap-2 rounded-sm border border-border bg-surface px-3 py-2">
                             <IconFile className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{file.name}</span>
+                            <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={file.name}>{file.name}</span>
                             <span className="shrink-0 text-xs text-text-tertiary">{humanSize(file.size)}</span>
                             <button
                                 type="button"
@@ -220,7 +220,7 @@ export default function AttachmentsPanel({
                                 <IconFile className={`h-4 w-4 shrink-0 text-text-tertiary${removing ? ' opacity-40' : ''}`} stroke={1.5} />
                                 {removing ? (
                                     <>
-                                        <span className="min-w-0 flex-1 truncate text-sm text-text-tertiary line-through">{att.original_name}</span>
+                                        <span className="min-w-0 flex-1 truncate text-sm text-text-tertiary line-through" title={att.original_name}>{att.original_name}</span>
                                         <span className="shrink-0 text-xs text-text-tertiary">Will be removed</span>
                                         <button
                                             type="button"
@@ -235,7 +235,7 @@ export default function AttachmentsPanel({
                                         <div
                                             className="flex min-w-0 flex-1 items-baseline gap-2"
                                         >
-                                            <span className="truncate text-sm font-medium text-foreground">{att.original_name}</span>
+                                            <span className="truncate text-sm font-medium text-foreground" title={att.original_name}>{att.original_name}</span>
                                             <span className="shrink-0 text-xs text-text-tertiary">{humanSize(att.size)}</span>
                                         </div>
                                         <a
@@ -267,7 +267,7 @@ export default function AttachmentsPanel({
                             className={`flex items-center gap-3 px-4 py-2.5${attachments.length > 0 || i > 0 ? ' border-t border-border-subtle' : ''}`}
                         >
                             <IconFile className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{item.name}</span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" title={item.name}>{item.name}</span>
                             <span className="shrink-0 text-xs text-text-tertiary">{humanSize(item.file.size)}</span>
                             <span className="shrink-0 rounded-sm bg-accent-100 px-1.5 py-0.5 text-[10px] font-medium text-accent-600">New</span>
                             <button

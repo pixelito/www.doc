@@ -80,11 +80,11 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2 text-sm">
                     <IconGitCompare className="h-4 w-4 shrink-0 text-accent-500" stroke={1.5} aria-hidden="true" />
-                    <span className="truncate rounded-full bg-danger-surface px-2 py-0.5 text-[12px] font-medium text-danger">
+                    <span className="truncate rounded-full bg-danger-surface px-2 py-0.5 text-[12px] font-medium text-danger" title={sideLabel(left)}>
                         {sideLabel(left)}
                     </span>
                     <IconArrowRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} aria-hidden="true" />
-                    <span className="truncate rounded-full bg-accent-100 px-2 py-0.5 text-[12px] font-medium text-accent-600">
+                    <span className="truncate rounded-full bg-accent-100 px-2 py-0.5 text-[12px] font-medium text-accent-600" title={sideLabel(right)}>
                         {sideLabel(right)}
                     </span>
                 </div>
@@ -234,7 +234,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                         {block.type === 'image'
                                             ? <IconPhoto className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} aria-hidden="true" />
                                             : <IconTable className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} aria-hidden="true" />}
-                                        <span className="min-w-0 flex-1 truncate text-foreground">{block.label}</span>
+                                        <span className="min-w-0 flex-1 truncate text-foreground" title={block.label}>{block.label}</span>
                                         <StatusPill status={block.status} />
                                     </div>
                                 ))}

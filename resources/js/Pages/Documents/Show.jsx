@@ -406,10 +406,10 @@ function BacklinksPanel({ backlinks }) {
                     >
                         <div className="flex items-center gap-2">
                             <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                            <span className="truncate text-sm font-medium text-foreground">{link.title}</span>
+                            <span className="truncate text-sm font-medium text-foreground" title={link.title}>{link.title}</span>
                         </div>
                         {link.context && (
-                            <p className="mt-1 truncate pl-6 text-xs text-text-tertiary">
+                            <p className="mt-1 truncate pl-6 text-xs text-text-tertiary" title={link.context}>
                                 {formatContext(link.context)}
                             </p>
                         )}

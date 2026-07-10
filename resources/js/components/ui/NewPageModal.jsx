@@ -33,11 +33,11 @@ function TemplateOption({ name, description, selected, onSelect }) {
             }`}
         >
             <span className="min-w-0 flex-1">
-                <span className={`block truncate text-sm font-medium ${selected ? 'text-accent-600' : 'text-foreground'}`}>
+                <span className={`block truncate text-sm font-medium ${selected ? 'text-accent-600' : 'text-foreground'}`} title={name}>
                     {name}
                 </span>
                 {description && (
-                    <span className="mt-0.5 block truncate text-xs text-text-tertiary">{description}</span>
+                    <span className="mt-0.5 block truncate text-xs text-text-tertiary" title={description}>{description}</span>
                 )}
             </span>
             {selected && <IconCheck className="h-4 w-4 shrink-0 text-accent-600" stroke={2} />}

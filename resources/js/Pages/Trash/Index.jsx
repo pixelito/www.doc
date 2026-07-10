@@ -11,7 +11,7 @@ function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, 
         <li className="grid grid-cols-[1fr_140px_160px] items-center border-b border-border-subtle px-4 py-3 transition-colors last:border-0 hover:bg-surface-hover/60">
             <div className="flex min-w-0 items-center gap-2">
                 <Icon className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <span className="truncate text-sm font-medium text-foreground">{title}</span>
+                <span className="truncate text-sm font-medium text-foreground" title={title}>{title}</span>
                 {meta && (
                     <>
                         <span className="text-[11px] text-text-tertiary">·</span>

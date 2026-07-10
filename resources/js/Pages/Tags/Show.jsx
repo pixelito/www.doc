@@ -59,6 +59,7 @@ export default function TagShow({ tag, groups }) {
                                             <Link
                                                 href={`/documents/${doc.id}`}
                                                 className="flex-1 truncate text-sm text-foreground transition-colors hover:text-accent-600"
+                                                title={doc.title}
                                             >
                                                 {doc.title}
                                             </Link>

@@ -113,6 +113,7 @@ export default function VersionsIndex({ document, workspace, versions }) {
                                             ? `/documents/${document.id}`
                                             : `/documents/${document.id}/versions/${v.id}`}
                                         className="truncate text-sm font-medium text-accent-600 hover:underline"
+                                        title={v.title}
                                     >
                                         {v.title}
                                     </Link>

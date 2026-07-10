@@ -100,11 +100,11 @@ export default function Users() {
                                 {initials(user.name)}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-foreground">
+                                <p className="truncate font-medium text-foreground" title={user.name}>
                                     {user.name}
                                     {isSelf && <span className="ml-1.5 text-xs font-normal text-text-tertiary">(you)</span>}
                                 </p>
-                                <p className="truncate text-xs text-text-secondary">{user.email}</p>
+                                <p className="truncate text-xs text-text-secondary" title={user.email}>{user.email}</p>
                             </div>
 
                             <RoleSelect
