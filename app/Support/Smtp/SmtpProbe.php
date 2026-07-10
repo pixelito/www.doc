@@ -39,20 +39,23 @@ class SmtpProbe
      * @param  callable|null  $send  performs the real test send (Symfony
      *         mailer); it runs on its OWN connection after the probe socket
      *         is closed, and its Throwable becomes the send stage's failure.
+     * @param  bool  $verifyPeer  false skips certificate verification, exactly
+     *         like the real mailer with the setting off — the probe must agree
+     *         with what a real send would do.
      */
-    public function run(string $host, int $port, string $encryption, ?callable $send = null): array
+    public function run(string $host, int $port, string $encryption, ?callable $send = null, bool $verifyPeer = true): array
     {
         $stages = [$this->resolveDns($host)];
 
         $fp = null;
         if (! self::failed($stages)) {
-            [$stages[], $fp] = $this->connect($host, $port, $encryption);
+            [$stages[], $fp] = $this->connect($host, $port, $encryption, $verifyPeer);
         } else {
             $stages[] = self::skipped('connect');
         }
 
         if (! self::failed($stages)) {
-            $stages[] = $this->negotiateTls($fp, $host, $encryption);
+            $stages[] = $this->negotiateTls($fp, $host, $encryption, $verifyPeer);
         } else {
             $stages[] = self::skipped('tls');
         }
@@ -100,7 +103,7 @@ class SmtpProbe
     }
 
     /** @return array{0: array, 1: ?resource} the stage plus the open socket */
-    private function connect(string $host, int $port, string $encryption): array
+    private function connect(string $host, int $port, string $encryption, bool $verifyPeer): array
     {
         $literal = trim($host, '[]');
         // IPv6 literals need brackets in the socket address.
@@ -108,8 +111,12 @@ class SmtpProbe
 
         // peer_name pins the later TLS handshake's certificate check to what
         // the admin typed — an IP literal is verified as an IP, matching what
-        // the real mailer will do.
-        $context = stream_context_create(['ssl' => ['peer_name' => $literal]]);
+        // the real mailer will do. With verification off, mirror Symfony's
+        // verify_peer=false stream options.
+        $context = stream_context_create(['ssl' => $verifyPeer
+            ? ['peer_name' => $literal]
+            : ['peer_name' => $literal, 'verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true],
+        ]);
 
         $errno = 0;
         $errstr = '';
@@ -155,11 +162,13 @@ class SmtpProbe
     }
 
     /** @param  resource  $fp */
-    private function negotiateTls($fp, string $host, string $encryption): array
+    private function negotiateTls($fp, string $host, string $encryption, bool $verifyPeer): array
     {
         if ($encryption === 'none') {
             return self::stage('tls', 'skipped', 'Encryption is off — plaintext SMTP. Fine for a trusted internal relay, but do not use SMTP authentication over plaintext.');
         }
+
+        $unverified = $verifyPeer ? '' : ' — certificate verification skipped, as configured';
 
         if ($encryption === 'ssl') {
             [$ok, $error] = $this->enableCrypto($fp);
@@ -173,7 +182,7 @@ class SmtpProbe
                 return self::stage('tls', 'failed', "TLS handshake succeeded but no SMTP greeting followed (got: \"{$reply}\")." );
             }
 
-            return self::stage('tls', 'ok', 'TLS established'.$this->protocol($fp).", server greeted: \"{$reply}\".");
+            return self::stage('tls', 'ok', 'TLS established'.$this->protocol($fp).$unverified.", server greeted: \"{$reply}\".");
         }
 
         // STARTTLS: plaintext EHLO, upgrade, then the crypto handshake.
@@ -198,7 +207,7 @@ class SmtpProbe
             return self::stage('tls', 'failed', $this->cryptoFailure($host, $error));
         }
 
-        return self::stage('tls', 'ok', 'STARTTLS upgrade succeeded'.$this->protocol($fp).'.');
+        return self::stage('tls', 'ok', 'STARTTLS upgrade succeeded'.$this->protocol($fp).$unverified.'.');
     }
 
     private function delegateSend(callable $send): array
@@ -248,7 +257,7 @@ class SmtpProbe
         $raw = $error ?: 'handshake failed with no further detail';
 
         $hint = str_contains(strtolower($raw), 'certificate')
-            ? " The certificate does not validate for \"{$host}\" — certificates rarely match bare IPs; use the server's DNS name, or a port/encryption mode without TLS."
+            ? " The certificate does not validate for \"{$host}\" — certificates rarely match bare IPs; use the server's DNS name. For a self-signed or internal-CA certificate, turn on \"Skip certificate verification\"."
             : '';
 
         return "TLS handshake failed: {$raw}.{$hint}";

@@ -34,6 +34,7 @@ class TestRun
             (int) ($mail['port'] ?? 0),
             (string) ($mail['encryption'] ?? 'tls'),
             $send,
+            (bool) ($mail['verify_peer'] ?? true),
         );
 
         $report = [

@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { isEmail } from '@/lib/utils';
 
 const selectCls =
@@ -74,6 +75,28 @@ export default function MailFields({ data, setField, errors = {}, passwordSet = 
                     {errors.from_name && <p className="mt-1 text-xs text-danger">{errors.from_name}</p>}
                 </div>
             </div>
+
+            {data.encryption !== 'none' && (
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+                    <div>
+                        <p className="text-sm font-medium text-foreground">Skip certificate verification</p>
+                        <p className="mt-0.5 text-xs text-text-secondary">
+                            Accepts self-signed or internal-CA certificates that would otherwise fail with
+                            &ldquo;certificate verify failed&rdquo;. The connection stays encrypted, but the
+                            server&rsquo;s identity is no longer checked, so anyone on the network path could
+                            impersonate it. Prefer using the server name on its certificate, or trusting your
+                            CA on this host.
+                        </p>
+                        {data.verify_peer === false && (
+                            <p className="mt-1.5 text-xs text-warning">
+                                Certificate verification is off for this mail server.
+                            </p>
+                        )}
+                    </div>
+                    <Switch checked={data.verify_peer === false}
+                        onCheckedChange={(skip) => setField('verify_peer', !skip)} className="mt-0.5" />
+                </div>
+            )}
         </div>
     );
 }

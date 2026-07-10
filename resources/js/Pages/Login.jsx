@@ -54,6 +54,16 @@ export default function Login() {
                                     />
                                     {errors.password && <p className="mt-1.5 text-xs text-danger">{errors.password}</p>}
                                 </div>
+                                <label htmlFor="remember" className="flex items-center gap-2 text-sm text-text-secondary">
+                                    <input
+                                        id="remember"
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 accent-sage-400"
+                                        checked={data.remember}
+                                        onChange={(e) => setData('remember', e.target.checked)}
+                                    />
+                                    Keep me signed in
+                                </label>
                                 <Button type="submit" disabled={processing} className="w-full">
                                     {processing ? 'Signing in…' : 'Sign in'}
                                 </Button>

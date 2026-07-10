@@ -38,7 +38,7 @@ function fakeSmtpProbe(?array $stages = null): void
             parent::__construct();
         }
 
-        public function run(string $host, int $port, string $encryption, ?callable $send = null): array
+        public function run(string $host, int $port, string $encryption, ?callable $send = null, bool $verifyPeer = true): array
         {
             if ($this->canned !== null) {
                 return $this->canned;
