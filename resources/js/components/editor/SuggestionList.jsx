@@ -71,7 +71,7 @@ export default function SuggestionList({ suggestion, keyHandlerRef, renderItem }
                     onMouseEnter={() => setSelectedIndex(index)}
                     className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
                         index === selectedIndex
-                            ? 'bg-sage-100 text-sage-600'
+                            ? 'bg-accent-100 text-accent-600'
                             : 'text-foreground hover:bg-surface-hover'
                     }`}
                 >

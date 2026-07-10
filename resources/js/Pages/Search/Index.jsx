@@ -32,9 +32,9 @@ function HighlightText({ text, query }) {
                     const isFullWord = !isWordBefore && !isWordAfter;
                     
                     if (isFullWord) {
-                        return <mark key={i} className="rounded-sm bg-sage-100 px-1 py-0.5 box-decoration-clone text-sage-700">{part}</mark>;
+                        return <mark key={i} className="rounded-sm bg-accent-100 px-1 py-0.5 box-decoration-clone text-accent-700">{part}</mark>;
                     } else {
-                        return <mark key={i} className="bg-transparent text-sage-600 font-semibold">{part}</mark>;
+                        return <mark key={i} className="bg-transparent text-accent-600 font-semibold">{part}</mark>;
                     }
                 }
                 return part;
@@ -50,7 +50,7 @@ function Chip({ active, onClick, children }) {
             onClick={onClick}
             className={`rounded-sm px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 active
-                    ? 'bg-sage-100 text-sage-600'
+                    ? 'bg-accent-100 text-accent-600'
                     : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'
             }`}
         >
@@ -81,7 +81,7 @@ function DocRow({ r, q }) {
                     </>
                 )}
                 {(r.tags ?? []).slice(0, 2).map(t => (
-                    <span key={t.id} className="rounded-full bg-sage-100 px-2 py-px text-[10px] font-medium text-sage-600">
+                    <span key={t.id} className="rounded-full bg-accent-100 px-2 py-px text-[10px] font-medium text-accent-600">
                         {t.name}
                     </span>
                 ))}
@@ -121,7 +121,7 @@ function OtherRow({ r, q }) {
                         <span className="text-[11px] text-text-secondary">{count}</span>
                     </>
                 )}
-                <span className="ml-auto rounded-full border border-sage-200 bg-sage-50 px-2 py-px text-[10px] font-semibold text-sage-600">
+                <span className="ml-auto rounded-full border border-accent-200 bg-accent-50 px-2 py-px text-[10px] font-semibold text-accent-600">
                     {r.type === 'workspace' ? 'Workspace' : 'Tag'}
                 </span>
             </div>
@@ -204,7 +204,7 @@ export default function SearchIndex({ q, results }) {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search pages, workspaces, tags…"
-                        className="h-9 w-full rounded-sm border border-border bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-9 w-full rounded-sm border border-border bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     />
                 </form>
 
@@ -221,7 +221,7 @@ export default function SearchIndex({ q, results }) {
                             <div>
                                 <h2 className="text-[19px] font-medium text-foreground">
                                     {results.length} result{results.length !== 1 ? 's' : ''} for{' '}
-                                    <span className="text-sage-600">"{q}"</span>
+                                    <span className="text-accent-600">"{q}"</span>
                                 </h2>
                                 {uniqueWorkspaceCount > 0 && (
                                     <p className="mt-0.5 text-xs text-text-tertiary">
@@ -233,7 +233,7 @@ export default function SearchIndex({ q, results }) {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => { setSortBy(e.target.value); setShowAll(false); }}
-                                    className="ui-select h-[33px] rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="ui-select h-[33px] rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 >
                                     <option value="relevance">Relevance</option>
                                     <option value="newest">Newest first</option>

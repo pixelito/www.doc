@@ -81,7 +81,7 @@ export default function TagsIndex({ tags }) {
                                     value={name}
                                     onChange={(e) => { setName(e.target.value); setError(''); }}
                                     placeholder="Tag name"
-                                    className="h-[33px] w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="h-[33px] w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 />
                                 {error && <p className="mt-1 text-xs text-danger">{error}</p>}
                             </div>
@@ -115,7 +115,7 @@ export default function TagsIndex({ tags }) {
                                     href={`/tags/${tag.id}`}
                                     className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4"
                                 >
-                                    <span className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600 transition-colors hover:bg-sage-200">
+                                    <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-600 transition-colors hover:bg-accent-200">
                                         <IconTag className="h-2.5 w-2.5 shrink-0" stroke={1.5} />
                                         {tag.name}
                                     </span>

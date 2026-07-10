@@ -32,7 +32,7 @@ function TrashRow({ icon: Icon, title, meta, deletedAt, badge, busy, onRestore, 
                     variant="secondary"
                     disabled={busy}
                     onClick={onRestore}
-                    className="text-text-secondary hover:border-sage-200 hover:bg-sage-50 hover:text-sage-600"
+                    className="text-text-secondary hover:border-accent-200 hover:bg-accent-50 hover:text-accent-600"
                 >
                     <IconRestore stroke={1.5} />
                     Restore
@@ -106,7 +106,7 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
 
             <div className="mb-1 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                    <IconTrash className="h-5 w-5 text-sage-600" stroke={1.5} />
+                    <IconTrash className="h-5 w-5 text-accent-600" stroke={1.5} />
                     <h1 className="text-[19px] font-semibold text-foreground">Trash</h1>
                 </div>
                 {!isEmpty && (
@@ -129,8 +129,8 @@ export default function TrashIndex({ workspaces = [], documents = [] }) {
             {isEmpty ? (
                 <div className="overflow-hidden rounded-md border border-border bg-card">
                     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sage-200 bg-sage-50">
-                            <IconTrash className="h-6 w-6 text-sage-600" stroke={1.5} />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-200 bg-accent-50">
+                            <IconTrash className="h-6 w-6 text-accent-600" stroke={1.5} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-foreground">Trash is empty</p>

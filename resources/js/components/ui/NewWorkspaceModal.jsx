@@ -91,7 +91,7 @@ export default function NewWorkspaceModal({ open, onClose }) {
                                 value={name}
                                 onChange={(e) => { setName(e.target.value); setError(''); }}
                                 placeholder="e.g. Network"
-                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             />
                             {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
                         </div>
@@ -108,7 +108,7 @@ export default function NewWorkspaceModal({ open, onClose }) {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="What lives in this workspace?"
-                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             />
                         </div>
                     </div>

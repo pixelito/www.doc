@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { ThemeSegments } from '@/components/ThemePicker';
+import { ThemeSegments, AccentSegments } from '@/components/ThemePicker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
@@ -169,8 +169,12 @@ export default function ProfilePage({ user }) {
                     <CardTitle className="text-sm font-semibold text-foreground">Appearance</CardTitle>
                     <CardDescription>Theme for this browser — "System" follows your OS setting.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     <ThemeSegments />
+                    <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">Accent</p>
+                        <AccentSegments />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -182,7 +186,7 @@ export default function ProfilePage({ user }) {
                         <CardDescription>Pick an accent colour — it saves automatically.</CardDescription>
                     </div>
                     {colorSaved && (
-                        <span className="flex items-center gap-1 text-xs text-sage-600">
+                        <span className="flex items-center gap-1 text-xs text-accent-600">
                             <IconCheck className="h-3.5 w-3.5" stroke={1.5} /> Saved
                         </span>
                     )}

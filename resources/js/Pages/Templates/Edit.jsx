@@ -85,20 +85,20 @@ export default function TemplatesEdit({ template }) {
                         value={name}
                         onChange={(e) => { setName(e.target.value); dirtyRef.current = true; }}
                         placeholder="Template name"
-                        className="w-full max-w-xl rounded-sm border border-transparent bg-transparent px-2 py-1 text-[19px] font-semibold text-foreground outline-none transition-[border-color,box-shadow] duration-150 hover:border-border focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="w-full max-w-xl rounded-sm border border-transparent bg-transparent px-2 py-1 text-[19px] font-semibold text-foreground outline-none transition-[border-color,box-shadow] duration-150 hover:border-border focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     />
                     <input
                         type="text"
                         value={description}
                         onChange={(e) => { setDescription(e.target.value); dirtyRef.current = true; }}
                         placeholder="Short description shown in the New page picker (optional)"
-                        className="w-full max-w-xl rounded-sm border border-transparent bg-transparent px-2 py-1 text-sm text-text-secondary placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 hover:border-border focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="w-full max-w-xl rounded-sm border border-transparent bg-transparent px-2 py-1 text-sm text-text-secondary placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 hover:border-border focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     />
                 </div>
                 <Button
                     onClick={save}
                     disabled={saving || !name.trim()}
-                    className="self-start bg-sage-400 hover:bg-sage-500 text-text-inverse"
+                    className="self-start bg-accent-400 hover:bg-accent-500 text-text-inverse"
                 >
                     <IconDeviceFloppy stroke={1.5} />
                     {saving ? 'Saving…' : 'Save'}

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/date';
 
 const STATUS_PILLS = {
-    added:    'bg-sage-100 text-sage-600',
+    added:    'bg-accent-100 text-accent-600',
     removed:  'bg-danger-surface text-danger',
     modified: 'bg-warning-surface text-warning-text',
 };
@@ -79,12 +79,12 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
             {/* Comparison header */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2 text-sm">
-                    <IconGitCompare className="h-4 w-4 shrink-0 text-sage-500" stroke={1.5} aria-hidden="true" />
+                    <IconGitCompare className="h-4 w-4 shrink-0 text-accent-500" stroke={1.5} aria-hidden="true" />
                     <span className="truncate rounded-full bg-danger-surface px-2 py-0.5 text-[12px] font-medium text-danger">
                         {sideLabel(left)}
                     </span>
                     <IconArrowRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} aria-hidden="true" />
-                    <span className="truncate rounded-full bg-sage-100 px-2 py-0.5 text-[12px] font-medium text-sage-600">
+                    <span className="truncate rounded-full bg-accent-100 px-2 py-0.5 text-[12px] font-medium text-accent-600">
                         {sideLabel(right)}
                     </span>
                 </div>
@@ -133,7 +133,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                     type="button"
                                     onClick={() => setView(v)}
                                     className={`rounded-sm px-2 py-1 capitalize transition-colors ${
-                                        view === v ? 'bg-sage-100 font-medium text-sage-600' : 'text-text-secondary hover:text-foreground'
+                                        view === v ? 'bg-accent-100 font-medium text-accent-600' : 'text-text-secondary hover:text-foreground'
                                     }`}
                                 >
                                     {v === 'inline' ? 'Inline' : 'Side by side'}
@@ -145,7 +145,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
             </div>
 
             {diff.identical ? (
-                <div className="rounded-md border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-700">
+                <div className="rounded-md border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-700">
                     These two are identical — no differences to show.
                 </div>
             ) : (
@@ -170,7 +170,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                         <SectionCard label="Tags">
                             <div className="flex flex-wrap gap-1.5 px-4 py-3">
                                 {diff.tags.added.map((name) => (
-                                    <span key={`a-${name}`} className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600">
+                                    <span key={`a-${name}`} className="inline-flex items-center gap-1.5 rounded-md bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-600">
                                         <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} /> {name}
                                     </span>
                                 ))}
@@ -263,7 +263,7 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                             />
                                         </div>
                                         <figcaption className="mt-1.5 flex items-center gap-3 text-[11px] text-text-tertiary">
-                                            <span className="flex items-center gap-1"><span className="text-[8px] text-sage-600">●</span> added</span>
+                                            <span className="flex items-center gap-1"><span className="text-[8px] text-accent-600">●</span> added</span>
                                             <span className="flex items-center gap-1"><span className="text-[8px] text-danger">●</span> removed</span>
                                             <span className="flex items-center gap-1"><span className="text-[8px] text-warning">●</span> changed</span>
                                         </figcaption>

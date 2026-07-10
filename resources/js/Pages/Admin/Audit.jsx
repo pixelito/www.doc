@@ -117,7 +117,7 @@ export default function Audit() {
                                                     <span className="ml-1.5 inline-flex items-center gap-1 align-middle text-xs">
                                                         <span className="rounded-full bg-surface-hover px-1.5 py-0.5 text-text-secondary">{change.from ?? '—'}</span>
                                                         <IconArrowRight className="h-3 w-3 text-text-tertiary" stroke={1.5} aria-hidden="true" />
-                                                        <span className="rounded-full bg-sage-100 px-1.5 py-0.5 text-sage-600">{change.to ?? '—'}</span>
+                                                        <span className="rounded-full bg-accent-100 px-1.5 py-0.5 text-accent-600">{change.to ?? '—'}</span>
                                                     </span>
                                                 )}
                                             </p>

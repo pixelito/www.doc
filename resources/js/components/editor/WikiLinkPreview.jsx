@@ -120,7 +120,7 @@ export default function WikiLinkPreview({ canCreate = false, workspaceId = null 
                                     { onFinish: () => setCreating(false) },
                                 );
                             }}
-                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-sage-600 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-60"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-accent-600 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-60"
                         >
                             {creating
                                 ? <IconLoader2 size={13} stroke={1.5} className="animate-spin" />

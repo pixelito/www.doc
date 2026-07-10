@@ -47,4 +47,56 @@ test.describe('Theme', () => {
     await page.getByRole('button', { name: 'System', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   });
+
+  test('accent defaults to sage and picking a hue swaps only the accent ramp', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/settings/profile');
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'sage');
+
+    await page.getByRole('group', { name: 'Accent' }).getByRole('button', { name: 'Pink', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'pink');
+
+    // The accent ramp flipped, but neutrals and semantics stayed put.
+    const tokens = await page.evaluate(() => {
+      const s = getComputedStyle(document.documentElement);
+      return {
+        accent400: s.getPropertyValue('--accent-400').trim().toUpperCase(),
+        canvas: s.getPropertyValue('--canvas').trim().toUpperCase(),
+        successSurface: s.getPropertyValue('--success-surface').trim().toUpperCase(),
+      };
+    });
+    expect(tokens.accent400).toBe('#B4809D');
+    expect(tokens.canvas).toBe('#F5F4ED');
+    expect(tokens.successSurface).toBe('#DAE6D4');
+
+    // Persists across navigation via the pre-paint script (no flash of sage).
+    await page.goto('/workspaces');
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'pink');
+  });
+
+  test('accent and scheme compose independently', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/settings/profile');
+
+    await page.getByRole('group', { name: 'Accent' }).getByRole('button', { name: 'Blue', exact: true }).click();
+    await page.getByRole('button', { name: 'Dark', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'blue');
+
+    // Dark blue ramp, dark neutrals: the compound block won.
+    const tokens = await page.evaluate(() => {
+      const s = getComputedStyle(document.documentElement);
+      return {
+        accent400: s.getPropertyValue('--accent-400').trim().toUpperCase(),
+        canvas: s.getPropertyValue('--canvas').trim().toUpperCase(),
+      };
+    });
+    expect(tokens.accent400).toBe('#7798D3');
+    expect(tokens.canvas).toBe('#171B17');
+
+    // Scheme back to System: the accent must survive untouched.
+    await page.getByRole('button', { name: 'System', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'blue');
+  });
 });

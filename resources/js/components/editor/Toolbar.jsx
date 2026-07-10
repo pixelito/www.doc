@@ -45,8 +45,8 @@ const CODE_LANGUAGES = [
 
 // Callout kind chips (token triads from the status recipe in the styleguide).
 const CALLOUT_OPTIONS = [
-    { kind: 'info',    label: 'Info',    chip: 'bg-sage-50 text-sage-700 border-sage-200' },
-    { kind: 'success', label: 'Success', chip: 'bg-sage-100 text-sage-600 border-sage-200' },
+    { kind: 'info',    label: 'Info',    chip: 'bg-accent-50 text-accent-700 border-accent-200' },
+    { kind: 'success', label: 'Success', chip: 'bg-success-surface text-success-text border-success-border' },
     { kind: 'warning', label: 'Warning', chip: 'bg-warning-surface text-warning-text border-warning-border' },
     { kind: 'danger',  label: 'Danger',  chip: 'bg-danger-surface text-danger border-danger-border' },
 ];
@@ -126,13 +126,13 @@ function ColorPicker({ swatches, current, onPick, onClose, clearLabel, fallback 
                     if (e.key === 'Escape') onClose?.();
                 }}
                 placeholder="#hex"
-                className="h-6 w-16 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                className="h-6 w-16 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
             />
             <button
                 type="button"
                 title="Apply hex"
                 onMouseDown={(e) => { e.preventDefault(); applyHex(); }}
-                className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500"
+                className="rounded-sm bg-accent-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-accent-500"
             >
                 Apply
             </button>
@@ -160,7 +160,7 @@ function ToolbarButton({ onClick, active, title, children, disabled }) {
             }}
             className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors duration-100 ${
                 active
-                    ? 'bg-sage-100 text-sage-600'
+                    ? 'bg-accent-100 text-accent-600'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
@@ -380,7 +380,7 @@ export default function Toolbar({ editor }) {
                             .updateAttributes('codeBlock', { language: e.target.value || null })
                             .run()
                     }
-                    className="ui-select ml-1 h-6 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                    className="ui-select ml-1 h-6 rounded-sm border border-border bg-canvas px-1.5 text-xs text-foreground outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     title="Code language"
                 >
                     {CODE_LANGUAGES.map(([value, label]) => (
@@ -447,11 +447,11 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
                         placeholder="https://..."
-                        className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                         style={{ width: 200 }}
                     />
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink(); }}
-                        className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                        className="rounded-sm bg-accent-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-accent-500">
                         Apply
                     </button>
                 </div>
@@ -474,7 +474,7 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Enter')  insertTable();
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
-                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     />
                     <label className="text-xs text-text-secondary">Cols</label>
                     <input type="number" min={1} max={20} value={tableCols}
@@ -483,10 +483,10 @@ export default function Toolbar({ editor }) {
                             if (e.key === 'Enter')  insertTable();
                             if (e.key === 'Escape') setOpenPicker(null);
                         }}
-                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                        className="h-6 w-12 rounded-sm border border-border bg-canvas px-1.5 text-center text-xs outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                     />
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); insertTable(); }}
-                        className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                        className="rounded-sm bg-accent-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-accent-500">
                         Insert
                     </button>
                 </div>
@@ -512,10 +512,10 @@ export default function Toolbar({ editor }) {
                                     <ToolbarButton title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}><IconColumnRemove className="h-4 w-4" stroke={1.5} /></ToolbarButton>
                                 </div>
                                 <div className="flex items-center gap-2 border-b border-border pb-2">
-                                    <button type="button" onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor.can().mergeCells()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100 disabled:opacity-50">Merge</button>
-                                    <button type="button" onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor.can().splitCell()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100 disabled:opacity-50">Split</button>
-                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderRow().run()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100">Toggle Header Row</button>
-                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderColumn().run()} className="rounded-sm bg-sage-50 px-2 py-1 text-xs text-sage-600 hover:bg-sage-100">Toggle Header Col</button>
+                                    <button type="button" onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor.can().mergeCells()} className="rounded-sm bg-accent-50 px-2 py-1 text-xs text-accent-600 hover:bg-accent-100 disabled:opacity-50">Merge</button>
+                                    <button type="button" onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor.can().splitCell()} className="rounded-sm bg-accent-50 px-2 py-1 text-xs text-accent-600 hover:bg-accent-100 disabled:opacity-50">Split</button>
+                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderRow().run()} className="rounded-sm bg-accent-50 px-2 py-1 text-xs text-accent-600 hover:bg-accent-100">Toggle Header Row</button>
+                                    <button type="button" onClick={() => editor.chain().focus().toggleHeaderColumn().run()} className="rounded-sm bg-accent-50 px-2 py-1 text-xs text-accent-600 hover:bg-accent-100">Toggle Header Col</button>
                                 </div>
                                 <div className="flex items-center gap-2 border-b border-border pb-2">
                                     <span className="text-xs text-text-secondary">Cell Color:</span>
@@ -581,11 +581,11 @@ export default function Toolbar({ editor }) {
                 <div className="ml-1 flex items-center gap-1">
                     <div className="flex overflow-hidden rounded-sm border border-border text-xs">
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); setImageMode('upload'); }}
-                            className={`px-2 py-0.5 ${imageMode === 'upload' ? 'bg-sage-100 text-sage-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
+                            className={`px-2 py-0.5 ${imageMode === 'upload' ? 'bg-accent-100 text-accent-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
                             {inImage ? 'Replace (Upload)' : 'Upload'}
                         </button>
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); setImageMode('url'); }}
-                            className={`border-l border-border px-2 py-0.5 ${imageMode === 'url' ? 'bg-sage-100 text-sage-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
+                            className={`border-l border-border px-2 py-0.5 ${imageMode === 'url' ? 'bg-accent-100 text-accent-600' : 'text-text-secondary hover:bg-surface-hover'}`}>
                             URL
                         </button>
                     </div>
@@ -605,11 +605,11 @@ export default function Toolbar({ editor }) {
                                     if (e.key === 'Escape') setOpenPicker(null);
                                 }}
                                 placeholder="https://…"
-                                className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="h-6 rounded-sm border border-border bg-canvas px-2 text-xs text-foreground outline-none focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 style={{ width: 200 }}
                             />
                             <button type="button" onMouseDown={(e) => { e.preventDefault(); insertImageUrl(); }}
-                                className="rounded-sm bg-sage-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-sage-500">
+                                className="rounded-sm bg-accent-400 px-2 py-0.5 text-xs font-medium text-text-inverse hover:bg-accent-500">
                                 {inImage ? 'Update' : 'Insert'}
                             </button>
                         </>

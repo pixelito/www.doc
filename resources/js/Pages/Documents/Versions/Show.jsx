@@ -77,7 +77,7 @@ export default function VersionShow({ document: doc, workspace, version }) {
                             {version.tags.map((name) => (
                                 <span
                                     key={name}
-                                    className="inline-flex items-center gap-1.5 rounded-md bg-sage-100 px-2 py-0.5 text-[11px] font-medium text-sage-600"
+                                    className="inline-flex items-center gap-1.5 rounded-md bg-accent-100 px-2 py-0.5 text-[11px] font-medium text-accent-600"
                                 >
                                     <IconTag className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
                                     {name}

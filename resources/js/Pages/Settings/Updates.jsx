@@ -122,7 +122,7 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
                                     <span className="inline-flex items-center gap-2">
                                         {status.latest ? showVer(status.latest) : '—'}
                                         {status.update_available && (
-                                            <span className="rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
+                                            <span className="rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">
                                                 Update available
                                             </span>
                                         )}
@@ -184,7 +184,7 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
                                         href={status.latest_url}
                                         target="_blank"
                                         rel="noreferrer noopener"
-                                        className="mt-4 inline-flex items-center gap-1.5 text-sm text-sage-600 hover:underline"
+                                        className="mt-4 inline-flex items-center gap-1.5 text-sm text-accent-600 hover:underline"
                                     >
                                         View on GitHub <IconExternalLink className="h-4 w-4" stroke={1.5} />
                                     </a>
@@ -201,7 +201,7 @@ export default function Updates({ status, notesHtml, releasesUrl, system }) {
                                     href={releasesUrl}
                                     target="_blank"
                                     rel="noreferrer noopener"
-                                    className="inline-flex items-center gap-1 text-sage-600 hover:underline"
+                                    className="inline-flex items-center gap-1 text-accent-600 hover:underline"
                                 >
                                     View all releases <IconExternalLink className="h-3.5 w-3.5" stroke={1.5} />
                                 </a>

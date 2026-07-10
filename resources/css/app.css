@@ -22,29 +22,29 @@
     --color-card-foreground: var(--text-primary);
     --color-popover: var(--surface);
     --color-popover-foreground: var(--text-primary);
-    --color-primary: var(--sage-400);
+    --color-primary: var(--accent-400);
     --color-primary-foreground: var(--text-inverse);
     --color-secondary: var(--surface-hover);
     --color-secondary-foreground: var(--text-primary);
     --color-muted: var(--surface-hover);
     --color-muted-foreground: var(--text-secondary);
-    --color-accent: var(--sage-100);
-    --color-accent-foreground: var(--sage-600);
+    --color-accent: var(--accent-100);
+    --color-accent-foreground: var(--accent-600);
     --color-destructive: var(--danger);
     --color-destructive-foreground: var(--text-inverse);
     --color-border: var(--border);
     --color-input: var(--border);
-    --color-ring: var(--sage-400);
+    --color-ring: var(--accent-400);
 
-    /* Sage ramp exposed as utilities: bg-sage-400, text-sage-600, ring-sage-200, … */
-    --color-sage-50: var(--sage-50);
-    --color-sage-100: var(--sage-100);
-    --color-sage-200: var(--sage-200);
-    --color-sage-300: var(--sage-300);
-    --color-sage-400: var(--sage-400);
-    --color-sage-500: var(--sage-500);
-    --color-sage-600: var(--sage-600);
-    --color-sage-700: var(--sage-700);
+    /* Sage ramp exposed as utilities: bg-accent-400, text-accent-600, ring-accent-200, … */
+    --color-accent-50: var(--accent-50);
+    --color-accent-100: var(--accent-100);
+    --color-accent-200: var(--accent-200);
+    --color-accent-300: var(--accent-300);
+    --color-accent-400: var(--accent-400);
+    --color-accent-500: var(--accent-500);
+    --color-accent-600: var(--accent-600);
+    --color-accent-700: var(--accent-700);
 
     /* Named surface / text tokens for utilities that need them directly */
     --color-canvas: var(--canvas);
@@ -59,6 +59,11 @@
     /* Semantic accents */
     --color-info: var(--info);
     --color-success: var(--success);
+    --color-success-text: var(--success-text);
+    --color-success-surface: var(--success-surface);
+    --color-success-border: var(--success-border);
+    --color-success-tint: var(--success-tint);
+    --color-success-ink: var(--success-ink);
     --color-warning: var(--warning);
     --color-danger: var(--danger);
     --color-danger-surface: var(--danger-surface);
@@ -113,29 +118,39 @@
     --text-inverse: #F5F4ED;
     /* text on dark/sage backgrounds */
 
-    /* Sage — primary accent ramp */
-    --sage-50: #EDF2EA;
+    /* Accent ramp — sage, the default hue (data-accent blocks below swap it) */
+    --accent-50: #EDF2EA;
     /* tinted backgrounds (info banners) */
-    --sage-100: #DAE6D4;
+    --accent-100: #DAE6D4;
     /* badge backgrounds, soft fills */
-    --sage-200: #BFD2B5;
+    --accent-200: #BFD2B5;
     /* borders accenting sage areas */
-    --sage-300: #9FB994;
+    --accent-300: #9FB994;
     /* hover for primary surfaces */
-    --sage-400: #7E9D72;
+    --accent-400: #7E9D72;
     /* PRIMARY — buttons, key accents */
-    --sage-500: #648354;
+    --accent-500: #648354;
     /* active state, focus rings */
-    --sage-600: #4B6840;
+    --accent-600: #4B6840;
     /* sage text on light bg (contrast-safe) */
-    --sage-700: #364E2E;
-    /* deep accent, headings on sage-50 */
+    --accent-700: #364E2E;
+    /* deep accent, headings on accent-50 */
 
     /* Semantic */
     --info: #6E8AA7;
     /* muted blue */
     --success: #7E9D72;
-    /* reuse sage-400 */
+    /* pinned sage green — success stays green in EVERY accent theme */
+    --success-text: #4B6840;
+    /* "good" chip text (pinned sage-600 value) */
+    --success-surface: #DAE6D4;
+    /* "good" chip background (pinned sage-100 value) */
+    --success-border: #BFD2B5;
+    /* "good" chip border (pinned sage-200 value) */
+    --success-tint: #EDF2EA;
+    /* "good" banner/toast background (pinned sage-50 value) */
+    --success-ink: #364E2E;
+    /* "good" banner/toast text (pinned sage-700 value) */
     --warning: #C99650;
     /* warm amber */
     --warning-surface: #FAF1E2;
@@ -189,19 +204,24 @@
     --text-tertiary: #737A70;
     --text-inverse: #171B17;
 
-    /* Sage ramp — tint end goes dark, accent end goes light */
-    --sage-50: #1E2A1C;
-    --sage-100: #283A23;
-    --sage-200: #3A5230;
-    --sage-300: #4E6B41;
-    --sage-400: #7FA471;
-    --sage-500: #93B685;
-    --sage-600: #A9C89B;
-    --sage-700: #C6DDBA;
+    /* Accent ramp (sage default) — tint end goes dark, accent end goes light */
+    --accent-50: #1E2A1C;
+    --accent-100: #283A23;
+    --accent-200: #3A5230;
+    --accent-300: #4E6B41;
+    --accent-400: #7FA471;
+    --accent-500: #93B685;
+    --accent-600: #A9C89B;
+    --accent-700: #C6DDBA;
 
     /* Semantic */
     --info: #8AA5BF;
     --success: #7FA471;
+    --success-text: #A9C89B;
+    --success-surface: #283A23;
+    --success-border: #3A5230;
+    --success-tint: #1E2A1C;
+    --success-ink: #C6DDBA;
     --warning: #D4A55E;
     --warning-surface: #342A18;
     --warning-border: #5C4826;
@@ -220,6 +240,118 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.50);
+}
+
+/* ── Accent themes ───────────────────────────────────────────────────────────
+   Copied verbatim from the sage-design skill's theme.css (canonical source —
+   change values THERE first, then re-sync). Five accent hues on the SAME
+   neutrals; theme.js stamps data-accent on <html> alongside data-theme
+   (missing/unknown value ≡ sage). The compound dark blocks win on
+   specificity, so light/dark × accent compose without ordering tricks.
+   Semantic tokens (success/warning/danger/info/diff-*) never change with
+   the accent — "good" status stays green via the pinned --success-* set. */
+
+[data-accent='pink'] {
+    --accent-50: #F7EDF2;
+    --accent-100: #F1DAE6;
+    --accent-200: #E3BFD2;
+    --accent-300: #CEA1B9;
+    --accent-400: #B4809D;
+    --accent-500: #9B6583;
+    --accent-600: #7C4D68;
+    --accent-700: #5E384E;
+}
+
+[data-theme='dark'][data-accent='pink'] {
+    --accent-50: #32202A;
+    --accent-100: #462A3A;
+    --accent-200: #633B52;
+    --accent-300: #804F6B;
+    --accent-400: #BF82A4;
+    --accent-500: #D095B6;
+    --accent-600: #E1AAC8;
+    --accent-700: #F1C7DD;
+}
+
+[data-accent='blue'] {
+    --accent-50: #EBF0FA;
+    --accent-100: #D6E2F7;
+    --accent-200: #B9CCED;
+    --accent-300: #99B1DC;
+    --accent-400: #7793C5;
+    --accent-500: #5B78AD;
+    --accent-600: #455E8C;
+    --accent-700: #32466B;
+}
+
+[data-theme='dark'][data-accent='blue'] {
+    --accent-50: #1D2637;
+    --accent-100: #25344F;
+    --accent-200: #354A71;
+    --accent-300: #476191;
+    --accent-400: #7798D3;
+    --accent-500: #8BAAE4;
+    --accent-600: #A1BEF2;
+    --accent-700: #BFD6FE;
+}
+
+[data-accent='rose'] {
+    --accent-50: #FCECED;
+    --accent-100: #FBD7DB;
+    --accent-200: #F3BAC1;
+    --accent-300: #E298A3;
+    --accent-400: #CA7683;
+    --accent-500: #B25869;
+    --accent-600: #904251;
+    --accent-700: #6E2F3B;
+}
+
+[data-theme='dark'][data-accent='rose'] {
+    --accent-50: #391C21;
+    --accent-100: #51242C;
+    --accent-200: #73323F;
+    --accent-300: #944453;
+    --accent-400: #D87586;
+    --accent-500: #E98A99;
+    --accent-600: #F8A0AE;
+    --accent-700: #FEC3CA;
+}
+
+[data-accent='ochre'] {
+    --accent-50: #F4F0E5;
+    --accent-100: #EAE1C9;
+    --accent-200: #D8CBA2;
+    --accent-300: #C1AF79;
+    --accent-400: #A69150;
+    --accent-500: #8D762B;
+    --accent-600: #705C18;
+    --accent-700: #55450B;
+}
+
+[data-theme='dark'][data-accent='ochre'] {
+    --accent-50: #2D260F;
+    --accent-100: #3F330C;
+    --accent-200: #59480C;
+    --accent-300: #745F17;
+    --accent-400: #AF9545;
+    --accent-500: #C0A85E;
+    --accent-600: #D1BC7A;
+    --accent-700: #E4D4A3;
+}
+
+/* Diagram artifacts always render in light SAGE, whatever the viewer's theme
+   or accent — the embedded canvas card must match the read-view SVG and the
+   exports. The light-token re-assert above handles data-theme; this pins the
+   accent ramp too (direct declarations beat values inherited from <html>). */
+.diagram-artifact {
+    --accent-50: #EDF2EA;
+    --accent-100: #DAE6D4;
+    --accent-200: #BFD2B5;
+    --accent-300: #9FB994;
+    --accent-400: #7E9D72;
+    --accent-500: #648354;
+    --accent-600: #4B6840;
+    --accent-700: #364E2E;
 }
 
 @layer base {
@@ -356,7 +488,7 @@
 }
 
 .tiptap blockquote {
-    border-left: 3px solid var(--sage-300);
+    border-left: 3px solid var(--accent-300);
     padding-left: 1em;
     color: var(--text-secondary);
     margin: 1em 0;
@@ -386,7 +518,7 @@
     width: 0.95em;
     height: 0.95em;
     cursor: pointer;
-    accent-color: var(--sage-400);
+    accent-color: var(--accent-400);
 }
 .tiptap-read-area ul[data-type='taskList'] > li > label input {
     cursor: default;
@@ -414,8 +546,8 @@
 }
 .tiptap .callout p { margin-bottom: 0.5em; }
 .tiptap .callout p:last-child { margin-bottom: 0; }
-.tiptap .callout-info    { background: var(--sage-50);        border-color: var(--sage-200);      color: var(--sage-700); }
-.tiptap .callout-success { background: var(--sage-100);       border-color: var(--sage-200);      color: var(--sage-600); }
+.tiptap .callout-info    { background: var(--accent-50);        border-color: var(--accent-200);      color: var(--accent-700); }
+.tiptap .callout-success { background: var(--success-surface);  border-color: var(--success-border); color: var(--success-text); }
 .tiptap .callout-warning { background: var(--warning-surface); border-color: var(--warning-border); color: var(--warning-text); }
 .tiptap .callout-danger  { background: var(--danger-surface);  border-color: var(--danger-border);  color: var(--danger); }
 
@@ -428,7 +560,7 @@
 .tiptap pre .hljs-keyword,
 .tiptap pre .hljs-selector-tag,
 .tiptap pre .hljs-doctag,
-.tiptap pre .hljs-meta { color: var(--sage-600); font-weight: 500; }
+.tiptap pre .hljs-meta { color: var(--accent-600); font-weight: 500; }
 .tiptap pre .hljs-string,
 .tiptap pre .hljs-regexp,
 .tiptap pre .hljs-template-tag { color: var(--warning-text); }
@@ -438,7 +570,7 @@
 .tiptap pre .hljs-bullet { color: var(--info); }
 .tiptap pre .hljs-title,
 .tiptap pre .hljs-section,
-.tiptap pre .hljs-name { color: var(--sage-700); font-weight: 500; }
+.tiptap pre .hljs-name { color: var(--accent-700); font-weight: 500; }
 .tiptap pre .hljs-attr,
 .tiptap pre .hljs-attribute,
 .tiptap pre .hljs-variable,
@@ -457,12 +589,12 @@
 }
 
 .tiptap a {
-    color: var(--sage-600);
+    color: var(--accent-600);
     text-decoration: underline;
-    text-decoration-color: var(--sage-300);
+    text-decoration-color: var(--accent-300);
     text-underline-offset: 2px;
 }
-.tiptap a:hover { text-decoration-color: var(--sage-600); }
+.tiptap a:hover { text-decoration-color: var(--accent-600); }
 
 /* Highlight mark — keep text colour inherited so the fill stays readable, and
    round the edges slightly so it reads as a highlighter, not a block. */
@@ -509,7 +641,7 @@
 }
 
 .tiptap-edit-area .tiptap .image-wrapper.ProseMirror-selectednode .image-inner img {
-    outline: 2px solid var(--sage-400);
+    outline: 2px solid var(--accent-400);
     outline-offset: 2px;
 }
 
@@ -520,7 +652,7 @@
     width: 10px;
     height: 10px;
     background: var(--surface);
-    border: 2px solid var(--sage-400);
+    border: 2px solid var(--accent-400);
     border-radius: 2px;
     cursor: se-resize;
     opacity: 0;
@@ -557,7 +689,7 @@
 .tiptap td {
     box-sizing: border-box;
     position: relative;
-    border: 1px solid var(--sage-200);
+    border: 1px solid var(--accent-200);
     padding: 0.5em 0.75em;
     vertical-align: top;
     box-shadow: inset 0 0 0 9999px var(--surface);
@@ -579,13 +711,13 @@
 /* Even row striping applies to ALL cells initially */
 .tiptap tr:nth-child(even) th,
 .tiptap tr:nth-child(even) td {
-    box-shadow: inset 0 0 0 9999px var(--sage-50);
+    box-shadow: inset 0 0 0 9999px var(--accent-50);
 }
 
 /* Header styles: Top row */
 .tiptap tr:first-child th {
-    box-shadow: inset 0 0 0 9999px var(--sage-100);
-    color: var(--sage-700);
+    box-shadow: inset 0 0 0 9999px var(--accent-100);
+    color: var(--accent-700);
     font-weight: 600;
     text-align: left;
 }
@@ -593,15 +725,15 @@
 /* Header styles: Left column (matches true header columns, and covers pushed-down header rows if header columns are active) */
 .tiptap tr:not(:first-child) th:first-child:not(:has(+ th)),
 .tiptap table:has(tr th:first-child + td) tr:not(:first-child) th:first-child {
-    box-shadow: inset 0 0 0 9999px var(--sage-100);
-    color: var(--sage-700);
+    box-shadow: inset 0 0 0 9999px var(--accent-100);
+    color: var(--accent-700);
     font-weight: 600;
     text-align: left;
 }
 
 /* TipTap table column resize handle (prevents row height jumping during resize) */
 .column-resize-handle {
-    background-color: var(--sage-400);
+    background-color: var(--accent-400);
     bottom: 0;
     pointer-events: none;
     position: absolute;
@@ -627,7 +759,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: color-mix(in srgb, var(--sage-400) 12%, transparent);
+    background: color-mix(in srgb, var(--accent-400) 12%, transparent);
     pointer-events: none;
 }
 
@@ -640,15 +772,15 @@
     /* Base colour so statically-rendered HTML (version snapshots, exports) shows
        links coloured even without the resolved/unresolved classes the live
        editor adds via its node view — those more-specific rules still win. */
-    color: var(--sage-600);
+    color: var(--accent-600);
 }
 .tiptap .wiki-link.resolved {
-    color: var(--sage-600);
+    color: var(--accent-600);
     text-decoration: underline;
-    text-decoration-color: var(--sage-300);
+    text-decoration-color: var(--accent-300);
     text-underline-offset: 2px;
 }
-.tiptap .wiki-link.resolved:hover { color: var(--sage-700); }
+.tiptap .wiki-link.resolved:hover { color: var(--accent-700); }
 .tiptap .wiki-link.unresolved {
     color: var(--warning);
     border-bottom: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
@@ -659,7 +791,7 @@
     padding: 1px 4px;
 }
 .tiptap .wiki-link.wiki-link-edit.resolved {
-    background: var(--sage-50);
+    background: var(--accent-50);
 }
 .tiptap .wiki-link.wiki-link-edit.unresolved {
     background: color-mix(in srgb, var(--text-tertiary) 8%, transparent);
@@ -744,7 +876,7 @@
     max-height: 13px;
 }
 .network-diagram-block .react-flow__controls-button:hover svg {
-    fill: var(--sage-600);
+    fill: var(--accent-600);
 }
 
 /* Compact markdown for cached GitHub release notes in the Updates settings tab.
@@ -774,7 +906,7 @@
 .release-notes ol { list-style: decimal; }
 .release-notes li { margin: 0.15em 0; }
 .release-notes li > p { margin: 0.15em 0; }
-.release-notes a { color: var(--sage-600); text-decoration: underline; }
+.release-notes a { color: var(--accent-600); text-decoration: underline; }
 .release-notes hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 1em 0; }
 .release-notes code {
     font-family: var(--font-mono);
@@ -791,3 +923,18 @@
     margin: 0.6em 0;
 }
 .release-notes pre code { background: none; padding: 0; }
+
+/* ── Inertia/NProgress loading bar ───────────────────────────────────────────
+   Inertia injects an inline stylesheet with a color captured at boot; these
+   token rules out-rank it so the bar follows the ACTIVE accent live (and
+   dodges the boot-time race where the stylesheet isn't parsed yet). */
+#nprogress .bar {
+    background: var(--accent-400) !important;
+}
+#nprogress .peg {
+    box-shadow: 0 0 10px var(--accent-400), 0 0 5px var(--accent-400) !important;
+}
+#nprogress .spinner-icon {
+    border-top-color: var(--accent-400) !important;
+    border-left-color: var(--accent-400) !important;
+}

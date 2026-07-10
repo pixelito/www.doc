@@ -84,7 +84,7 @@ export default function TemplatesIndex({ templates }) {
                                     value={name}
                                     onChange={(e) => { setName(e.target.value); setError(''); }}
                                     placeholder="Template name"
-                                    className="h-[33px] w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                    className="h-[33px] w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                                 />
                                 {error && <p className="mt-1 text-xs text-danger">{error}</p>}
                             </div>
@@ -93,7 +93,7 @@ export default function TemplatesIndex({ templates }) {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Short description (optional)"
-                                className="h-[33px] flex-1 rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-sage-400 focus:ring-[3px] focus:ring-sage-200"
+                                className="h-[33px] flex-1 rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             />
                             <button
                                 type="submit"
@@ -122,7 +122,7 @@ export default function TemplatesIndex({ templates }) {
                             >
                                 <Link
                                     href={`/templates/${template.id}/edit`}
-                                    className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4 text-sm font-medium text-foreground transition-colors hover:text-sage-600"
+                                    className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4 text-sm font-medium text-foreground transition-colors hover:text-accent-600"
                                 >
                                     <IconTemplate className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
                                     <span className="truncate">{template.name}</span>

@@ -101,7 +101,7 @@ const NAMESPACES = {
 const TONE_CLASSES = {
     danger:  'bg-danger-surface text-danger',
     warning: 'bg-warning-surface text-warning-text',
-    good:    'bg-sage-100 text-sage-600',
+    good:    'bg-success-surface text-success-text',
     neutral: 'bg-surface-hover text-text-secondary',
 };
 

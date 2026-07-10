@@ -29,7 +29,7 @@ const TRIGGER_LABELS = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore'
 
 function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
     const map = {
-        processing: { cls: 'bg-sage-50 text-sage-600',             icon: IconLoader2,       label: 'Running', spin: true },
+        processing: { cls: 'bg-accent-50 text-accent-600',             icon: IconLoader2,       label: 'Running', spin: true },
         pending:    { cls: 'bg-surface-hover text-text-secondary', icon: IconClock,         label: 'Queued' },
         failed:     { cls: 'bg-danger-surface text-danger border border-danger-border', icon: IconAlertTriangle, label: 'Failed' },
         missing:    { cls: 'bg-danger-surface text-danger border border-danger-border', icon: IconAlertTriangle, label: 'Missing' },
@@ -76,7 +76,7 @@ function StatusBadge({ status, encrypted, keyMismatch, undecryptable }) {
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-600">
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-600">
                 <IconLock className="h-3 w-3" stroke={1.5} />
                 Encrypted
             </span>
@@ -601,7 +601,7 @@ export default function Backups() {
                                 disabled={!keyReady}
                                 className="inline-flex items-center gap-1.5 text-sm text-foreground disabled:cursor-not-allowed"
                             >
-                                <IconLock className="h-4 w-4 text-sage-600" stroke={1.5} />
+                                <IconLock className="h-4 w-4 text-accent-600" stroke={1.5} />
                                 Encrypt archives at rest
                             </button>
                         </div>
@@ -615,7 +615,7 @@ export default function Backups() {
                         ) : (
                             <div className={`mt-4 p-3.5 rounded-xl border space-y-3.5 ${keyPresent ? 'border-danger-border bg-danger-surface' : 'border-border bg-surface-hover/50'}`}>
                                 <div className="flex items-start gap-2.5">
-                                    <IconAlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${keyPresent ? 'text-danger' : 'text-sage-600'}`} stroke={1.5} />
+                                    <IconAlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${keyPresent ? 'text-danger' : 'text-accent-600'}`} stroke={1.5} />
                                     <div className="text-[12.5px] text-text-secondary leading-relaxed">
                                         {keyPresent ? (
                                             <>
@@ -645,7 +645,7 @@ export default function Backups() {
                                             toast.success('Encryption key copied to clipboard.');
                                         }}
                                     >
-                                        <IconKey className="h-3.5 w-3.5 text-sage-600" />
+                                        <IconKey className="h-3.5 w-3.5 text-accent-600" />
                                         Generate and copy key
                                     </Button>
                                     <TooltipProvider>
@@ -700,11 +700,11 @@ export default function Backups() {
                                         <Label>Mail server</Label>
                                         <div className="flex flex-wrap gap-2">
                                             <button type="button" onClick={() => chooseGlobalMail(true)}
-                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
+                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${useGlobalMail ? 'bg-accent-100 text-accent-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
                                                 Use the global Email settings
                                             </button>
                                             <button type="button" onClick={() => chooseGlobalMail(false)}
-                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${!useGlobalMail ? 'bg-sage-100 text-sage-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
+                                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${!useGlobalMail ? 'bg-accent-100 text-accent-700' : 'border border-border bg-surface text-text-secondary hover:bg-surface-hover'}`}>
                                                 Use a different mail server
                                             </button>
                                         </div>
@@ -876,7 +876,7 @@ export default function Backups() {
                                         <div className="flex items-center gap-2">
                                             <StatusBadge status={b.status} encrypted={b.encrypted} keyMismatch={b.key_mismatch} undecryptable={b.undecryptable} />
                                             {latestDoneBackup?.id === b.id && (
-                                                <span className="inline-flex items-center rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
+                                                <span className="inline-flex items-center rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">
                                                     Latest
                                                 </span>
                                             )}
@@ -1004,7 +1004,7 @@ export default function Backups() {
                                 <div className="space-y-1">
                                     <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
                                         <div
-                                            className="h-full rounded-full bg-sage-400 transition-[width] duration-150"
+                                            className="h-full rounded-full bg-accent-400 transition-[width] duration-150"
                                             style={{ width: `${importForm.progress?.percentage ?? 0}%` }}
                                         />
                                     </div>
@@ -1071,8 +1071,8 @@ export default function Backups() {
                     <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
                          style={{ boxShadow: 'var(--shadow-lg)' }}>
                         <div className="flex flex-col items-center px-6 py-7 text-center">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
-                                <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-50">
+                                <IconLoader2 className="h-5 w-5 animate-spin text-accent-600" stroke={1.5} />
                             </span>
                             <h2 className="mt-4 text-[15px] font-medium text-foreground">{phaseTitle}</h2>
                             <p className="mt-2 text-sm leading-relaxed text-text-secondary">
@@ -1106,8 +1106,8 @@ export default function Backups() {
                     <div className="w-full max-w-md overflow-hidden rounded-[14px] bg-surface"
                          style={{ boxShadow: 'var(--shadow-lg)' }}>
                         <div className="flex flex-col items-center px-6 py-7 text-center">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-50">
-                                <IconLoader2 className="h-5 w-5 animate-spin text-sage-600" stroke={1.5} />
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-50">
+                                <IconLoader2 className="h-5 w-5 animate-spin text-accent-600" stroke={1.5} />
                             </span>
                             <h2 className="mt-4 text-[15px] font-medium text-foreground">Restoring backup…</h2>
                             <p className="mt-2 text-sm leading-relaxed text-text-secondary">

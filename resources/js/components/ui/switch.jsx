@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 /**
  * Sage-themed on/off switch — an accessible toggle (`role="switch"`), no Radix
  * dependency. Controlled: `<Switch checked={x} onCheckedChange={(next) => ...} />`.
- * Track fills sage-400 when on; the knob is a bordered surface circle (separation
+ * Track fills accent-400 when on; the knob is a bordered surface circle (separation
  * from borders, not shadows, per the design guidelines).
  */
 const Switch = React.forwardRef(({ checked = false, onCheckedChange, disabled, className, ...props }, ref) => (
@@ -17,9 +17,9 @@ const Switch = React.forwardRef(({ checked = false, onCheckedChange, disabled, c
         onClick={() => onCheckedChange?.(!checked)}
         className={cn(
             'relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full outline-none transition-colors duration-150',
-            'focus-visible:ring-[3px] focus-visible:ring-sage-200',
+            'focus-visible:ring-[3px] focus-visible:ring-accent-200',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            checked ? 'bg-sage-400' : 'bg-border',
+            checked ? 'bg-accent-400' : 'bg-border',
             className,
         )}
         {...props}
