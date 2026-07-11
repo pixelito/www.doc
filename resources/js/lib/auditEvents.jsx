@@ -1,6 +1,6 @@
 import {
     IconDatabaseExport, IconFileText, IconFolders, IconHistory,
-    IconSettings, IconShieldLock, IconTemplate, IconTrash, IconUsers,
+    IconSettings, IconShieldLock, IconTag, IconTemplate, IconTrash, IconUsers,
 } from '@tabler/icons-react';
 
 /**
@@ -31,6 +31,7 @@ function bytes(n) {
 const EVENTS = {
     'document.created':          { tone: 'good',    text: (c) => <>created {quoted(c?.title)}{c?.template ? <> from the <span className="font-medium">{c.template}</span> template</> : ''}</> },
     'document.updated':          { tone: 'neutral', text: (c) => <>edited {quoted(c?.title)}</> },
+    'document.tags_changed':     { tone: 'neutral', text: (c) => <>changed the tags on {quoted(c?.title)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
     'document.moved':            { tone: 'neutral', text: (c) => <>moved {quoted(c?.title)}</> },
     'document.trashed':          { tone: 'warning', text: (c) => <>moved {quoted(c?.title)} to the trash</> },
     'document.restored':         { tone: 'good',    text: (c) => <>restored {quoted(c?.title)} from the trash</> },
@@ -55,6 +56,10 @@ const EVENTS = {
     },
     'template.updated': { tone: 'neutral', text: (c) => <>edited the template <span className="font-medium">{c?.name}</span></> },
     'template.deleted': { tone: 'danger',  text: (c) => <>deleted the template <span className="font-medium">{c?.name}</span></> },
+
+    'tag.created': { tone: 'good',    text: (c) => <>created the tag <span className="font-medium">{c?.name}</span></> },
+    'tag.renamed': { tone: 'neutral', text: () => 'renamed a tag', change: (c) => ({ from: c?.from, to: c?.to }) },
+    'tag.deleted': { tone: 'danger',  text: (c) => <>deleted the tag <span className="font-medium">{c?.name}</span>{c?.documents ? ` (used on ${c.documents} page${c.documents === 1 ? '' : 's'})` : ''}</> },
 
     'trash.emptied': {
         tone: 'danger',
@@ -91,6 +96,7 @@ const NAMESPACES = {
     document:  { label: 'Documents',  Icon: IconFileText },
     workspace: { label: 'Workspaces', Icon: IconFolders },
     template:  { label: 'Templates',  Icon: IconTemplate },
+    tag:       { label: 'Tags',       Icon: IconTag },
     trash:     { label: 'Trash',      Icon: IconTrash },
     user:      { label: 'Users',      Icon: IconUsers },
     auth:      { label: 'Sign-ins',   Icon: IconShieldLock },

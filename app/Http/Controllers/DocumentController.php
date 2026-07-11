@@ -226,7 +226,9 @@ class DocumentController extends Controller
         // takes on that save reads the page's current tags, so a full-revert restore
         // needs the new set already in place.
         $tagsChanged = false;
+        $oldTags = [];
         if ($request->has('tags')) {
+            $oldTags = $document->tags()->orderBy('name')->pluck('name')->all();
             $changes = $document->tags()->sync($request->input('tags'));
             $tagsChanged = (bool) array_filter($changes);
         }
@@ -235,8 +237,16 @@ class DocumentController extends Controller
 
         // When only tags changed, no version was snapshotted and the observer's
         // workspace touch didn't run — touch explicitly so listings refresh.
+        // The observer's document.updated didn't fire either (no content/title
+        // change), so record the action here; a combined save stays ONE event.
         if ($tagsChanged && ! $document->wasChanged(['content', 'title'])) {
             $document->workspace?->touch();
+
+            \App\Support\Audit::record('document.tags_changed', $document, [
+                'title' => $document->title,
+                'from'  => implode(', ', $oldTags) ?: null,
+                'to'    => implode(', ', $document->tags()->orderBy('name')->pluck('name')->all()) ?: null,
+            ]);
         }
 
         return redirect()->route('documents.show', $document);

@@ -3,6 +3,7 @@
 use App\Models\AuditEvent;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Audit;
@@ -117,6 +118,73 @@ test('restoring a version records the intent with the snapshot id', function () 
     $event = AuditEvent::firstWhere('event', 'document.version_restored');
     expect($event)->not->toBeNull()
         ->and($event->context['version_id'])->toBe($version->id);
+});
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+
+test('tag create, rename and delete are audited', function () {
+    $user = login(); // delete is admin-only
+    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+
+    $this->post('/tags', ['name' => 'Networking']);
+    $tag = Tag::firstWhere('name', 'Networking');
+    $created = AuditEvent::firstWhere('event', 'tag.created');
+    expect($created)->not->toBeNull()
+        ->and($created->user_id)->toBe($user->id)
+        ->and($created->auditable_id)->toBe($tag->id)
+        ->and($created->context['name'])->toBe('Networking');
+
+    $this->patch("/tags/{$tag->id}", ['name' => 'Infrastructure']);
+    $renamed = AuditEvent::firstWhere('event', 'tag.renamed');
+    expect($renamed)->not->toBeNull()
+        ->and($renamed->context['from'])->toBe('Networking')
+        ->and($renamed->context['to'])->toBe('Infrastructure');
+
+    // A no-op update (same name) must not log a rename.
+    $this->patch("/tags/{$tag->id}", ['name' => 'Infrastructure']);
+    expect(AuditEvent::where('event', 'tag.renamed')->count())->toBe(1);
+
+    $this->delete("/tags/{$tag->id}");
+    $deleted = AuditEvent::firstWhere('event', 'tag.deleted');
+    expect($deleted)->not->toBeNull()
+        ->and($deleted->auditable_id)->toBeNull() // subject destroyed — identity in context
+        ->and($deleted->context['tag_id'])->toBe($tag->id)
+        ->and($deleted->context['name'])->toBe('Infrastructure');
+});
+
+test('a tags-only page save records the tag delta', function () {
+    login(role: 'editor');
+    $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->for($workspace)->create();
+    $alpha = Tag::factory()->create(['name' => 'Alpha']);
+    $beta  = Tag::factory()->create(['name' => 'Beta']);
+    $document->tags()->sync([$alpha->id]);
+    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+
+    $this->patch("/documents/{$document->id}", ['tags' => [$beta->id]]);
+
+    $event = AuditEvent::firstWhere('event', 'document.tags_changed');
+    expect($event)->not->toBeNull()
+        ->and($event->auditable_id)->toBe($document->id)
+        ->and($event->context['from'])->toBe('Alpha')
+        ->and($event->context['to'])->toBe('Beta')
+        ->and(AuditEvent::where('event', 'document.updated')->count())->toBe(0);
+});
+
+test('a save that edits content and tags together logs one document.updated only', function () {
+    login(role: 'editor');
+    $workspace = Workspace::factory()->create();
+    $document  = Document::factory()->for($workspace)->create();
+    $tag = Tag::factory()->create();
+    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+
+    $this->patch("/documents/{$document->id}", [
+        'title' => 'Retitled',
+        'tags'  => [$tag->id],
+    ]);
+
+    expect(AuditEvent::where('event', 'document.updated')->count())->toBe(1)
+        ->and(AuditEvent::where('event', 'document.tags_changed')->count())->toBe(0);
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

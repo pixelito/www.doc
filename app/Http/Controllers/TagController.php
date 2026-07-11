@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreTagRequest;
 use App\Http\Requests\UpdateTagRequest;
 use App\Models\Tag;
+use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,6 +50,8 @@ class TagController extends Controller
 
         $tag = Tag::create($request->validated());
 
+        Audit::record('tag.created', $tag, ['name' => $tag->name]);
+
         return back()->with('success', "Tag \"{$tag->name}\" created.");
     }
 
@@ -56,7 +59,12 @@ class TagController extends Controller
     {
         $this->authorize('update', $tag);
 
+        $oldName = $tag->name;
         $tag->update($request->validated());
+
+        if ($tag->wasChanged('name')) {
+            Audit::record('tag.renamed', $tag, ['from' => $oldName, 'to' => $tag->name]);
+        }
 
         return back()->with('success', "Tag \"{$tag->name}\" updated.");
     }
@@ -65,9 +73,13 @@ class TagController extends Controller
     {
         $this->authorize('delete', $tag);
 
-        $name = $tag->name;
+        // Subject is gone after the hard delete — identity lives in context
+        // instead, per the audit conventions for destroyed subjects.
+        $context = ['tag_id' => $tag->id, 'name' => $tag->name, 'documents' => $tag->documents()->count()];
         $tag->delete();
 
-        return back()->with('success', "Deleted tag \"{$name}\".");
+        Audit::record('tag.deleted', null, $context);
+
+        return back()->with('success', "Deleted tag \"{$context['name']}\".");
     }
 }
