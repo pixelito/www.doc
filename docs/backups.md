@@ -3,7 +3,24 @@
 www.doc has a built-in backup engine that snapshots your PostgreSQL database and
 all local uploads into a single `.zip` archive. Backups are configured entirely
 from the **Settings > Backups** UI — scheduled or manual — and can be written to
-the local disk or an external SMB network share.
+the local disk or an external SMB network share. For production, use an SMB
+share on a different machine (see below).
+
+## Choosing a destination
+
+- **Local disk** writes archives to the app's own storage volume — the same
+  volume that holds the data being backed up. This protects against
+  application-level mistakes (a bad edit, an unwanted restore) but **not**
+  against disk failure, volume deletion, or loss of the host: those take the
+  data and the backups together. Treat it as a testing convenience or a
+  secondary copy.
+- **SMB network share** writes archives off-host. This is the destination
+  production setups should use, pointed at a share on a different machine
+  (NAS, file server). Combined with an encryption key, archives are safe to
+  store on shared infrastructure.
+
+The **Test connection** button in Settings > Backups verifies connectivity
+and write access before the first scheduled run.
 
 ## What's inside an archive
 

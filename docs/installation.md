@@ -71,6 +71,11 @@ Open your `APP_URL` in a web browser. You will be greeted by the **Setup Wizard*
 
 Once finished, your documentation app is fully functional and ready to use!
 
+Before putting real content in, configure backups under **Settings > Backups**
+— for production, point them at an SMB share on a different machine, not the
+local disk (which is lost together with the host). See the
+[Backups & Encryption Guide](backups.md).
+
 ---
 
 ## Updating to a new version
