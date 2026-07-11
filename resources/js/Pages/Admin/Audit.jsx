@@ -91,7 +91,7 @@ export default function Audit() {
                     ) : (
                         <div className="divide-y divide-border">
                             {events.data.map((event) => {
-                                const { text, actorless, change, toneClass } = describeEvent(event.event, event.context);
+                                const { text, plainText, actorless, change, toneClass } = describeEvent(event.event, event.context);
                                 const NsIcon = namespaceIcon(event.event);
 
                                 return (
@@ -108,7 +108,7 @@ export default function Audit() {
 
                                         <div className="min-w-0 flex-1">
                                             {/* Human sentence first; the actor is bold, the phrase comes from the event map. */}
-                                            <p className="truncate text-sm text-foreground" title={`${actorless ? '' : (event.user?.name ?? 'System') + ' '}${text}`}>
+                                            <p className="truncate text-sm text-foreground" title={`${actorless ? '' : (event.user?.name ?? 'System') + ' '}${plainText}`}>
                                                 {!actorless && (
                                                     <span className="font-medium">{event.user?.name ?? 'System'} </span>
                                                 )}

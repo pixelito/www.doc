@@ -118,12 +118,23 @@ function humanize(event) {
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/** Flatten a sentence (plain string or JSX) to text — for `title` tooltips,
+ *  which coerce to string and would otherwise show "[object Object]". */
+function toPlainText(node) {
+    if (node == null || typeof node === 'boolean') return '';
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(toPlainText).join('');
+    return toPlainText(node.props?.children);
+}
+
 /** Everything the row needs to render one event. */
 export function describeEvent(event, context) {
     const entry = EVENTS[event];
+    const text = entry ? entry.text(context) : humanize(event);
 
     return {
-        text: entry ? entry.text(context) : humanize(event),
+        text,
+        plainText: toPlainText(text),
         actorless: entry?.actorless ?? !entry, // fallback sentences stand alone too
         change: entry?.change?.(context) ?? null,
         toneClass: TONE_CLASSES[entry?.tone] ?? TONE_CLASSES.neutral,
