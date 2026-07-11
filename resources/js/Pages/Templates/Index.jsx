@@ -4,7 +4,7 @@ import { IconPlus, IconTemplate, IconTrash } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { formatDate } from '@/lib/date';
+import { timeAgo } from '@/lib/date';
 
 /**
  * Manage page templates — a Settings tab for editors and admins (the route
@@ -131,7 +131,7 @@ export default function TemplatesIndex({ templates }) {
                                     {template.description}
                                 </div>
                                 <div className="py-2.5 pr-4 text-xs text-text-tertiary">
-                                    {formatDate(template.updated_at)}
+                                    {timeAgo(template.updated_at)}
                                 </div>
                                 <div className="flex items-center justify-center py-1.5 pr-2">
                                     <button
