@@ -24,6 +24,7 @@ import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import NewPageModal from '@/components/ui/NewPageModal';
+import ImportDialog from '@/components/ui/ImportDialog';
 import { can } from '@/lib/permissions';
 
 const INDENT = 20; // px of left padding per nesting level
@@ -145,10 +146,10 @@ function ActionButton({ onClick, href, title, children }) {
         : <button type="button" onClick={onClick} title={title} className={cls}>{children}</button>;
 }
 
-function RowActions({ node, workspaceId, onAddChild }) {
+function RowActions({ node, onAddChild, onImport }) {
     return (
         <div className="flex items-center justify-end gap-1">
-            <ActionButton href={`/workspaces/${workspaceId}/imports/create?parent_id=${node.id}`} title="Import as subpage">
+            <ActionButton onClick={() => onImport(node.id)} title="Import as subpage">
                 <IconFileImport className="h-3.5 w-3.5" stroke={1.5} />
             </ActionButton>
             <ActionButton onClick={() => onAddChild(node.id)} title="Add subpage">
@@ -198,7 +199,7 @@ const GRIP_GUTTER = 'w-5';    // fixed drag-handle gutter (20px) — keep in syn
 // so neighbouring slices overlap across that hairline and read as one continuous line.
 const GUIDE_BLEED = 1;
 
-function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCreate, canReorder, ghost, dragging, pathLast, isDropParent, starred = false, isReordering = false }) {
+function TreeRow({ id, depth, node, activeTagId, onAddChild, onImport, canCreate, canReorder, ghost, dragging, pathLast, isDropParent, starred = false, isReordering = false }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id, disabled: !canReorder });
 
@@ -282,7 +283,7 @@ function TreeRow({ id, depth, node, activeTagId, workspaceId, onAddChild, canCre
             <div className="flex items-center justify-end gap-1 py-2.5 pr-2">
                 {/* Star is personal and role-independent — outside canCreate. */}
                 {!dragging && !isReordering && <StarButton node={node} starred={starred} />}
-                {canCreate && <RowActions node={node} workspaceId={workspaceId} onAddChild={onAddChild} />}
+                {canCreate && <RowActions node={node} onAddChild={onAddChild} onImport={onImport} />}
             </div>
         </li>
     );
@@ -314,6 +315,11 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
     const [activeTag, setActiveTag] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalParentId, setModalParentId] = useState('');
+    const [importOpen, setImportOpen] = useState(false);
+    const [importParentId, setImportParentId] = useState('');
+    const [importFiles, setImportFiles] = useState(null);
+    const [dropActive, setDropActive] = useState(false);
+    const [pendingImportJobs, setPendingImportJobs] = useState([]);
     const [deleteOpen, setDeleteOpen] = useState(false);
 
     // Reorder is an explicit mode (like edit mode): off by default so a stray
@@ -388,6 +394,100 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
         setModalParentId(String(parentId));
         setModalOpen(true);
     }
+
+    function openImport(parentId = '') {
+        setImportParentId(String(parentId));
+        setImportFiles(null);
+        setImportOpen(true);
+    }
+
+    // Drop OS files anywhere on the page to import them. Only reacts to real
+    // file drags (dataTransfer.types has "Files") — the tree's reorder drag is
+    // dnd-kit pointer events and never fires these — and stays inert for
+    // viewers, during reorder mode, and while the dialog is already open.
+    useEffect(() => {
+        if (!perms.create || importOpen || reordering) return;
+
+        let depth = 0; // dragenter/leave fire per element; count nesting
+        const hasFiles = (e) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+
+        const onEnter = (e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            if (++depth === 1) setDropActive(true);
+        };
+        const onLeave = (e) => {
+            if (!hasFiles(e)) return;
+            if (depth > 0 && --depth === 0) setDropActive(false);
+        };
+        const onOver = (e) => { if (hasFiles(e)) e.preventDefault(); };
+        const onDrop = (e) => {
+            depth = 0;
+            setDropActive(false);
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length === 0) return;
+            setImportParentId('');
+            setImportFiles(files);
+            setImportOpen(true);
+        };
+
+        window.addEventListener('dragenter', onEnter);
+        window.addEventListener('dragleave', onLeave);
+        window.addEventListener('dragover', onOver);
+        window.addEventListener('drop', onDrop);
+        return () => {
+            window.removeEventListener('dragenter', onEnter);
+            window.removeEventListener('dragleave', onLeave);
+            window.removeEventListener('dragover', onOver);
+            window.removeEventListener('drop', onDrop);
+            setDropActive(false);
+        };
+    }, [perms.create, importOpen, reordering]);
+
+    function refreshTree() {
+        router.reload({ only: ['tree', 'workspace'], preserveScroll: true });
+    }
+
+    /** Pages created by a batch exist server-side already — pull them into the tree. */
+    function closeImport({ sent, pending }) {
+        setImportOpen(false);
+        if (sent > 0) refreshTree();
+        if (pending.length > 0) setPendingImportJobs(pending);
+    }
+
+    // Conversions still running after the dialog closed: keep watching them and
+    // refresh the tree as they land (a FAILED import trashes its placeholder
+    // page, so completions can remove rows too, not just fill them in).
+    const pendingPollsRef = useRef(0);
+    useEffect(() => {
+        if (pendingImportJobs.length === 0) return;
+        const timer = setInterval(async () => {
+            // Give up after ~2 minutes — same budget as the dialog's own polling.
+            if (++pendingPollsRef.current > 48) {
+                pendingPollsRef.current = 0;
+                setPendingImportJobs([]);
+                return;
+            }
+            const still = [];
+            for (const jobId of pendingImportJobs) {
+                try {
+                    const res = await fetch(`/imports/${jobId}`, { headers: { Accept: 'application/json' } });
+                    const data = await res.json();
+                    if (!['done', 'failed'].includes(data.status)) still.push(jobId);
+                } catch {
+                    still.push(jobId); // network hiccup — keep watching
+                }
+            }
+            if (still.length !== pendingImportJobs.length) {
+                refreshTree();
+                setPendingImportJobs(still);
+                if (still.length === 0) pendingPollsRef.current = 0;
+            }
+        }, 2500);
+        return () => clearInterval(timer);
+    }, [pendingImportJobs]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function resetDrag() {
         setActiveId(null);
@@ -523,11 +623,9 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                                             </DropdownMenuItem>
                                         )}
                                         {perms.create && (
-                                            <DropdownMenuItem asChild>
-                                                <Link href={`/workspaces/${workspace.id}/imports/create`}>
-                                                    <IconUpload stroke={1.5} />
-                                                    Import pages…
-                                                </Link>
+                                            <DropdownMenuItem onSelect={() => openImport('')}>
+                                                <IconUpload stroke={1.5} />
+                                                Import pages…
                                             </DropdownMenuItem>
                                         )}
                                         {perms.delete && (
@@ -608,8 +706,8 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                                             depth={item.id === activeId && projected ? projected.depth : item.depth}
                                             node={item.node}
                                             activeTagId={activeTag}
-                                            workspaceId={workspace.id}
                                             onAddChild={openModal}
+                                            onImport={openImport}
                                             canCreate={perms.create && !reordering}
                                             canReorder={perms.update && reordering}
                                             ghost={item.id === activeId}
@@ -654,6 +752,33 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
             initialParentId={modalParentId}
             templates={templates}
         />
+
+        <ImportDialog
+            open={importOpen}
+            onClose={closeImport}
+            onSettled={refreshTree}
+            workspaceId={workspace.id}
+            parentOptions={options}
+            initialParentId={importParentId}
+            initialFiles={importFiles}
+        />
+
+        {/* Drop-anywhere target; pointer-events-none so the drop reaches the window listeners */}
+        {dropActive && (
+            <div
+                className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-8"
+                style={{ background: 'rgba(31, 37, 32, 0.34)' }}
+            >
+                <div
+                    className="flex flex-col items-center gap-2.5 rounded-[14px] border-2 border-dashed border-accent-400 bg-surface px-10 py-8"
+                    style={{ boxShadow: 'var(--shadow-lg)' }}
+                >
+                    <IconUpload className="h-7 w-7 text-accent-600" stroke={1.5} aria-hidden="true" />
+                    <p className="text-sm font-medium text-foreground">Drop files to import into {workspace.name}</p>
+                    <p className="text-xs text-text-secondary">.docx and .pdf files become pages</p>
+                </div>
+            </div>
+        )}
 
         <ConfirmDialog
             open={deleteOpen}

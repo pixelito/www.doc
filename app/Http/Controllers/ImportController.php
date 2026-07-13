@@ -10,22 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class ImportController extends Controller
 {
-    public function create(Workspace $workspace, Request $request): Response
-    {
-        $this->authorize('update', $workspace);
-
-        return Inertia::render('Documents/Import', [
-            'workspace'       => $workspace->only('id', 'name'),
-            'pages'           => $this->flatPages($workspace),
-            'initialParentId' => $request->query('parent_id'),
-        ]);
-    }
-
     public function store(Request $request, Workspace $workspace): JsonResponse
     {
         $this->authorize('update', $workspace);
@@ -89,27 +76,4 @@ class ImportController extends Controller
         ]);
     }
 
-    private function flatPages(Workspace $workspace): array
-    {
-        $all = $workspace->documents()
-            ->orderBy('position')
-            ->get(['id', 'title', 'parent_id'])
-            ->keyBy('id');
-
-        $result = [];
-        $this->flattenDocs($all->whereNull('parent_id'), $all, $result, 0);
-        return $result;
-    }
-
-    private function flattenDocs($nodes, $all, array &$result, int $depth): void
-    {
-        foreach ($nodes as $node) {
-            $result[] = [
-                'id'    => $node->id,
-                'label' => str_repeat('  ', $depth) . $node->title,
-                'depth' => $depth,
-            ];
-            $this->flattenDocs($all->where('parent_id', $node->id), $all, $result, $depth + 1);
-        }
-    }
 }

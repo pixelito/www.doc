@@ -168,8 +168,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('trash/workspaces/{workspace}', [TrashController::class, 'forceDeleteWorkspace'])->name('trash.workspaces.force-delete');
     Route::delete('trash', [TrashController::class, 'empty'])->name('trash.empty');
 
-    // Import pipeline
-    Route::get('workspaces/{workspace}/imports/create', [ImportController::class, 'create'])->name('imports.create');
+    // Import pipeline (the UI is the ImportDialog on the workspace page)
     Route::post('workspaces/{workspace}/imports', [ImportController::class, 'store'])->name('imports.store');
     Route::get('imports/{job}', [ImportController::class, 'show'])->name('imports.show');
 });
