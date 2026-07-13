@@ -40,6 +40,13 @@ services:
       - "80:80"
       - "443:443"
     entrypoint: /bin/sh
+    # Self-signed certs: leaves last 30 days (Caddy's default is 12h, which
+    # makes browsers re-show the "not trusted" warning several times a day —
+    # the click-through exception dies with each rotated cert). 30 days stays
+    # far below Apple's 825-day validity cap for TLS server certs. The
+    # intermediate CA must outlive the leaves, so it is raised to 90 days
+    # (Caddy's default is 7 days). To silence the warning entirely, trust the
+    # root CA (/data/caddy/pki/authorities/local/root.crt) on each device.
     command: >
       -c '
       URL="${APP_URL:-https://localhost}";
@@ -47,9 +54,18 @@ services:
       DOMAIN=$${DOMAIN%/*};
       echo "{
         default_sni $$DOMAIN
+        pki {
+          ca local {
+            intermediate_lifetime 2160h
+          }
+        }
       }
       $$DOMAIN {
-        tls internal
+        tls {
+          issuer internal {
+            lifetime 720h
+          }
+        }
         reverse_proxy web:80
         header X-XSS-Protection \"1; mode=block\"
       }" > /etc/caddy/Caddyfile && caddy run --config /etc/caddy/Caddyfile
