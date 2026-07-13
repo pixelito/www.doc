@@ -27,6 +27,27 @@ test('a known user is emailed a reset link', function () {
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
+test('the reset email uses the app mail style, not the stock Laravel template', function () {
+    Notification::fake();
+    $user = User::factory()->create(['email' => 'ada@example.com']);
+
+    $this->post('/forgot-password', ['email' => 'ada@example.com']);
+
+    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+        $mail = $notification->toMail($user);
+        expect($mail->view)->toBe('mail.reset-password');
+
+        $html = view($mail->view, $mail->viewData)->render();
+        expect($html)
+            ->toContain('Reset your password')
+            ->toContain('/reset-password/' . $notification->token)
+            ->toContain(urlencode($user->email))
+            ->toContain(config('app.name'));
+
+        return true;
+    });
+});
+
 test('an SMTP outage never surfaces as an error on the forgot form', function () {
     User::factory()->create(['email' => 'ada@example.com']);
 

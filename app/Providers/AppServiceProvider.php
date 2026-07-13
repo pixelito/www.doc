@@ -29,6 +29,22 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Gate::define('emptyTrash', function ($user) {
             return $user->hasRole('admin');
         });
+
+        // Password-reset email in the app's own mail style (mail/layout.blade.php)
+        // instead of Laravel's stock notification template. Registered before the
+        // settings-table guard below — it's static wiring, not DB-dependent.
+        \Illuminate\Auth\Notifications\ResetPassword::toMailUsing(function (object $notifiable, string $token) {
+            $app = config('app.name');
+
+            return (new \Illuminate\Notifications\Messages\MailMessage)
+                ->subject("[{$app}] Reset your password")
+                ->view('mail.reset-password', [
+                    'appName' => $app,
+                    'url'     => route('password.reset', $token)
+                        . '?email=' . urlencode($notifiable->getEmailForPasswordReset()),
+                    'expires' => config('auth.passwords.' . config('auth.defaults.passwords') . '.expire'),
+                ]);
+        });
         // Apply operator-configured, DB-stored instance settings over config.
         // Guarded on the settings table existing so the very first `migrate`
         // (which boots the app before the table is created) doesn't fail here.

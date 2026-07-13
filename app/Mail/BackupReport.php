@@ -39,12 +39,16 @@ class BackupReport extends Mailable
 
     public function content(): Content
     {
+        $ok = $this->isTest || $this->backup?->status === 'done';
+
         return new Content(
             view: 'mail.backup-report',
             with: [
                 'isTest'  => $this->isTest,
                 'backup'  => $this->backup,
                 'appName' => config('app.name'),
+                // Card top bar: sage for good news, terracotta for a failure.
+                'accent'  => $ok ? '#4B6840' : '#B5573E',
             ],
         );
     }
