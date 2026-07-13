@@ -259,3 +259,37 @@ test('a failed import job marks the job failed and trashes the empty placeholder
     expect(\App\Models\Document::find($document->id))->toBeNull();
     expect(\App\Models\Document::withTrashed()->find($document->id))->not->toBeNull();
 });
+
+// The 50 MB ceiling is a three-layer contract: this max:51200 rule, the
+// "max 50 MB" hint on the Import page, and the client_max_body_size exemption
+// for the imports route in docker/nginx/default.conf. These pin the app-side
+// boundary; tests/e2e/import-limit.spec.js guards the nginx side.
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+test('import accepts a file at exactly the 50 MB limit', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('big.docx', 51200, DOCX_MIME);
+
+    $this->post(route('imports.store', $workspace), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertStatus(202);
+
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ImportDocumentJob::class);
+});
+
+test('import rejects a file over the 50 MB limit with a validation error', function () {
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('big.docx', 51201, DOCX_MIME);
+
+    $this->post(route('imports.store', $workspace), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('file');
+
+    // No placeholder page is created for a rejected upload.
+    expect(\App\Models\Document::count())->toBe(0);
+});
