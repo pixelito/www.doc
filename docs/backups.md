@@ -1,26 +1,22 @@
 # Backups & Encryption Guide
 
-www.doc has a built-in backup engine that snapshots your PostgreSQL database and
-all local uploads into a single `.zip` archive. Backups are configured entirely
-from the **Settings > Backups** UI — scheduled or manual — and can be written to
-the local disk or an external SMB network share. For production, use an SMB
-share on a different machine (see below).
+The backup engine snapshots the PostgreSQL database and all local uploads into
+a single `.zip` archive. Backups are configured from **Settings > Backups** —
+scheduled or manual — and written to local disk or an SMB network share.
 
 ## Choosing a destination
 
-- **Local disk** writes archives to the app's own storage volume — the same
-  volume that holds the data being backed up. This protects against
-  application-level mistakes (a bad edit, an unwanted restore) but **not**
-  against disk failure, volume deletion, or loss of the host: those take the
-  data and the backups together. Treat it as a testing convenience or a
-  secondary copy.
-- **SMB network share** writes archives off-host. This is the destination
-  production setups should use, pointed at a share on a different machine
-  (NAS, file server). Combined with an encryption key, archives are safe to
-  store on shared infrastructure.
+- **Local disk** writes to the app's own storage volume — the same volume that
+  holds the data being backed up. It survives application mistakes (a bad edit,
+  an unwanted restore) but not disk failure, volume deletion, or host loss,
+  which take data and backups together. Use it for testing or as a secondary
+  copy.
+- **SMB network share** writes off-host, to a share on a different machine (NAS,
+  file server). This is the destination for production. With an encryption key,
+  archives are safe to store on shared infrastructure.
 
-The **Test connection** button in Settings > Backups verifies connectivity
-and write access before the first scheduled run.
+The **Test connection** button verifies connectivity and write access before
+the first scheduled run.
 
 ## What's inside an archive
 
@@ -60,22 +56,20 @@ or fails.
 
 ## Encrypted backups
 
-If you configure an encryption key, backups are encrypted at rest with
-**XChaCha20-Poly1305** stream encryption (via `libsodium`) before they are
-written to disk.
+With an encryption key set, archives are encrypted at rest with
+**XChaCha20-Poly1305** (via `libsodium`) before being written.
 
-1. **Generate a key:** go to **Settings > Backups** to generate a secure,
-   32-byte base64 key directly in your browser.
-2. **Add to environment:** place the key in your `.env` file (or GUI
-   environment config) as `BACKUP_ENCRYPTION_KEY=your_base64_string`.
-3. **Restart the stack:** recreate the container so the variable is injected
-   and cached. In the CLI, run `docker compose up -d`. If using a GUI (Komodo,
-   Portainer), click **Deploy** or **Update** (a simple container restart is
-   usually not enough).
-4. **Enable:** toggle the "Encrypt backups" setting in the UI.
+1. **Generate a key** in **Settings > Backups** — a 32-byte base64 key, made in
+   the browser.
+2. **Add it to the environment** as `BACKUP_ENCRYPTION_KEY=your_base64_string`
+   in `.env` (or the GUI's environment config).
+3. **Recreate the container** so the variable is injected: `docker compose up
+   -d`, or **Deploy** / **Update** in a GUI manager (a plain restart is usually
+   not enough).
+4. **Toggle "Encrypt backups"** in the UI.
 
-The app transparently encrypts and decrypts archives during automated
-operations (including hitting "Restore" in the UI).
+Encryption and decryption then happen transparently during automated
+operations, including restores from the UI.
 
 ### Manual decryption (disaster recovery)
 
