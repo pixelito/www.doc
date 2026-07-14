@@ -1,6 +1,7 @@
 import { useForm, Head, Link } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
@@ -43,9 +44,8 @@ export default function Login() {
                                 </div>
                                 <div>
                                     <Label htmlFor="password">Password</Label>
-                                    <Input
+                                    <PasswordInput
                                         id="password"
-                                        type="password"
                                         value={data.password}
                                         onChange={(e) => setData('password', e.target.value)}
                                         autoComplete="current-password"

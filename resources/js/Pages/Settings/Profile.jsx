@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import { IconCheck, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -10,33 +11,6 @@ import { ThemeSegments, AccentSegments, WidthSegments } from '@/components/Theme
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { AVATAR_COLORS, avatarStyle, initials } from '@/lib/avatar';
 import { isEmail } from '@/lib/utils';
-
-function PasswordInput({ value, onChange, placeholder, id }) {
-    const [show, setShow] = useState(false);
-    return (
-        <div className="relative">
-            <Input
-                id={id}
-                type={show ? 'text' : 'password'}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                className="pr-9"
-            />
-            <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShow(v => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
-            >
-                {show
-                    ? <IconEyeOff className="h-4 w-4" stroke={1.5} />
-                    : <IconEye className="h-4 w-4" stroke={1.5} />
-                }
-            </button>
-        </div>
-    );
-}
 
 function SaveButton({ saving, success, disabled = false, label = 'Save changes' }) {
     return (

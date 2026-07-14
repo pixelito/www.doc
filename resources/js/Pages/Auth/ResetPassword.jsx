@@ -1,6 +1,7 @@
 import { useForm, Head } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { isEmail } from '@/lib/utils';
@@ -47,9 +48,8 @@ export default function ResetPassword({ token, email }) {
                                 </div>
                                 <div>
                                     <Label htmlFor="password">New password</Label>
-                                    <Input
+                                    <PasswordInput
                                         id="password"
-                                        type="password"
                                         value={data.password}
                                         onChange={(e) => setData('password', e.target.value)}
                                         autoComplete="new-password"
@@ -59,9 +59,8 @@ export default function ResetPassword({ token, email }) {
                                 </div>
                                 <div>
                                     <Label htmlFor="password_confirmation">Confirm new password</Label>
-                                    <Input
+                                    <PasswordInput
                                         id="password_confirmation"
-                                        type="password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
                                         autoComplete="new-password"

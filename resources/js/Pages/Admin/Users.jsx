@@ -3,6 +3,7 @@ import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { IconTrash, IconLoader2, IconInfoCircle } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -152,12 +153,12 @@ export default function Users() {
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Password</label>
-                        <Input type="password" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                        <PasswordInput value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
                         <FieldError error={form.errors.password} />
                     </div>
                     <div>
                         <label className="mb-1 block text-sm font-medium text-foreground">Confirm password</label>
-                        <Input type="password" value={form.data.password_confirmation} onChange={(e) => form.setData('password_confirmation', e.target.value)} />
+                        <PasswordInput value={form.data.password_confirmation} onChange={(e) => form.setData('password_confirmation', e.target.value)} />
                         {passwordsMismatch && <p className="mt-1 text-xs text-danger">Passwords don't match.</p>}
                     </div>
                     <div>

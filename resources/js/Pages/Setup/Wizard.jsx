@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -161,14 +162,14 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         <div>
                                             <Label htmlFor="admin-password">Password</Label>
-                                            <Input id="admin-password" type="password" value={adminForm.data.password}
+                                            <PasswordInput id="admin-password" value={adminForm.data.password}
                                                 onChange={(e) => adminForm.setData('password', e.target.value)}
                                                 autoComplete="new-password" className="mt-1" required />
                                             {adminForm.errors.password && <p className="mt-1 text-xs text-danger">{adminForm.errors.password}</p>}
                                         </div>
                                         <div>
                                             <Label htmlFor="admin-password2">Confirm password</Label>
-                                            <Input id="admin-password2" type="password" value={adminForm.data.password_confirmation}
+                                            <PasswordInput id="admin-password2" value={adminForm.data.password_confirmation}
                                                 onChange={(e) => adminForm.setData('password_confirmation', e.target.value)}
                                                 autoComplete="new-password" className="mt-1" required />
                                             {passwordsMismatch && <p className="mt-1 text-xs text-danger">Passwords don't match.</p>}

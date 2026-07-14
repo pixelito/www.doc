@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -553,7 +554,7 @@ export default function Backups() {
                                 </div>
                                 <div>
                                     <Label htmlFor="smb-password">Password</Label>
-                                    <Input id="smb-password" type="password" value={form.data.smb.password}
+                                    <PasswordInput id="smb-password" value={form.data.smb.password}
                                         onChange={(e) => setNested('smb', 'password', e.target.value)}
                                         autoComplete="new-password"
                                         placeholder={smbPwSet ? '•••••••• (saved)' : ''} className="mt-1" />
@@ -740,7 +741,7 @@ export default function Backups() {
                                         </div>
                                         <div>
                                             <Label htmlFor="mail-password">SMTP password</Label>
-                                            <Input id="mail-password" type="password" value={form.data.mail.password}
+                                            <PasswordInput id="mail-password" value={form.data.mail.password}
                                                 onChange={(e) => setNested('mail', 'password', e.target.value)}
                                                 autoComplete="new-password"
                                                 placeholder={mailPwSet ? '•••••••• (saved)' : ''} className="mt-1" />
@@ -983,9 +984,8 @@ export default function Backups() {
 
                             <div>
                                 <Label htmlFor="import-key">Decryption key <span className="text-text-tertiary">(only if encrypted)</span></Label>
-                                <Input
+                                <PasswordInput
                                     id="import-key"
-                                    type="password"
                                     autoComplete="off"
                                     placeholder="base64 key"
                                     value={importForm.data.key}

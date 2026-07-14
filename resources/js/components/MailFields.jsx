@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { isEmail } from '@/lib/utils';
@@ -39,7 +40,7 @@ export default function MailFields({ data, setField, errors = {}, passwordSet = 
                 </div>
                 <div>
                     <Label htmlFor="mail-password">SMTP password</Label>
-                    <Input id="mail-password" type="password" value={data.password}
+                    <PasswordInput id="mail-password" value={data.password}
                         onChange={(e) => setField('password', e.target.value)}
                         autoComplete="new-password"
                         placeholder={passwordSet ? '•••••••• (saved)' : ''} className="mt-1" />
