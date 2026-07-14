@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import NewWorkspaceModal from '@/components/ui/NewWorkspaceModal';
+import WorkspaceFormModal from '@/components/ui/WorkspaceFormModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
@@ -381,7 +381,7 @@ export default function WorkspacesIndex({ workspaces: initial, recent = [], star
                 </section>
             )}
 
-            <NewWorkspaceModal open={modalOpen} onClose={() => setModalOpen(false)} />
+            <WorkspaceFormModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
             <ConfirmDialog
                 open={promptOpen}

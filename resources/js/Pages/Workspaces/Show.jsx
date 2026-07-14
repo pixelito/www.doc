@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
+import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPencil, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -24,6 +24,7 @@ import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import NewPageModal from '@/components/ui/NewPageModal';
+import WorkspaceFormModal from '@/components/ui/WorkspaceFormModal';
 import ImportDialog from '@/components/ui/ImportDialog';
 import { can } from '@/lib/permissions';
 
@@ -321,6 +322,7 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
     const [dropActive, setDropActive] = useState(false);
     const [pendingImportJobs, setPendingImportJobs] = useState([]);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
 
     // Reorder is an explicit mode (like edit mode): off by default so a stray
     // drag can't rearrange the tree, toggled on to expose the drag handles.
@@ -616,6 +618,12 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-52">
+                                        {perms.update && (
+                                            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                                                <IconPencil stroke={1.5} />
+                                                Edit workspace
+                                            </DropdownMenuItem>
+                                        )}
                                         {perms.update && rootNodes.length > 0 && !activeTag && (
                                             <DropdownMenuItem onSelect={() => { reorderDirty.current = false; setReordering(true); }}>
                                                 <IconArrowsSort stroke={1.5} />
@@ -751,6 +759,12 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
             parentOptions={options}
             initialParentId={modalParentId}
             templates={templates}
+        />
+
+        <WorkspaceFormModal
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            workspace={workspace}
         />
 
         <ImportDialog

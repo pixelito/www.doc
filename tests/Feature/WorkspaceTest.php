@@ -47,6 +47,25 @@ test('a workspace can be updated', function () {
     expect($workspace->fresh()->name)->toBe('New');
 });
 
+test('a workspace description can be added and cleared after creation', function () {
+    login();
+    $workspace = Workspace::factory()->create(['description' => null]);
+
+    // Add
+    $this->patch("/workspaces/{$workspace->id}", [
+        'name' => $workspace->name,
+        'description' => 'Everything networking.',
+    ])->assertRedirect();
+    expect($workspace->fresh()->description)->toBe('Everything networking.');
+
+    // Clear (blank description arrives as null from the edit dialog)
+    $this->patch("/workspaces/{$workspace->id}", [
+        'name' => $workspace->name,
+        'description' => null,
+    ])->assertRedirect();
+    expect($workspace->fresh()->description)->toBeNull();
+});
+
 test('deleting a workspace soft-deletes it and its documents', function () {
     login();
     $workspace = Workspace::factory()->create();

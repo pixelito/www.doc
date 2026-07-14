@@ -6,26 +6,30 @@ import { Button } from '@/components/ui/button';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
 /**
- * Modal for creating a new workspace, mirroring the NewPageModal dialog pattern.
+ * Create-or-edit workspace dialog, mirroring the NewPageModal pattern.
  *
  * Props:
- *   open     – controlled visibility
- *   onClose  – called on cancel / success / backdrop click
+ *   open      – controlled visibility
+ *   onClose   – called on cancel / success / backdrop click
+ *   workspace – when present, the dialog edits it (PATCH); otherwise it
+ *               creates a new one (POST). Only name + description are editable.
  */
-export default function NewWorkspaceModal({ open, onClose }) {
+export default function WorkspaceFormModal({ open, onClose, workspace = null }) {
+    const editing = Boolean(workspace);
+
     const [name, setName]               = useState('');
     const [description, setDescription] = useState('');
     const [error, setError]             = useState('');
     const [busy, setBusy]               = useState(false);
 
-    // Reset fields whenever the modal opens
+    // Seed fields from the edited workspace (or blank for create) each open.
     useEffect(() => {
         if (open) {
-            setName('');
-            setDescription('');
+            setName(workspace?.name ?? '');
+            setDescription(workspace?.description ?? '');
             setError('');
         }
-    }, [open]);
+    }, [open, workspace]);
 
     // Lock body scroll while open.
     useScrollLock(open);
@@ -44,13 +48,20 @@ export default function NewWorkspaceModal({ open, onClose }) {
         e.preventDefault();
         if (!name.trim()) { setError('Name is required.'); return; }
         setBusy(true);
-        router.post('/workspaces', {
-            name: name.trim(),
-            description: description.trim() || null,
-        }, {
+        // Blank description sends null so an existing one can be cleared, not
+        // just left unchanged.
+        const payload = { name: name.trim(), description: description.trim() || null };
+        const opts = {
+            preserveScroll: true,
             onSuccess: () => { setBusy(false); onClose(); },
             onError: (errs) => { setBusy(false); setError(errs.name ?? 'Something went wrong.'); },
-        });
+        };
+
+        if (editing) {
+            router.patch(`/workspaces/${workspace.id}`, payload, opts);
+        } else {
+            router.post('/workspaces', payload, opts);
+        }
     }
 
     return createPortal(
@@ -65,7 +76,9 @@ export default function NewWorkspaceModal({ open, onClose }) {
             >
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-                    <h2 className="text-[15px] font-medium text-foreground">New workspace</h2>
+                    <h2 className="text-[15px] font-medium text-foreground">
+                        {editing ? 'Edit workspace' : 'New workspace'}
+                    </h2>
                     <button
                         type="button"
                         onClick={onClose}
@@ -119,7 +132,9 @@ export default function NewWorkspaceModal({ open, onClose }) {
                             Cancel
                         </Button>
                         <Button type="submit" disabled={busy || !name.trim()}>
-                            {busy ? 'Creating…' : 'Create workspace'}
+                            {busy
+                                ? (editing ? 'Saving…' : 'Creating…')
+                                : (editing ? 'Save changes' : 'Create workspace')}
                         </Button>
                     </div>
                 </form>

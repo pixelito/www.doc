@@ -126,11 +126,24 @@ class WorkspaceController extends Controller
     {
         $this->authorize('update', $workspace);
 
-        $oldName = $workspace->name;
+        $original = $workspace->only(['name', 'description']);
         $workspace->update($request->validated());
 
+        // One event per save: a rename is the notable action (and carries any
+        // description change alongside); a description-only edit is workspace.updated.
         if ($workspace->wasChanged('name')) {
-            Audit::record('workspace.renamed', $workspace, ['from' => $oldName, 'to' => $workspace->name]);
+            $context = ['from' => $original['name'], 'to' => $workspace->name];
+            if ($workspace->wasChanged('description')) {
+                $context['description_from'] = $original['description'];
+                $context['description_to']   = $workspace->description;
+            }
+            Audit::record('workspace.renamed', $workspace, $context);
+        } elseif ($workspace->wasChanged('description')) {
+            Audit::record('workspace.updated', $workspace, [
+                'name' => $workspace->name,
+                'from' => $original['description'],
+                'to'   => $workspace->description,
+            ]);
         }
 
         return back();

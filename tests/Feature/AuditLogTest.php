@@ -120,6 +120,38 @@ test('restoring a version records the intent with the snapshot id', function () 
         ->and($event->context['version_id'])->toBe($version->id);
 });
 
+// ── Workspaces ─────────────────────────────────────────────────────────────────
+
+test('workspace rename and description edits are audited distinctly', function () {
+    login();
+    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    $workspace = Workspace::factory()->create(['name' => 'Old', 'description' => null]);
+
+    // Description-only edit → workspace.updated, with from/to.
+    $this->patch("/workspaces/{$workspace->id}", ['name' => 'Old', 'description' => 'Networking docs']);
+    $updated = AuditEvent::firstWhere('event', 'workspace.updated');
+    expect($updated)->not->toBeNull()
+        ->and($updated->auditable_id)->toBe($workspace->id)
+        ->and($updated->context['from'])->toBeNull()
+        ->and($updated->context['to'])->toBe('Networking docs');
+    expect(AuditEvent::where('event', 'workspace.renamed')->count())->toBe(0);
+
+    // A rename (with a simultaneous description change) → one workspace.renamed
+    // that carries the description delta alongside; no second event.
+    $this->patch("/workspaces/{$workspace->id}", ['name' => 'New', 'description' => 'Infra docs']);
+    $renamed = AuditEvent::firstWhere('event', 'workspace.renamed');
+    expect($renamed)->not->toBeNull()
+        ->and($renamed->context['from'])->toBe('Old')
+        ->and($renamed->context['to'])->toBe('New')
+        ->and($renamed->context['description_from'])->toBe('Networking docs')
+        ->and($renamed->context['description_to'])->toBe('Infra docs');
+    expect(AuditEvent::where('event', 'workspace.updated')->count())->toBe(1);
+
+    // A no-op save logs nothing new.
+    $this->patch("/workspaces/{$workspace->id}", ['name' => 'New', 'description' => 'Infra docs']);
+    expect(AuditEvent::whereIn('event', ['workspace.renamed', 'workspace.updated'])->count())->toBe(2);
+});
+
 // ── Tags ──────────────────────────────────────────────────────────────────────
 
 test('tag create, rename and delete are audited', function () {
