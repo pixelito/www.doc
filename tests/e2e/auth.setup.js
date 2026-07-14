@@ -16,9 +16,10 @@ setup('complete setup wizard and authenticate', async ({ page }) => {
   await page.waitForLoadState('networkidle');
 
   if (page.url().includes('login')) {
-      // Already setup, just login
+      // Already setup, just login. `exact` so "Password" doesn't also match the
+      // field's "Show password" eye-toggle button (aria-label).
       await page.getByLabel('Email').fill(EMAIL);
-      await page.getByLabel('Password').fill(PASSWORD);
+      await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
       await page.getByRole('button', { name: /Sign in/i }).click();
   } else {
       // Step 1: Welcome
