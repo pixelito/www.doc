@@ -19,6 +19,7 @@ import { WikiLink } from '@/extensions/WikiLink';
 import { Diagram } from '@/extensions/Diagram';
 import { SlashCommands } from '@/extensions/SlashCommands';
 import { ImageUpload } from '@/extensions/ImageUpload';
+import { LeadingParagraph } from '@/extensions/LeadingParagraph';
 import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
@@ -224,6 +225,7 @@ export default function TipTapEditor({
                           onSuggestionKeyDown: (e) => slashKeyRef.current?.(e) ?? false,
                       }),
                       ImageUpload,
+                      LeadingParagraph,
                   ]
                 : []),
         ],
