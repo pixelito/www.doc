@@ -98,62 +98,66 @@ export const ImageUpload = Extension.create({
 
                         const imageFiles = Array.from(cd.files).filter(f => f.type.startsWith('image/'));
                         const html       = cd.getData('text/html');
-                        const htmlHasImg = html && /<img/i.test(html);
+                        const parsed     = html ? new DOMParser().parseFromString(html, 'text/html') : null;
+                        const imgs       = parsed ? Array.from(parsed.querySelectorAll('img')) : [];
 
-                        // Pure image file(s) — screenshot or copy-image with no surrounding HTML.
-                        // When HTML with <img> is also present we fall through to preserve text context.
-                        if (imageFiles.length > 0 && !htmlHasImg) {
+                        // An <img> is only useful to us if we can turn its src into a hosted
+                        // asset: data: (upload), http(s): (rehost), or file:// (paired with
+                        // cd.files). Anything else — notably the origin-scoped blob: URLs that
+                        // web apps like WhatsApp put on the clipboard — is a dead reference we
+                        // can neither fetch nor save; the real bytes ride along in cd.files.
+                        const srcOf        = img => img.getAttribute('src') ?? '';
+                        const isResolvable = src => src.startsWith('data:image/')
+                            || /^https?:\/\//i.test(src)
+                            || src.startsWith('file://');
+                        const resolvableImgs = imgs.filter(img => isResolvable(srcOf(img)));
+
+                        // Raw image bitmap(s) with no resolvable HTML <img> — a screenshot, a
+                        // copy-image, or a web app whose HTML only offers a blob: reference.
+                        // Insert the file directly; the HTML would only give us a dead link.
+                        if (imageFiles.length > 0 && resolvableImgs.length === 0) {
                             event.preventDefault();
                             insertFiles(editor, view, imageFiles);
                             return true;
                         }
 
-                        // HTML paste containing <img> — handles three src formats:
+                        // HTML paste containing resolvable <img> — handles three src formats:
                         //   data:image/…  → upload directly
                         //   https?://…    → rehost via asset API
                         //   file://…      → pair positionally with cd.files and upload
                         //                   (LibreOffice on Linux puts images as file:// refs
                         //                    alongside the image file in cd.files)
-                        if (htmlHasImg) {
-                            const parsed = new DOMParser().parseFromString(html, 'text/html');
-                            const imgs   = Array.from(parsed.querySelectorAll('img'));
-
-                            const hasDataUri  = imgs.some(img => (img.getAttribute('src') ?? '').startsWith('data:image/'));
-                            const hasExternal = imgs.some(img => /^https?:\/\//i.test(img.getAttribute('src') ?? ''));
-                            const hasFileRef  = imgs.some(img => (img.getAttribute('src') ?? '').startsWith('file://'));
-
-                            if (hasDataUri || hasExternal || hasFileRef) {
-                                event.preventDefault();
-                                // fileIdx increments synchronously inside map() before any await,
-                                // so positional pairing with cd.files is deterministic.
-                                let fileIdx = 0;
-                                (async () => {
-                                    await Promise.all(imgs.map(async img => {
-                                        const src = img.getAttribute('src') ?? '';
-                                        try {
-                                            if (src.startsWith('data:image/')) {
-                                                const { url } = await uploadFile(dataUriToFile(src));
+                        if (resolvableImgs.length > 0) {
+                            event.preventDefault();
+                            // fileIdx increments synchronously inside map() before any await,
+                            // so positional pairing with cd.files is deterministic.
+                            let fileIdx = 0;
+                            (async () => {
+                                await Promise.all(imgs.map(async img => {
+                                    const src = img.getAttribute('src') ?? '';
+                                    try {
+                                        if (src.startsWith('data:image/')) {
+                                            const { url } = await uploadFile(dataUriToFile(src));
+                                            img.setAttribute('src', url);
+                                        } else if (/^https?:\/\//i.test(src)) {
+                                            const { url } = await rehostUrl(src);
+                                            img.setAttribute('src', url);
+                                        } else if (src.startsWith('file://')) {
+                                            const file = imageFiles[fileIdx++];
+                                            if (file) {
+                                                const { url } = await uploadFile(file);
                                                 img.setAttribute('src', url);
-                                            } else if (/^https?:\/\//i.test(src)) {
-                                                const { url } = await rehostUrl(src);
-                                                img.setAttribute('src', url);
-                                            } else if (src.startsWith('file://')) {
-                                                const file = imageFiles[fileIdx++];
-                                                if (file) {
-                                                    const { url } = await uploadFile(file);
-                                                    img.setAttribute('src', url);
-                                                } else {
-                                                    img.remove();
-                                                }
+                                            } else {
+                                                img.remove();
                                             }
-                                        } catch {
-                                            if ((img.getAttribute('src') ?? '').startsWith('file://')) img.remove();
                                         }
-                                    }));
-                                    editor.chain().focus().insertContent(parsed.body.innerHTML).run();
-                                })();
-                                return true;
-                            }
+                                    } catch {
+                                        if ((img.getAttribute('src') ?? '').startsWith('file://')) img.remove();
+                                    }
+                                }));
+                                editor.chain().focus().insertContent(parsed.body.innerHTML).run();
+                            })();
+                            return true;
                         }
 
                         return false;
