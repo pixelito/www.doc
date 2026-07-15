@@ -8,6 +8,7 @@ import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table
 import Placeholder from '@tiptap/extension-placeholder';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Code } from '@tiptap/extension-code';
 import { Link } from '@tiptap/extension-link';
 import { createLowlight, common } from 'lowlight';
 import { IconPlus } from '@tabler/icons-react';
@@ -32,6 +33,15 @@ const lowlight = createLowlight(common);
 // extends the link and the toolbar stays in link mode. Force non-inclusive so
 // text typed after a link is plain, while keeping autolink on paste/type.
 const NonInclusiveLink = Link.extend({
+    inclusive() {
+        return false;
+    },
+});
+
+// Same boundary trap as Link: inline code defaults to inclusive, so typing at
+// the end of a code span extends it. Force non-inclusive so text after a code
+// span is plain (toggle the button again to resume code).
+const NonInclusiveCode = Code.extend({
     inclusive() {
         return false;
     },
@@ -167,10 +177,11 @@ export default function TipTapEditor({
         extensions: [
             StarterKit.configure({
                 heading: { levels: [1, 2, 3] },
-                // Link and Underline are now built into StarterKit v3. Link is
-                // replaced below by a non-inclusive variant so text typed past
-                // its end boundary is plain instead of extending the link.
+                // Link and Underline are now built into StarterKit v3. Link and
+                // inline code are replaced below by non-inclusive variants so
+                // typing past their end boundary produces plain text.
                 link: false,
+                code: false,
                 underline: {},
                 // Replaced by CodeBlockLowlight below (same node name, plus
                 // a language attr and client-side syntax highlighting).
@@ -181,6 +192,7 @@ export default function TipTapEditor({
                 openOnClick: !editable,
                 HTMLAttributes: { rel: 'noopener noreferrer' },
             }),
+            NonInclusiveCode,
             TaskList,
             TaskItem.configure({ nested: true }),
             Callout,

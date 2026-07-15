@@ -31,3 +31,25 @@ test('typing after a link produces plain text, not more link', async ({ page }) 
   await expect(anchor).toHaveText('linktext');
   await expect(editor).toContainText('linktextPLAIN'); // both present in the paragraph
 });
+
+test('typing after an inline code span produces plain text, not more code', async ({ page }) => {
+  await createDoc(page, WS, `Code Mark Doc ${Date.now()}`);
+
+  const editor = page.locator('.tiptap-edit-area .tiptap');
+  await editor.click();
+
+  // Write a word, select it, and mark it as inline code via the toolbar.
+  await page.keyboard.type('codetext');
+  await page.keyboard.press('Shift+Home');
+  await page.getByTitle('Inline code').click();
+
+  // Collapse to the right edge (cursor at end of the code span) and keep typing.
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.type('PLAIN');
+
+  // The <code> must hold only the marked word — the trailing text is plain.
+  const code = page.locator('.tiptap-edit-area code');
+  await expect(code).toHaveCount(1);
+  await expect(code).toHaveText('codetext');
+  await expect(editor).toContainText('codetextPLAIN');
+});
