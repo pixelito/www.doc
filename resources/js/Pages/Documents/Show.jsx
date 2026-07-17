@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconChevronRight, IconTrash, IconPencil, IconX, IconDeviceFloppy,
     IconUser, IconTag, IconCircleCheck, IconClock,
     IconDownload, IconLoader2, IconHistory, IconFileText, IconPlus, IconCalendar, IconLink,
-    IconFolderSymlink, IconTemplate, IconDots, IconStar, IconStarFilled,
+    IconFolderSymlink, IconTemplate, IconDots, IconStar, IconStarFilled, IconFolder,
 } from '@tabler/icons-react';
 import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import TipTapEditor from '@/components/editor/TipTapEditor';
+import NewPageModal from '@/components/ui/NewPageModal';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ConflictDialog from '@/components/documents/ConflictDialog';
@@ -420,7 +421,58 @@ function BacklinksPanel({ backlinks }) {
     );
 }
 
-export default function DocumentShow({ document, isStarred = false, versionsCount, breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
+/**
+ * "Contents" index — the folder view. A page that has child pages (or that has
+ * no body of its own) reads as a folder: opening it lists its children here
+ * instead of a blank editor. A child that itself has children shows a folder
+ * icon. Derived, soft — the same page can also carry an intro body above this.
+ */
+function ContentsIndex({ pages, canCreate, onAddPage, hasIntro }) {
+    return (
+        <section className={hasIntro ? 'mt-6' : ''}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+                    <IconFolder className="h-3.5 w-3.5" stroke={1.5} />
+                    Contents ({pages.length})
+                </h2>
+                {canCreate && (
+                    <Button type="button" size="xs" variant="outline" onClick={onAddPage}>
+                        <IconPlus stroke={1.5} />
+                        New page
+                    </Button>
+                )}
+            </div>
+            <div className="overflow-hidden rounded-md border border-border bg-card">
+                {pages.map((page, idx) => {
+                    const isFolder = (page.children_count ?? 0) > 0;
+                    return (
+                        <Link
+                            key={page.id}
+                            href={`/documents/${page.id}`}
+                            className={`group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover${idx > 0 ? ' border-t border-border-subtle' : ''}`}
+                        >
+                            {isFolder
+                                ? <IconFolder className="h-4 w-4 shrink-0 text-text-tertiary transition-colors group-hover:text-accent-600" stroke={1.5} />
+                                : <IconFileText className="h-4 w-4 shrink-0 text-text-tertiary transition-colors group-hover:text-accent-600" stroke={1.5} />}
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors group-hover:text-accent-600" title={page.title}>
+                                {page.title}
+                            </span>
+                            {isFolder && (
+                                <span className="shrink-0 text-xs text-text-tertiary">
+                                    {page.children_count} {page.children_count === 1 ? 'page' : 'pages'}
+                                </span>
+                            )}
+                            <span className="shrink-0 text-xs text-text-tertiary">{timeAgo(page.updated_at) ?? '—'}</span>
+                            <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" stroke={1.5} />
+                        </Link>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+export default function DocumentShow({ document, isStarred = false, versionsCount, children: childPages = [], breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
@@ -442,6 +494,19 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     const [exportOpen, setExportOpen]     = useState(false);
     const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
     const [moveOpen, setMoveOpen]         = useState(false);
+    const [newPageOpen, setNewPageOpen]   = useState(false);
+
+    // Folder-view derivation (soft, no stored flag): a page with children — or
+    // with no body of its own — reads as a folder and shows its Contents.
+    const hasChildren = childPages.length > 0;
+    const bodyEmpty = isDocEmpty(document.content);
+    // Parent options for "New page inside this folder" — this workspace's pages.
+    const parentOptions = useMemo(
+        () => allDocuments
+            .filter((d) => d.workspace_id === document.workspace_id)
+            .map((d) => ({ id: d.id, label: d.title })),
+        [allDocuments, document.workspace_id],
+    );
 
     const [editTitle, setEditTitle] = useState(document.title);
     const [editTags, setEditTags] = useState(document.tags.map((t) => t.id));
@@ -461,6 +526,9 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     // performSave). Cancel discards them; nothing was ever sent.
     const [pendingUploads, setPendingUploads]   = useState([]);
     const [pendingRemovals, setPendingRemovals] = useState([]);
+    // Staged renames of EXISTING attachments: { [attachmentId]: newDisplayName }.
+    // Pending (not-yet-uploaded) files are renamed in place on pendingUploads.
+    const [pendingRenames, setPendingRenames]   = useState({});
 
     const [showNewTag, setShowNewTag]           = useState(false);
     const [newTagName, setNewTagName]           = useState('');
@@ -495,8 +563,8 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     // prompts before leaving edit mode with files pending.
     useEffect(() => {
         if (!isEditing) return;
-        if (pendingUploads.length > 0 || pendingRemovals.length > 0) isDirtyRef.current = true;
-    }, [pendingUploads, pendingRemovals, isEditing]);
+        if (pendingUploads.length > 0 || pendingRemovals.length > 0 || Object.keys(pendingRenames).length > 0) isDirtyRef.current = true;
+    }, [pendingUploads, pendingRemovals, pendingRenames, isEditing]);
 
     // Reset form fields when entering/leaving edit mode
     useEffect(() => {
@@ -504,6 +572,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
         // starts clean, and leaving (cancel/save) clears the staging area.
         setPendingUploads([]);
         setPendingRemovals([]);
+        setPendingRenames({});
         if (isEditing) {
             setEditTitle(document.title);
             setEditTags(document.tags.map((t) => t.id));
@@ -525,6 +594,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     // removal means it's already gone — treat that as done.
     const commitAttachments = useCallback(async () => {
         let removals = [...pendingRemovals];
+        let renames  = { ...pendingRenames };
         let uploads  = [...pendingUploads];
         try {
             for (const id of [...removals]) {
@@ -534,6 +604,17 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 });
                 if (!res.ok && res.status !== 404) throw new Error('remove');
                 removals = removals.filter((x) => x !== id);
+            }
+            // Renames of surviving attachments (a removed id is dropped above, so a
+            // stale rename of it is a harmless 404 we treat as done).
+            for (const [id, name] of Object.entries(renames)) {
+                const res = await fetch(`/documents/${document.id}/attachments/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+                if (!res.ok && res.status !== 404) throw new Error('rename');
+                delete renames[id];
             }
             for (const item of [...uploads]) {
                 const body = new FormData();
@@ -550,9 +631,10 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
         } finally {
             // Leave only the uncommitted changes staged.
             setPendingRemovals(removals);
+            setPendingRenames(renames);
             setPendingUploads(uploads);
         }
-    }, [document.id, pendingRemovals, pendingUploads]);
+    }, [document.id, pendingRemovals, pendingRenames, pendingUploads]);
 
     const performSave = useCallback(
         (content, { force = false } = {}) => {
@@ -639,6 +721,8 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
     const removeExistingAttachment = useCallback((id) => setPendingRemovals((prev) => prev.includes(id) ? prev : [...prev, id]), []);
     const undoRemoveAttachment = useCallback((id) => setPendingRemovals((prev) => prev.filter((x) => x !== id)), []);
     const removePendingUpload = useCallback((index) => setPendingUploads((prev) => prev.filter((_, i) => i !== index)), []);
+    const renameExistingAttachment = useCallback((id, name) => setPendingRenames((prev) => ({ ...prev, [id]: name })), []);
+    const renamePendingUpload = useCallback((index, name) => setPendingUploads((prev) => prev.map((it, i) => (i === index ? { ...it, name } : it))), []);
 
     function handleTagToggle(tagId) {
         setEditTags((prev) =>
@@ -953,38 +1037,79 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 editable={isEditing && perms.update}
                 pendingUploads={pendingUploads}
                 pendingRemovals={pendingRemovals}
+                pendingRenames={pendingRenames}
                 onAddUpload={addPendingUpload}
                 onRemoveExisting={removeExistingAttachment}
                 onUndoRemove={undoRemoveAttachment}
                 onRemovePending={removePendingUpload}
+                onRenameExisting={renameExistingAttachment}
+                onRenamePending={renamePendingUpload}
             />
 
-            {/* Content — full width */}
+            {/* Content — full width. When not editing, an empty body with child
+                pages reads as a folder: the Contents index stands in for the blank
+                editor, and a body (if any) sits above it as an intro. */}
             <div className="mt-6">
-                <Card className="overflow-clip">
-                    {!isEditing && isDocEmpty(document.content) ? (
-                        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-200 bg-accent-50">
-                                <IconPencil className="h-6 w-6 text-accent-600" stroke={1.5} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-foreground">This page is empty</p>
-                                <p className="mt-0.5 text-xs text-text-tertiary">Click Edit to start writing.</p>
-                            </div>
-                        </div>
-                    ) : (
+                {isEditing ? (
+                    <Card className="overflow-clip">
                         <TipTapEditor
-                            key={isEditing ? 'edit' : 'view'}
+                            key="edit"
                             content={document.content}
-                            editable={isEditing}
+                            editable
                             suggestions={allDocuments}
                             resolvedLinks={resolvedLinks}
                             onUpdate={handleEditorUpdate}
                             canCreate={perms.create}
                             workspaceId={document.workspace_id}
                         />
-                    )}
-                </Card>
+                    </Card>
+                ) : (
+                    <>
+                        {!bodyEmpty && (
+                            <Card className="overflow-clip">
+                                <TipTapEditor
+                                    key="view"
+                                    content={document.content}
+                                    editable={false}
+                                    suggestions={allDocuments}
+                                    resolvedLinks={resolvedLinks}
+                                    onUpdate={handleEditorUpdate}
+                                    canCreate={perms.create}
+                                    workspaceId={document.workspace_id}
+                                />
+                            </Card>
+                        )}
+
+                        {hasChildren ? (
+                            <ContentsIndex
+                                pages={childPages}
+                                canCreate={perms.create}
+                                onAddPage={() => setNewPageOpen(true)}
+                                hasIntro={!bodyEmpty}
+                            />
+                        ) : bodyEmpty && (
+                            <Card className="overflow-clip">
+                                <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-200 bg-accent-50">
+                                        <IconFolder className="h-6 w-6 text-accent-600" stroke={1.5} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">This page is empty</p>
+                                        <p className="mt-0.5 text-xs text-text-tertiary">
+                                            Add a page inside it, or {perms.update ? 'use Edit above to' : 'ask an editor to'} write here.
+                                        </p>
+                                    </div>
+                                    {perms.create && (
+                                        <Button type="button" size="xs" className="mt-1" onClick={() => setNewPageOpen(true)}>
+                                            <IconPlus stroke={1.5} />
+                                            New page
+                                        </Button>
+                                    )}
+                                </div>
+                            </Card>
+                        )}
+                    </>
+                )}
             </div>
 
             {/* Referenced by — pages that wiki-link here */}
@@ -1009,6 +1134,13 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 onClose={() => setSaveTemplateOpen(false)}
                 documentId={document.id}
                 documentTitle={document.title}
+            />
+            <NewPageModal
+                open={newPageOpen}
+                onClose={() => setNewPageOpen(false)}
+                workspaceId={document.workspace_id}
+                initialParentId={document.id}
+                parentOptions={parentOptions}
             />
         </DocsLayout>
 

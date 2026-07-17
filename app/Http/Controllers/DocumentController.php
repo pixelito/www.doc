@@ -82,6 +82,11 @@ class DocumentController extends Controller
                 ->whereNotNull('starred_at')
                 ->exists(),
             'versionsCount' => $document->versions()->count(),
+            // Direct children for the "Contents" folder view. children_count lets
+            // the list mark a child that is itself a folder. Ordered by position.
+            'children'     => $document->children()
+                ->withCount('children')
+                ->get(['id', 'title', 'slug', 'parent_id', 'position', 'updated_at']),
             'breadcrumbs'  => $document->ancestors(),
             'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),

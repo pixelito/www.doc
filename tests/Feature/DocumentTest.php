@@ -118,6 +118,31 @@ test('the document show page renders the read view', function () {
     );
 });
 
+test('the document show page exposes direct children for the folder view', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
+    $grandchildHolder = Document::factory()->create([
+        'workspace_id' => $workspace->id, 'parent_id' => $parent->id, 'position' => 0,
+    ]);
+    Document::factory()->create([
+        'workspace_id' => $workspace->id, 'parent_id' => $grandchildHolder->id,
+    ]);
+    Document::factory()->create([
+        'workspace_id' => $workspace->id, 'parent_id' => $parent->id, 'position' => 1,
+    ]);
+
+    $this->get("/documents/{$parent->id}")->assertOk()->assertInertia(
+        fn (Assert $page) => $page
+            ->component('Documents/Show')
+            ->has('children', 2)
+            // children_count marks a child that is itself a folder.
+            ->where('children.0.id', $grandchildHolder->id)
+            ->where('children.0.children_count', 1)
+            ->where('children.1.children_count', 0)
+    );
+});
+
 test('a non-numeric id 404s instead of hitting the database', function () {
     login();
 

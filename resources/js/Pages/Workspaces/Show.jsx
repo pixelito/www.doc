@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPencil, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
+import { IconChevronRight, IconDots, IconFileText, IconGripVertical, IconPencil, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconArrowsSort, IconCheck, IconCornerDownRight, IconLibrary } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -290,6 +290,61 @@ function TreeRow({ id, depth, node, activeTagId, onAddChild, onImport, canCreate
     );
 }
 
+/**
+ * A top-level "folder" page (a root page that has children) rendered as a
+ * collapsible shelf section — the same design as workspace groups on the index,
+ * adapted into the page grid. Because it stays a real page, the title links to
+ * it (opening its Contents view); the chevron only toggles the section. The
+ * chevron sits in the grip gutter so the folder icon lands at the same NODE_X as
+ * any depth-0 row, keeping the tree guide that drops to its first child aligned.
+ * Only used in the normal reading view; reorder mode shows the plain tree.
+ */
+function ShelfHeaderRow({ node, collapsed, onToggle, canCreate, onAddChild, onImport, starred, isReordering }) {
+    const childCount = node.children?.length ?? 0;
+
+    return (
+        <li className="group relative grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 bg-surface-hover/50 transition-colors hover:bg-surface-hover">
+            {/* Spine dropping to the first child (only when expanded) — same geometry
+                as TreeRow's hasChildren guide so children connect under the folder. */}
+            {!collapsed && childCount > 0 && (
+                <span aria-hidden className="pointer-events-none absolute inset-0">
+                    <span className={`absolute border-l ${GUIDE}`} style={{ left: NODE_X, top: 'calc(50% + 8px)', bottom: -GUIDE_BLEED }} />
+                </span>
+            )}
+            <div className="relative flex min-w-0 items-center py-2 pr-4 pl-3">
+                {/* Chevron in the reserved grip gutter → folder icon aligns to NODE_X. */}
+                <span className={`flex ${GRIP_GUTTER} shrink-0 items-center justify-center`}>
+                    <button
+                        type="button"
+                        onClick={onToggle}
+                        aria-expanded={!collapsed}
+                        aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${node.title}`}
+                        className="flex h-5 w-5 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:text-foreground"
+                    >
+                        <IconChevronRight className={`h-3.5 w-3.5 transition-transform ${collapsed ? '' : 'rotate-90'}`} stroke={1.5} />
+                    </button>
+                </span>
+                <div className="flex min-w-0 items-center gap-2">
+                    <IconLibrary className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                    <Link
+                        href={`/documents/${node.id}`}
+                        className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-accent-600"
+                        title={node.title}
+                    >
+                        {node.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-text-tertiary">({childCount})</span>
+                </div>
+            </div>
+            <div className="py-2 pr-4" />
+            <div className="flex items-center justify-end gap-1 py-2 pr-2">
+                {!isReordering && <StarButton node={node} starred={starred} />}
+                {canCreate && <RowActions node={node} onAddChild={onAddChild} onImport={onImport} />}
+            </div>
+        </li>
+    );
+}
+
 function FilteredRow({ node }) {
     return (
         <li className="group grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60">
@@ -314,6 +369,23 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
     const starredSet = useMemo(() => new Set(starredIds), [starredIds]);
     const [rootNodes, setRootNodes] = useState(tree);
     const [activeTag, setActiveTag] = useState(null);
+
+    // Collapsed top-level "folder" shelves (root pages that have children), by
+    // page id. Per-device, per-workspace — same treatment as the group sections
+    // on the Workspaces index.
+    const shelfKey = `wwwdoc:wsshelves:${workspace.id}`;
+    const [collapsedShelves, setCollapsedShelves] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(shelfKey) || '[]')); }
+        catch { return new Set(); }
+    });
+    function toggleShelf(id) {
+        setCollapsedShelves((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            localStorage.setItem(shelfKey, JSON.stringify([...next]));
+            return next;
+        });
+    }
     const [modalOpen, setModalOpen] = useState(false);
     const [modalParentId, setModalParentId] = useState('');
     const [importOpen, setImportOpen] = useState(false);
@@ -385,6 +457,22 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
         const descendants = getDescendantIds(flat, activeId);
         return flat.filter((i) => i.id === activeId || !descendants.includes(i.id));
     }, [rootNodes, activeId]);
+
+    // Normal reading view renders top-level folders as collapsible shelves;
+    // reorder and tag-filter views fall back to the plain flat tree.
+    const showShelves = !reordering && !activeTag;
+
+    // Hide the descendants of any collapsed shelf (normal view only). Reorder mode
+    // ignores collapse entirely, so every row stays reachable to drag.
+    const visibleItems = useMemo(() => {
+        if (!showShelves || collapsedShelves.size === 0) return flattenedItems;
+        const full = flattenForDnd(rootNodes);
+        const hidden = new Set();
+        for (const id of collapsedShelves) {
+            for (const d of getDescendantIds(full, id)) hidden.add(d);
+        }
+        return flattenedItems.filter((i) => !hidden.has(i.id));
+    }, [flattenedItems, rootNodes, collapsedShelves, showShelves]);
 
     const projected = activeId != null && overId != null
         ? getProjection(flattenedItems, activeId, overId, offsetLeft, INDENT)
@@ -705,26 +793,40 @@ export default function WorkspaceShow({ workspace, tree, templates = [], starred
                             onDragEnd={perms.update && reordering ? handleDragEnd : resetDrag}
                             onDragCancel={resetDrag}
                         >
-                            <SortableContext items={flattenedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                            <SortableContext items={visibleItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                                 <ul>
-                                    {flattenedItems.map((item) => (
-                                        <TreeRow
-                                            key={item.id}
-                                            id={item.id}
-                                            depth={item.id === activeId && projected ? projected.depth : item.depth}
-                                            node={item.node}
-                                            activeTagId={activeTag}
-                                            onAddChild={openModal}
-                                            onImport={openImport}
-                                            canCreate={perms.create && !reordering}
-                                            canReorder={perms.update && reordering}
-                                            ghost={item.id === activeId}
-                                            dragging={activeId != null}
-                                            pathLast={guideFlags.get(item.id)}
-                                            isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
-                                            starred={starredSet.has(item.node.id)}
-                                            isReordering={reordering}
-                                        />
+                                    {visibleItems.map((item) => (
+                                        showShelves && item.depth === 0 && (item.node.children?.length ?? 0) > 0 ? (
+                                            <ShelfHeaderRow
+                                                key={item.id}
+                                                node={item.node}
+                                                collapsed={collapsedShelves.has(item.id)}
+                                                onToggle={() => toggleShelf(item.id)}
+                                                canCreate={perms.create}
+                                                onAddChild={openModal}
+                                                onImport={openImport}
+                                                starred={starredSet.has(item.node.id)}
+                                                isReordering={reordering}
+                                            />
+                                        ) : (
+                                            <TreeRow
+                                                key={item.id}
+                                                id={item.id}
+                                                depth={item.id === activeId && projected ? projected.depth : item.depth}
+                                                node={item.node}
+                                                activeTagId={activeTag}
+                                                onAddChild={openModal}
+                                                onImport={openImport}
+                                                canCreate={perms.create && !reordering}
+                                                canReorder={perms.update && reordering}
+                                                ghost={item.id === activeId}
+                                                dragging={activeId != null}
+                                                pathLast={guideFlags.get(item.id)}
+                                                isDropParent={projected?.parentId != null && projected.parentId === item.id && item.id !== activeId}
+                                                starred={starredSet.has(item.node.id)}
+                                                isReordering={reordering}
+                                            />
+                                        )
                                     ))}
                                 </ul>
                             </SortableContext>
