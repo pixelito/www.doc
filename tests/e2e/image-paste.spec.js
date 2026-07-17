@@ -17,7 +17,7 @@ const PNG_B64 =
  * src attributes of the images that ended up in the editor (after upload).
  */
 async function pasteBitmap(page, { html }) {
-  return page.evaluate(async ({ b64, html }) => {
+  await page.evaluate(({ b64, html }) => {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const file = new File([bytes], 'pasted.png', { type: 'image/png' });
 
@@ -30,11 +30,21 @@ async function pasteBitmap(page, { html }) {
     el.dispatchEvent(new ClipboardEvent('paste', {
       clipboardData: dt, bubbles: true, cancelable: true,
     }));
-
-    await new Promise(r => setTimeout(r, 1500)); // allow the upload round-trip
-    return Array.from(document.querySelectorAll('.tiptap-edit-area img'))
-      .map(i => i.getAttribute('src'));
   }, { b64: PNG_B64, html });
+
+  // The image drops in immediately with a temporary blob: preview, then its src
+  // is swapped for the hosted URL once the upload round-trip resolves. Wait for
+  // that swap to settle rather than a fixed delay: the upload can take a second
+  // or two on a cold CI stack, which a fixed sleep raced against (and lost).
+  await page.waitForFunction(() => {
+    const imgs = Array.from(document.querySelectorAll('.tiptap-edit-area img'));
+    return imgs.length > 0
+      && imgs.every(i => !(i.getAttribute('src') ?? '').startsWith('blob:'));
+  }, null, { timeout: 15000 });
+
+  return page.evaluate(() =>
+    Array.from(document.querySelectorAll('.tiptap-edit-area img'))
+      .map(i => i.getAttribute('src')));
 }
 
 test('pasting a WhatsApp-style image (bitmap + blob img) uploads the bitmap', async ({ page }) => {
