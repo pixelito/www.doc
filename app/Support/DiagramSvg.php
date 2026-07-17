@@ -450,6 +450,10 @@ class DiagramSvg
         $parts = [];
 
         // Zones first, behind everything: solid 1px border, swatch tint (~30%).
+        // Nested zones nest correctly because the client always persists nodes
+        // in topological order (outer zone before inner), so drawing in array
+        // order paints an inner zone over its container. Device nodes are drawn
+        // last (below), so a node never hides behind any zone.
         foreach ($nodes as $g) {
             if (($g['type'] ?? '') !== 'group') {
                 continue;

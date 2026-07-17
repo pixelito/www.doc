@@ -878,6 +878,22 @@
 .network-diagram-block .react-flow__controls-button:hover svg {
     fill: var(--accent-600);
 }
+/* Active (frozen) state for the global lock padlock — mirrors the accent-tinted
+   look of other active toggles so its on/off state reads without hovering. */
+.network-diagram-block .react-flow__controls.controls-locked .react-flow__controls-interactive {
+    background: var(--accent-100);
+}
+.network-diagram-block .react-flow__controls.controls-locked .react-flow__controls-interactive svg {
+    fill: var(--accent-700);
+}
+/* Strip React Flow's default group-node chrome (dark border + grey fill + 10px
+   padding). Our GroupNode draws its own themed container, so the default wrapper
+   is pure leftover that clashes with the sage palette. */
+.network-diagram-block .react-flow__node-group {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
 
 /* Compact markdown for cached GitHub release notes in the Updates settings tab.
    Deliberately lighter than `.tiptap` (which is tuned for full documents): small
