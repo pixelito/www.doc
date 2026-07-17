@@ -143,6 +143,7 @@ Route::middleware('auth')->group(function () {
     // Page attachments — files attached to a document, served as forced downloads.
     Route::post('documents/{document}/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
     Route::get('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'download'])->name('attachments.download');
+    Route::patch('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'update'])->name('attachments.update');
     Route::delete('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
 
     // Export pipeline

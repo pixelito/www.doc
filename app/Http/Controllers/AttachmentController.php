@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AttachmentController extends Controller
 {
@@ -78,6 +79,37 @@ class AttachmentController extends Controller
         abort_unless($attachment->document_id === $document->id, 404);
 
         return Storage::disk($attachment->disk)->download($attachment->path, $attachment->original_name);
+    }
+
+    /**
+     * Rename an attachment's display name (the download filename). Only the base
+     * is editable — the extension is re-pinned from the stored file, mirroring
+     * store(), so a rename can never change what kind of file downloads. Like the
+     * other attachment ops this is committed client-side as part of the page Save
+     * and returns 204.
+     */
+    public function update(Request $request, Document $document, Attachment $attachment): Response
+    {
+        $this->authorize('update', $document);
+        abort_unless($attachment->document_id === $document->id, 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        // Real extension lives on the stored path (attachments/{ulid}.{ext}); the
+        // typed extension is stripped and the real one re-applied.
+        $ext  = pathinfo($attachment->path, PATHINFO_EXTENSION);
+        $base = pathinfo(trim($validated['name']), PATHINFO_FILENAME);
+        if ($base === '') {
+            throw ValidationException::withMessages(['name' => 'Attachment name cannot be blank.']);
+        }
+
+        $attachment->update([
+            'original_name' => $ext !== '' ? "{$base}.{$ext}" : $base,
+        ]);
+
+        return response()->noContent();
     }
 
     /** Remove an attachment from the page (and its binary, via the model event). */
