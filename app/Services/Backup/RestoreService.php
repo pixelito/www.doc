@@ -53,7 +53,10 @@ class RestoreService
                 $this->validUsers = array_flip(DB::table('users')->pluck('id')->all());
 
                 // Small tables first; tags before documents so the taggable rows
-                // (written inside restoreDocuments) satisfy their FK.
+                // (written inside restoreDocuments) satisfy their FK. Groups before
+                // workspaces (workspaces.group_id → workspace_groups); a pre-groups
+                // archive simply has no file and inserts nothing.
+                $this->insert('workspace_groups', $this->jsonArray($work, 'workspace_groups'));
                 $this->insert('workspaces', $this->jsonArray($work, 'workspaces'));
                 $this->insert('tags', $this->jsonArray($work, 'tags'));
 
@@ -167,8 +170,9 @@ class RestoreService
     private function wipe(): void
     {
         // Children before parents. taggables/links/versions/attachments reference
-        // documents; documents reference workspaces. assets/templates are standalone.
-        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'assets', 'templates'] as $table) {
+        // documents; documents reference workspaces; workspaces reference
+        // workspace_groups. assets/templates are standalone.
+        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'workspace_groups', 'assets', 'templates'] as $table) {
             DB::table($table)->delete();
         }
     }
@@ -293,7 +297,7 @@ class RestoreService
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
+        foreach (['workspace_groups', 'workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],

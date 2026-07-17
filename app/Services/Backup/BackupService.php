@@ -13,6 +13,7 @@ use App\Models\Tag;
 use App\Models\Template;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use App\Services\Backup\Destinations\DestinationFactory;
 use App\Services\Exporters\PdfExporter;
 use App\Support\BackupSettings;
@@ -103,6 +104,10 @@ class BackupService
         $workspaces = Workspace::withTrashed()->orderBy('id')->get()
             ->map(fn (Workspace $w) => $w->makeVisible(['deleted_at'])->toArray());
 
+        // Workspace groups (shelves). No soft-deletes — whole table. Restored
+        // BEFORE workspaces (workspaces.group_id references them).
+        $groups    = WorkspaceGroup::orderBy('id')->get()->map->toArray();
+
         $tags      = Tag::orderBy('id')->get()->map->toArray();
         $links     = Link::orderBy('id')->get()->map->toArray();
         $templates = Template::orderBy('id')->get()->map->toArray();
@@ -123,6 +128,7 @@ class BackupService
         $attachments = Attachment::orderBy('id')->get()->map->toArray();
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
+        $this->putJson("{$work}/canonical/workspace_groups.json", $groups);
         $this->putJson("{$work}/canonical/tags.json", $tags);
         $this->putJson("{$work}/canonical/links.json", $links);
         $this->putJson("{$work}/canonical/users.json", $users);
@@ -148,6 +154,7 @@ class BackupService
 
         return [
             'workspaces' => $workspaces->count(),
+            'workspace_groups' => $groups->count(),
             'documents'  => $documents,
             'versions'   => $versions,
             'tags'       => $tags->count(),

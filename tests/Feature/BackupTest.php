@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use App\Services\Backup\BackupService;
 use App\Services\Backup\RestoreService;
 use Database\Factories\DocumentFactory;
@@ -451,6 +452,30 @@ test('a backup restores losslessly, reverting later edits', function () {
 
     expect(Workspace::find($ws->id)->name)->toBe('Original Name');
     expect(Document::find($doc->id)->title)->toBe('Original Title');
+});
+
+test('restore round-trips workspace groups and each workspace group_id', function () {
+    Storage::fake('local');
+    login();
+
+    $group     = WorkspaceGroup::factory()->create(['name' => 'Security']);
+    $grouped   = Workspace::factory()->create(['name' => 'BitLocker', 'group_id' => $group->id]);
+    $ungrouped = Workspace::factory()->create(['name' => 'Scratch', 'group_id' => null]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift after the backup: delete the group (members revert to ungrouped).
+    $group->workspaces()->update(['group_id' => null]);
+    $group->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    // Group table + each workspace's group_id come back (proves the group is
+    // inserted before workspaces, so the group_id FK resolves).
+    expect(WorkspaceGroup::find($group->id)?->name)->toBe('Security');
+    expect(Workspace::find($grouped->id)->group_id)->toBe($group->id);
+    expect(Workspace::find($ungrouped->id)->group_id)->toBeNull();
 });
 
 test('restore round-trips the page tree, tags, versions and verbatim content', function () {

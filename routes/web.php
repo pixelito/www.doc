@@ -21,6 +21,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TrashController;
 use App\Http\Controllers\VersionController;
 use App\Http\Controllers\WorkspaceController;
+use App\Http\Controllers\WorkspaceGroupController;
 use Illuminate\Support\Facades\Route;
 
 // Model-bound route params are bigint ids — constrain them to digits so a
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\Route;
 Route::pattern('document', '[0-9]+');
 Route::pattern('version', '[0-9]+');
 Route::pattern('workspace', '[0-9]+');
+Route::pattern('group', '[0-9]+');
 Route::pattern('tag', '[0-9]+');
 Route::pattern('template', '[0-9]+');
 Route::pattern('job', '[0-9]+');
@@ -124,6 +126,16 @@ Route::middleware('auth')->group(function () {
     Route::post('documents/diagram-export', [DocumentController::class, 'exportDiagram'])->name('documents.diagram.export');
 
     Route::patch('workspaces/reorder', [WorkspaceController::class, 'reorder'])->name('workspaces.reorder');
+    // Reorder the interleaved top level (groups + ungrouped workspaces share one
+    // order). Before the resource so /top-level-order isn't read as a show.
+    Route::patch('workspaces/top-level-order', [WorkspaceController::class, 'reorderTopLevel'])->name('workspaces.topLevel.reorder');
+    // Workspace groups (BookStack-style shelves). Declared before the resource so
+    // the /groups segment isn't read as a workspace show ({workspace} is numeric).
+    Route::post('workspaces/groups', [WorkspaceGroupController::class, 'store'])->name('workspaces.groups.store');
+    Route::patch('workspaces/groups/{group}', [WorkspaceGroupController::class, 'update'])->name('workspaces.groups.update');
+    Route::delete('workspaces/groups/{group}', [WorkspaceGroupController::class, 'destroy'])->name('workspaces.groups.destroy');
+    // File a workspace into/out of a group (structural — no updated_at bump).
+    Route::patch('workspaces/{workspace}/group', [WorkspaceController::class, 'regroup'])->name('workspaces.regroup');
     // Bulk save of a workspace's whole page tree — the "Reorder" mode's single
     // write on "Done". Declared before the resource so it isn't read as a show.
     Route::patch('workspaces/{workspace}/tree', [DocumentController::class, 'restructure'])->name('workspaces.tree.update');

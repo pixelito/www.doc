@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Attachment;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use App\Models\Document;
 use App\Models\Tag;
 use Illuminate\Database\Seeder;
@@ -1351,17 +1352,64 @@ class WorkspaceSeeder extends Seeder
             ],
         ];
 
+        // ── Workspace groups ──────────────────────────────────────────────────
+        // Sidebar shelves that file workspaces under a heading. Each entry maps a
+        // group name to the workspaces (by name) that live under it, in order.
+        // Any workspace not listed here stays ungrouped (top level) — Sandbox and
+        // Feature Demo & Testing are deliberately left ungrouped so both the
+        // grouped and ungrouped sidebar states are represented.
+        $groupLayout = [
+            'Engineering' => ['Engineering Hub', 'Product & Design', 'Network & Infrastructure'],
+            'Operations'  => ['Operations & HR', 'Security & Compliance', 'Finance & Legal'],
+            'Go-to-Market' => ['Customer Support', 'Sales & Marketing'],
+        ];
+
+        $groupOf = [];   // workspace name => WorkspaceGroup
+        $groupPos = 1;
+        foreach ($groupLayout as $groupName => $members) {
+            $group = WorkspaceGroup::create([
+                'name'     => $groupName,
+                'position' => $groupPos++,
+            ]);
+            foreach ($members as $wsName) {
+                $groupOf[$wsName] = $group;
+            }
+        }
+
         // ── Seeding logic ─────────────────────────────────────────────────────
         foreach ($workspacesData as $wData) {
             $workspace = Workspace::create([
                 'name'        => $wData['name'],
                 'description' => $wData['description'],
                 'position'    => $wData['position'],
+                'group_id'    => $groupOf[$wData['name']]->id ?? null,
             ]);
 
             foreach ($wData['pages'] as $pageData) {
                 $this->createPage($workspace->id, $pageData, null, $authorIds, $tags);
             }
+        }
+
+        // ── Shared top-level order ─────────────────────────────────────────────
+        // Groups and ungrouped workspaces share ONE position sequence (exactly as
+        // the reorder UI persists it), so a loose workspace can sit *between* two
+        // groups. Here Sandbox lands between Engineering and Operations, and
+        // Feature Demo & Testing trails the last group — a live demo of interleaving
+        // straight out of the seeder. DB writes so un-filed positions don't bump
+        // updated_at (structural, not an edit).
+        $topLevel = [
+            ['group', 'Engineering'],
+            ['workspace', 'Sandbox'],
+            ['group', 'Operations'],
+            ['group', 'Go-to-Market'],
+            ['workspace', 'Feature Demo & Testing'],
+        ];
+        foreach ($topLevel as $position => [$type, $name]) {
+            $table = $type === 'group' ? 'workspace_groups' : 'workspaces';
+            \Illuminate\Support\Facades\DB::table($table)
+                ->where('name', $name)
+                ->when($type === 'workspace', fn ($q) => $q->whereNull('group_id'))
+                ->update(['position' => $position]);
         }
 
         // Re-resolve wiki-links created before their target document existed

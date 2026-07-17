@@ -1,5 +1,5 @@
 import {
-    IconDatabaseExport, IconFileText, IconFolders, IconHistory,
+    IconDatabaseExport, IconFileText, IconFolders, IconHistory, IconLibrary,
     IconSettings, IconShieldLock, IconTag, IconTemplate, IconTrash, IconUsers,
 } from '@tabler/icons-react';
 
@@ -45,9 +45,14 @@ const EVENTS = {
     'workspace.renamed':       { tone: 'neutral', text: () => 'renamed a workspace', change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.updated':       { tone: 'neutral', text: (c) => <>updated the description of {quoted(c?.name)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.restructured':  { tone: 'neutral', text: (c) => <>reorganised the page tree in {quoted(c?.name)}{c?.page_count ? ` (${c.page_count} pages)` : ''}</> },
+    'workspace.moved':         { tone: 'neutral', text: (c) => <>moved the workspace {quoted(c?.name)}</>, change: (c) => ({ from: c?.from_group ?? 'Ungrouped', to: c?.to_group ?? 'Ungrouped' }) },
     'workspace.trashed':       { tone: 'warning', text: (c) => <>moved the workspace {quoted(c?.name)} to the trash</> },
     'workspace.restored':      { tone: 'good',    text: (c) => <>restored the workspace {quoted(c?.name)}</> },
     'workspace.purged':        { tone: 'danger',  text: (c) => <>permanently deleted the workspace {quoted(c?.name)}</> },
+
+    'group.created':           { tone: 'good',    text: (c) => <>created the group {quoted(c?.name)}</> },
+    'group.renamed':           { tone: 'neutral', text: () => 'renamed a group', change: (c) => ({ from: c?.from, to: c?.to }) },
+    'group.deleted':           { tone: 'warning', text: (c) => <>deleted the group {quoted(c?.name)}</> },
 
     'template.created': {
         tone: 'good',
@@ -96,6 +101,7 @@ const EVENTS = {
 const NAMESPACES = {
     document:  { label: 'Documents',  Icon: IconFileText },
     workspace: { label: 'Workspaces', Icon: IconFolders },
+    group:     { label: 'Groups',     Icon: IconLibrary },
     template:  { label: 'Templates',  Icon: IconTemplate },
     tag:       { label: 'Tags',       Icon: IconTag },
     trash:     { label: 'Trash',      Icon: IconTrash },
