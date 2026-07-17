@@ -1057,3 +1057,29 @@ test('a backup with a changed encryption key cannot be restored via the UI', fun
     $this->post("/admin/backups/{$backup->id}/restore")
         ->assertSessionHas('error', 'The BACKUP_ENCRYPTION_KEY currently configured does not match the key used to encrypt this archive. You cannot restore it.');
 });
+
+test('testing the destination records a passing status the page exposes', function () {
+    login();
+
+    $this->post('/admin/backups/test-destination', ['driver' => 'local'])
+        ->assertRedirect()->assertSessionHas('success');
+
+    expect(\App\Support\TestStatus::get('backup_destination')['ok'])->toBeTrue();
+
+    // The Backups page surfaces it for the passive status badge.
+    $this->get('/admin/backups')->assertInertia(
+        fn (Assert $page) => $page->where('destinationTest.ok', true),
+    );
+});
+
+test('saving backup settings clears prior connection test statuses', function () {
+    login();
+    \App\Support\TestStatus::record('backup_destination', true);
+    \App\Support\TestStatus::record('backup_email', true);
+
+    $this->patch('/admin/backups/settings', settingsPayload())
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(\App\Support\TestStatus::get('backup_destination'))->toBeNull()
+        ->and(\App\Support\TestStatus::get('backup_email'))->toBeNull();
+});

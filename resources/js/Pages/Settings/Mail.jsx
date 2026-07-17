@@ -9,10 +9,11 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import MailFields from '@/components/MailFields';
 import SmtpTestPanel from '@/components/SmtpTestPanel';
+import ConnectionStatus from '@/components/ui/ConnectionStatus';
 import { isEmail } from '@/lib/utils';
 import { IconMailFast, IconLoader2, IconCheck } from '@tabler/icons-react';
 
-export default function Mail({ settings }) {
+export default function Mail({ settings, testStatus }) {
     const smtpTest = usePage().props.flash?.smtpTest;
     const form = useForm({
         host: settings.host ?? '',
@@ -62,10 +63,19 @@ export default function Mail({ settings }) {
             <form onSubmit={submit} className="space-y-5">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Email (SMTP)</CardTitle>
-                        <CardDescription>
-                            The mail server the app sends through — password resets and notifications.
-                        </CardDescription>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <CardTitle>Email (SMTP)</CardTitle>
+                                <CardDescription>
+                                    The mail server the app sends through — password resets and notifications.
+                                </CardDescription>
+                            </div>
+                            <ConnectionStatus
+                                configured={String(settings.host ?? '').trim() !== ''}
+                                status={testStatus}
+                                className="mt-0.5 shrink-0"
+                            />
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-5">
                         <MailFields
