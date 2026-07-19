@@ -1341,6 +1341,8 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
                                                     depth={item.id === activeId && projected ? projected.depth : item.depth}
                                                     node={pendingRenames[`p:${item.node.id}`] ? { ...item.node, title: pendingRenames[`p:${item.node.id}`] } : item.node}
                                                     activeTagId={activeTag}
+                                                    onAddChild={openModal}
+                                                    onImport={openImport}
                                                     onRename={renamePage}
                                                     canCreate={perms.create}
                                                     canReorder={perms.update && editing}
