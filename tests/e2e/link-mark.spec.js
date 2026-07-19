@@ -17,16 +17,28 @@ test('typing after a link produces plain text, not more link', async ({ page }) 
 
   // Apply a link to the selection via the toolbar (Enter in the URL field).
   await page.getByTitle('Insert / edit link').click();
-  await page.getByPlaceholder('https://...').fill('https://example.com');
-  await page.getByPlaceholder('https://...').press('Enter');
+  const urlField = page.getByPlaceholder('https://...');
+  await urlField.fill('https://example.com');
+  // The field is a controlled input and applyLink() reads its committed state;
+  // wait for React to flush the value before Enter, or the apply can fire with
+  // an empty URL and never create the link.
+  await expect(urlField).toHaveValue('https://example.com');
+  await urlField.press('Enter');
 
-  // Collapse the selection to the right edge (cursor at end of the link) and
-  // continue writing.
-  await page.keyboard.press('ArrowRight');
+  // The popover closes only once applyLink() has run — wait for that, then
+  // confirm the link landed before typing so we don't race its creation.
+  await expect(urlField).toBeHidden();
+  const anchor = page.locator('.tiptap-edit-area a');
+  await expect(anchor).toHaveText('linktext');
+
+  // Put the caret back in the editor past the link and keep writing. Clicking
+  // refocuses the editor deterministically (focus may not have returned after
+  // the popover unmounted); End lands the caret beyond the non-inclusive link.
+  await editor.click();
+  await page.keyboard.press('End');
   await page.keyboard.type('PLAIN');
 
   // The anchor must hold only the linked word — the trailing text is plain.
-  const anchor = page.locator('.tiptap-edit-area a');
   await expect(anchor).toHaveCount(1);
   await expect(anchor).toHaveText('linktext');
   await expect(editor).toContainText('linktextPLAIN'); // both present in the paragraph
@@ -43,12 +55,16 @@ test('typing after an inline code span produces plain text, not more code', asyn
   await page.keyboard.press('Shift+Home');
   await page.getByTitle('Inline code').click();
 
-  // Collapse to the right edge (cursor at end of the code span) and keep typing.
-  await page.keyboard.press('ArrowRight');
+  // Confirm the mark landed, then put the caret back in the editor past the
+  // code span (click refocuses deterministically; End clears the non-inclusive
+  // boundary) and keep typing.
+  const code = page.locator('.tiptap-edit-area code');
+  await expect(code).toHaveText('codetext');
+  await editor.click();
+  await page.keyboard.press('End');
   await page.keyboard.type('PLAIN');
 
   // The <code> must hold only the marked word — the trailing text is plain.
-  const code = page.locator('.tiptap-edit-area code');
   await expect(code).toHaveCount(1);
   await expect(code).toHaveText('codetext');
   await expect(editor).toContainText('codetextPLAIN');
