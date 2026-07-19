@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -222,7 +222,7 @@ const HANDLE_SIDES = [
     { id: 'left', position: Position.Left },
 ];
 
-function LabeledNode({ id, data, selected }) {
+function LabeledNode({ id, data, selected, dragging }) {
     const { editable, onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onLockToggle, onPersist, snapToGrid, soloSelection } = useContext(NodeBehavior);
     const name = (data.label ?? '').trim();
     const props = Array.isArray(data.props) ? data.props : [];
@@ -258,7 +258,7 @@ function LabeledNode({ id, data, selected }) {
                 <NodeResizer
                     minWidth={90}
                     minHeight={40}
-                    isVisible={selected}
+                    isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
                     handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
@@ -269,7 +269,7 @@ function LabeledNode({ id, data, selected }) {
                 selection (a marquee over several nodes would stack one of these
                 panels per node). */}
             {editable && (
-                <NodeToolbar isVisible={selected && soloSelection} position={Position.Top} offset={8}>
+                <NodeToolbar isVisible={!dragging && selected && soloSelection} position={Position.Top} offset={8}>
                     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
                         <div className="grid grid-cols-9 gap-0.5">
                             {shownKinds.map((k) => (
@@ -402,7 +402,7 @@ function LabeledNode({ id, data, selected }) {
 
 // A zone / grouping container. Renders behind device nodes; nodes dropped inside
 // become its children (handled in onNodeDragStop) and move with it.
-function GroupNode({ id, data, selected }) {
+function GroupNode({ id, data, selected, dragging }) {
     const { editable, interactive, onLabelChange, onNodeColorChange, onNodeColorLive, onLockToggle, onPersist, soloSelection } = useContext(NodeBehavior);
     const color = colorMeta(data.color ?? 'sage');
     const [editing, setEditing] = useState(false);
@@ -421,14 +421,14 @@ function GroupNode({ id, data, selected }) {
                 <NodeResizer
                     minWidth={140}
                     minHeight={90}
-                    isVisible={selected}
+                    isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
                     handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
             {editable && (
-                <NodeToolbar isVisible={selected && soloSelection} position={Position.Top} offset={8}>
+                <NodeToolbar isVisible={!dragging && selected && soloSelection} position={Position.Top} offset={8}>
                     <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
                         <NodeColorRow
                             value={data.color ?? 'sage'}
@@ -470,6 +470,8 @@ function GroupNode({ id, data, selected }) {
 // memo() so a node only re-renders when its own props change — during a drag only
 // the moved node updates, instead of every node re-rendering on each frame.
 const nodeTypes = { labeled: memo(LabeledNode), group: memo(GroupNode) };
+const PAN_ON_DRAG = [1, 2];
+const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
 // Order groups so a parent zone always precedes the zones nested inside it —
 // React Flow requires every parent to appear before its children, and array
@@ -845,8 +847,8 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     const viewportRef = useRef(seed.current.viewport ?? { x: 0, y: 0, zoom: 1 });
     const selectionRef = useRef({ nodes: [], edges: [] });
 
-    const setNodes = (next) => { nodesRef.current = next; setNodesState(next); };
-    const setEdges = (next) => { edgesRef.current = next; setEdgesState(next); };
+    const setNodes = useCallback((next) => { nodesRef.current = next; setNodesState(next); }, []);
+    const setEdges = useCallback((next) => { edgesRef.current = next; setEdgesState(next); }, []);
 
     const dirtyRef = useRef(false);
     const hasInteractedRef = useRef(false);
@@ -1026,13 +1028,13 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
-    const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
+    const onNodesChange = useCallback((changes) => setNodes(applyNodeChanges(changes, nodesRef.current)), [setNodes]);
+    const onEdgesChange = useCallback((changes) => setEdges(applyEdgeChanges(changes, edgesRef.current)), [setEdges]);
 
-    const onConnect = (params) => {
+    const onConnect = useCallback((params) => {
         setEdges(addEdge(decorateEdge({ ...params, id: uid(), data: { routing: routingRef.current } }), edgesRef.current));
         commit();
-    };
+    }, [setEdges]);
 
     const onEdgeChange = (id, patch) => {
         setEdges(edgesRef.current.map((e) => (e.id === id ? decorateEdge({ ...e, data: { ...edgeData(e), ...patch } }) : e)));
@@ -1451,17 +1453,33 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     // (partial-intersection, Figma-style) instead of panning — panning moves to the
     // middle/right mouse button, or holding Space while dragging. The read view has
     // no selection, so there a left-drag still pans (the natural way to look around).
-    const interactionProps = editable
+    const interactionProps = useMemo(() => editable
         ? {
             selectionOnDrag: true,
             selectionMode: SelectionMode.Partial,
-            panOnDrag: [1, 2],           // middle / right button pan
+            panOnDrag: PAN_ON_DRAG,           // middle / right button pan
             panActivationKeyCode: 'Space',
         }
         : {
             nodesDraggable: false, nodesConnectable: false, elementsSelectable: false,
             panOnDrag: true,
-        };
+        }, [editable]);
+
+    const handleNodeDragStop = useCallback((_, node) => {
+        reparentOnDragStop(node);
+        commit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleMoveEnd = useCallback((_, vp) => {
+        viewportRef.current = vp;
+    }, []);
+
+    const handleSelectionChange = useCallback((sel) => {
+        selectionRef.current = sel;
+        setSelCount(sel.nodes?.length ?? 0);
+        setSelEdgeCount(sel.edges?.length ?? 0);
+    }, []);
 
     const [downloading, setDownloading] = useState(false);
 
@@ -1523,16 +1541,10 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
-                    onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
-                    onMoveEnd={editable ? ((_, vp) => {
-                        viewportRef.current = vp;
-                    }) : undefined}
-                    onSelectionChange={(sel) => {
-                        selectionRef.current = sel;
-                        setSelCount(sel.nodes?.length ?? 0);
-                        setSelEdgeCount(sel.edges?.length ?? 0);
-                    }}
-                    defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
+                    onNodeDragStop={editable ? handleNodeDragStop : undefined}
+                    onMoveEnd={editable ? handleMoveEnd : undefined}
+                    onSelectionChange={handleSelectionChange}
+                    defaultViewport={seed.current.viewport ?? DEFAULT_VIEWPORT}
                     {...interactionProps}
                     // Navigation (both views): pinch / double-click / the Controls
                     // buttons to zoom, all clamped to translateExtent (graph bounds +
