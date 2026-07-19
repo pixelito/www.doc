@@ -13,6 +13,9 @@ class StoreWorkspaceRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:255', 'unique:workspaces,slug'],
             'description' => ['nullable', 'string'],
             'position' => ['nullable', 'integer'],
+            // Null/absent = ungrouped (top level), the default. Re-grouping later
+            // is a structural move and goes through WorkspaceController@regroup.
+            'group_id' => ['nullable', 'integer', 'exists:workspace_groups,id'],
         ];
     }
 }

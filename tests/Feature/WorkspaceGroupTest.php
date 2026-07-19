@@ -172,7 +172,7 @@ test('the top level reorders groups and ungrouped workspaces in one shared posit
         ->and($w2->fresh()->position)->toBe(3);
 });
 
-test('the same save orders group members via the grouped companion axis', function () {
+test('the same save orders group members via the groups companion axis', function () {
     login(role: 'editor');
 
     $group = WorkspaceGroup::factory()->create(['position' => 0]);
@@ -181,24 +181,101 @@ test('the same save orders group members via the grouped companion axis', functi
 
     // Move m2 ahead of m1 within the group, in the same atomic save as the top level.
     $this->patch('/workspaces/top-level-order', [
-        'items'   => [['type' => 'group', 'id' => $group->id]],
-        'grouped' => [$m2->id, $m1->id],
+        'items'  => [['type' => 'group', 'id' => $group->id]],
+        'groups' => [['id' => $group->id, 'members' => [$m2->id, $m1->id]]],
     ])->assertRedirect();
 
     expect($m2->fresh()->position)->toBe(0)
-        ->and($m1->fresh()->position)->toBe(1);
+        ->and($m1->fresh()->position)->toBe(1)
+        // Same group, new slot: layout noise, so not a move.
+        ->and(AuditEvent::where('event', 'workspace.moved')->count())->toBe(0);
 });
 
-test('the top-level reorder rejects an ungrouped workspace in the grouped axis', function () {
+test('the top-level reorder rejects a workspace that holds two slots', function () {
     login(role: 'editor');
+    $group = WorkspaceGroup::factory()->create(['position' => 0]);
     $loose = Workspace::factory()->create(['group_id' => null, 'position' => 3]);
 
+    // The same row as both a loose top-level item AND a group member — it can't
+    // carry two positions/groups at once.
     $this->patch('/workspaces/top-level-order', [
-        'items'   => [['type' => 'workspace', 'id' => $loose->id]],
-        'grouped' => [$loose->id], // same row can't hold both slots
+        'items'  => [
+            ['type' => 'group', 'id' => $group->id],
+            ['type' => 'workspace', 'id' => $loose->id],
+        ],
+        'groups' => [['id' => $group->id, 'members' => [$loose->id]]],
     ])->assertStatus(422);
 
-    expect($loose->fresh()->position)->toBe(3);
+    expect($loose->fresh()->position)->toBe(3)
+        ->and($loose->fresh()->group_id)->toBeNull();
+});
+
+// --- Batched refiling: a drag between groups rides the same "Done" ------------
+
+test('the batched save files a loose workspace into a group, structurally and audited', function () {
+    login(role: 'editor');
+    $group = WorkspaceGroup::factory()->create(['name' => 'Security', 'position' => 0]);
+    $loose = Workspace::factory()->create(['group_id' => null, 'position' => 0]);
+
+    $past = Carbon::parse('2026-01-01 00:00:00');
+    DB::table('workspaces')->where('id', $loose->id)->update(['updated_at' => $past]);
+
+    $this->patch('/workspaces/top-level-order', [
+        'items'  => [['type' => 'group', 'id' => $group->id]],
+        'groups' => [['id' => $group->id, 'members' => [$loose->id]]],
+    ])->assertRedirect();
+
+    expect($loose->fresh()->group_id)->toBe($group->id)
+        // A refile is structural — it must not read as an edit.
+        ->and($loose->fresh()->updated_at->equalTo($past))->toBeTrue();
+
+    $event = AuditEvent::firstWhere('event', 'workspace.moved');
+    expect($event->context)->toMatchArray(['from_group' => null, 'to_group' => 'Security']);
+});
+
+test('presenting a grouped workspace at the top level refiles it to loose and audits the move', function () {
+    login(role: 'editor');
+    $group   = WorkspaceGroup::factory()->create(['name' => 'Security', 'position' => 0]);
+    $grouped = Workspace::factory()->create(['group_id' => $group->id, 'position' => 5]);
+
+    $past = Carbon::parse('2026-01-01 00:00:00');
+    DB::table('workspaces')->where('id', $grouped->id)->update(['updated_at' => $past]);
+
+    $this->patch('/workspaces/top-level-order', ['items' => [
+        ['type' => 'group', 'id' => $group->id],
+        ['type' => 'workspace', 'id' => $grouped->id],
+    ]])->assertRedirect();
+
+    expect($grouped->fresh()->group_id)->toBeNull()
+        ->and($grouped->fresh()->updated_at->equalTo($past))->toBeTrue();
+
+    $event = AuditEvent::firstWhere('event', 'workspace.moved');
+    expect($event->context)->toMatchArray(['from_group' => 'Security', 'to_group' => null]);
+});
+
+test('one save refiling several workspaces records one move event each', function () {
+    login(role: 'editor');
+    $a  = WorkspaceGroup::factory()->create(['name' => 'Alpha', 'position' => 0]);
+    $b  = WorkspaceGroup::factory()->create(['name' => 'Beta', 'position' => 1]);
+    $w1 = Workspace::factory()->create(['name' => 'One', 'group_id' => $a->id, 'position' => 0]);
+    $w2 = Workspace::factory()->create(['name' => 'Two', 'group_id' => null, 'position' => 0]);
+
+    // w1: Alpha -> Beta; w2: loose -> Beta. Two moves, one atomic save.
+    $this->patch('/workspaces/top-level-order', [
+        'items'  => [['type' => 'group', 'id' => $a->id], ['type' => 'group', 'id' => $b->id]],
+        'groups' => [
+            ['id' => $a->id, 'members' => []],
+            ['id' => $b->id, 'members' => [$w1->id, $w2->id]],
+        ],
+    ])->assertRedirect();
+
+    expect($w1->fresh()->group_id)->toBe($b->id)
+        ->and($w2->fresh()->group_id)->toBe($b->id)
+        ->and(AuditEvent::where('event', 'workspace.moved')->count())->toBe(2);
+
+    $contexts = AuditEvent::where('event', 'workspace.moved')->get()->pluck('context');
+    expect($contexts->firstWhere('name', 'One'))->toMatchArray(['from_group' => 'Alpha', 'to_group' => 'Beta']);
+    expect($contexts->firstWhere('name', 'Two'))->toMatchArray(['from_group' => null, 'to_group' => 'Beta']);
 });
 
 test('reordering the top level is structural and does not bump workspace updated_at', function () {
@@ -238,22 +315,24 @@ test('a viewer cannot reorder the top level', function () {
     ]])->assertForbidden();
 });
 
-test('the top-level reorder rejects a grouped workspace and leaves positions untouched', function () {
-    login(role: 'editor');
-    $group = WorkspaceGroup::factory()->create(['position' => 0]);
-    $grouped = Workspace::factory()->create(['group_id' => $group->id, 'position' => 5]);
-
-    $this->patch('/workspaces/top-level-order', ['items' => [
-        ['type' => 'workspace', 'id' => $grouped->id],
-    ]])->assertStatus(422);
-
-    expect($grouped->fresh()->position)->toBe(5);
-});
-
 test('the top-level reorder rejects an unknown group id', function () {
     login(role: 'editor');
 
     $this->patch('/workspaces/top-level-order', ['items' => [
         ['type' => 'group', 'id' => 99999],
     ]])->assertStatus(422);
+});
+
+test('a newly created group sorts to the top of the order', function () {
+    login();
+    // An existing group and an ungrouped workspace already occupy the top level.
+    $existing = WorkspaceGroup::factory()->create(['position' => 0]);
+    Workspace::factory()->create(['group_id' => null, 'position' => 0]);
+
+    $this->post('/workspaces/groups', ['name' => 'Newest'])->assertRedirect();
+
+    $new = WorkspaceGroup::firstWhere('name', 'Newest');
+    // Below every current top-level position, so it sorts first — not last by id.
+    expect($new->position)->toBeLessThan($existing->position);
+    expect($new->position)->toBe(WorkspaceGroup::min('position'));
 });

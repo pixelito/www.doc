@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Document;
+use App\Models\DocumentFolder;
 use App\Models\User;
 use App\Models\Workspace;
 use Database\Factories\DocumentFactory;
@@ -325,4 +326,94 @@ test('wiki-links with explicit target_id bypass title ambiguity', function () {
     
     // Should link to the older duplicate because of created_at ASC fallback
     expect($source2->outgoingLinks()->first()->target_document_id)->toBe($olderDuplicate->id);
+});
+
+// ── M4/M6: Edit-mode inline rename + new-page-at-top ─────────────────────────
+
+test('a new root page lands at the top of the workspace tree', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
+    Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 1]);
+
+    $this->post('/documents', [
+        'title' => 'Newest',
+        'workspace_id' => $workspace->id,
+        'content' => DocumentFactory::tiptap('Hi.'),
+    ])->assertRedirect();
+
+    $new = Document::firstWhere('title', 'Newest');
+    // Below every current sibling's position, so it sorts first — not appended.
+    expect($new->position)->toBeLessThan(0)
+        ->and($new->position)->toBe(Document::where('workspace_id', $workspace->id)->min('position'));
+});
+
+test('a new root page lands above the workspace folders, not just the loose pages', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    // Folders share ONE top-level order with loose root pages and take the top
+    // slots; a new page must clear them, not just the lowest loose page.
+    DocumentFolder::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
+    DocumentFolder::factory()->create(['workspace_id' => $workspace->id, 'position' => 1]);
+    Document::factory()->create(['workspace_id' => $workspace->id, 'position' => 2]);
+
+    $this->post('/documents', [
+        'title' => 'Newest',
+        'workspace_id' => $workspace->id,
+        'content' => DocumentFactory::tiptap('Hi.'),
+    ])->assertRedirect();
+
+    $new = Document::firstWhere('title', 'Newest');
+    // Must sit below the top folder (position 0), i.e. negative — not at 1, which
+    // would render between the two folders.
+    expect($new->position)->toBeLessThan(0);
+});
+
+test('a new subpage lands at the top of its parent\'s children', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $parent = Document::factory()->create(['workspace_id' => $workspace->id]);
+    Document::factory()->create(['workspace_id' => $workspace->id, 'parent_id' => $parent->id, 'position' => 0]);
+
+    $this->post('/documents', [
+        'title' => 'First child',
+        'workspace_id' => $workspace->id,
+        'parent_id' => $parent->id,
+        'content' => DocumentFactory::tiptap('Hi.'),
+    ])->assertRedirect();
+
+    $new = Document::firstWhere('title', 'First child');
+    expect($new->position)->toBeLessThan(0);
+});
+
+test('the inline rename endpoint updates the title and stays put', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $page = Document::factory()->create(['workspace_id' => $workspace->id, 'title' => 'Old name']);
+
+    $res = $this->patch("/documents/{$page->id}/rename", ['title' => 'New name']);
+    $res->assertRedirect(); // back(), not a redirect to the document editor
+
+    expect($page->fresh()->title)->toBe('New name');
+});
+
+test('inline rename requires a non-empty title', function () {
+    login();
+    $workspace = Workspace::factory()->create();
+    $page = Document::factory()->create(['workspace_id' => $workspace->id, 'title' => 'Keep me']);
+
+    $this->patch("/documents/{$page->id}/rename", ['title' => ''])
+        ->assertSessionHasErrors('title');
+
+    expect($page->fresh()->title)->toBe('Keep me');
+});
+
+test('a viewer cannot rename a page', function () {
+    login(role: 'viewer');
+    $workspace = Workspace::factory()->create();
+    $page = Document::factory()->create(['workspace_id' => $workspace->id, 'title' => 'Locked']);
+
+    $this->patch("/documents/{$page->id}/rename", ['title' => 'Hacked'])->assertForbidden();
+
+    expect($page->fresh()->title)->toBe('Locked');
 });

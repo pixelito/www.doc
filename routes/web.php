@@ -10,6 +10,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompareController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentFolderController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\PasswordResetController;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Route;
 Route::pattern('document', '[0-9]+');
 Route::pattern('version', '[0-9]+');
 Route::pattern('workspace', '[0-9]+');
+Route::pattern('folder', '[0-9]+');
 Route::pattern('group', '[0-9]+');
 Route::pattern('tag', '[0-9]+');
 Route::pattern('template', '[0-9]+');
@@ -120,6 +122,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('documents/reorder', [DocumentController::class, 'reorder'])->name('documents.reorder');
     Route::get('documents/{document}/children', [DocumentController::class, 'children'])->name('documents.children');
     Route::patch('documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
+    // Inline title rename from the workspace tree's Edit mode (stays on the page).
+    Route::patch('documents/{document}/rename', [DocumentController::class, 'rename'])->name('documents.rename');
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     // Personal star toggle — any role that can view the page (not audited).
     Route::post('documents/{document}/star', [DocumentController::class, 'star'])->name('documents.star');
@@ -136,6 +140,18 @@ Route::middleware('auth')->group(function () {
     Route::delete('workspaces/groups/{group}', [WorkspaceGroupController::class, 'destroy'])->name('workspaces.groups.destroy');
     // File a workspace into/out of a group (structural — no updated_at bump).
     Route::patch('workspaces/{workspace}/group', [WorkspaceController::class, 'regroup'])->name('workspaces.regroup');
+    // Page folders — containers inside a workspace that are NOT pages. Create is
+    // scoped to the workspace (the id never comes from the payload); a folder's
+    // own id is globally unique, so rename/delete need no workspace segment.
+    Route::post('workspaces/{workspace}/folders', [DocumentFolderController::class, 'store'])->name('folders.store');
+    Route::patch('folders/{folder}', [DocumentFolderController::class, 'update'])->name('folders.update');
+    Route::delete('folders/{folder}', [DocumentFolderController::class, 'destroy'])->name('folders.destroy');
+    // File a page into/out of a folder (structural — no updated_at/version bump).
+    Route::patch('documents/{document}/folder', [DocumentController::class, 'refile'])->name('documents.refile');
+    // Reorder a workspace's interleaved top level (folders + loose pages share one
+    // order) plus each folder's members. Before the resource so it isn't read as a
+    // workspace show. Structural — no updated_at bump, unaudited.
+    Route::patch('workspaces/{workspace}/folder-order', [DocumentController::class, 'reorderTopLevel'])->name('workspaces.folderOrder');
     // Bulk save of a workspace's whole page tree — the "Reorder" mode's single
     // write on "Done". Declared before the resource so it isn't read as a show.
     Route::patch('workspaces/{workspace}/tree', [DocumentController::class, 'restructure'])->name('workspaces.tree.update');

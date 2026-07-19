@@ -7,6 +7,7 @@ use App\Models\Attachment;
 use App\Models\AuditEvent;
 use App\Models\Backup;
 use App\Models\Document;
+use App\Models\DocumentFolder;
 use App\Models\DocumentVersion;
 use App\Models\Link;
 use App\Models\Tag;
@@ -108,6 +109,10 @@ class BackupService
         // BEFORE workspaces (workspaces.group_id references them).
         $groups    = WorkspaceGroup::orderBy('id')->get()->map->toArray();
 
+        // Page folders (containers inside a workspace). Restored AFTER workspaces
+        // (document_folders.workspace_id) but BEFORE documents (documents.folder_id).
+        $folders   = DocumentFolder::orderBy('id')->get()->map->toArray();
+
         $tags      = Tag::orderBy('id')->get()->map->toArray();
         $links     = Link::orderBy('id')->get()->map->toArray();
         $templates = Template::orderBy('id')->get()->map->toArray();
@@ -129,6 +134,7 @@ class BackupService
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
         $this->putJson("{$work}/canonical/workspace_groups.json", $groups);
+        $this->putJson("{$work}/canonical/document_folders.json", $folders);
         $this->putJson("{$work}/canonical/tags.json", $tags);
         $this->putJson("{$work}/canonical/links.json", $links);
         $this->putJson("{$work}/canonical/users.json", $users);
@@ -155,6 +161,7 @@ class BackupService
         return [
             'workspaces' => $workspaces->count(),
             'workspace_groups' => $groups->count(),
+            'document_folders' => $folders->count(),
             'documents'  => $documents,
             'versions'   => $versions,
             'tags'       => $tags->count(),

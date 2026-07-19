@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\AuditEvent;
 use App\Models\Document;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected away from workspaces', function () {
@@ -36,6 +38,65 @@ test('workspace name is required', function () {
     login();
 
     $this->post('/workspaces', ['name' => ''])->assertSessionHasErrors('name');
+});
+
+test('a workspace is created ungrouped by default', function () {
+    login();
+
+    $this->post('/workspaces', ['name' => 'Loose Space'])->assertRedirect();
+
+    expect(Workspace::firstWhere('name', 'Loose Space')->group_id)->toBeNull();
+});
+
+test('a new workspace lands above every existing top-level slot', function () {
+    login();
+    // Existing top level: a group and a loose workspace, both at the front.
+    WorkspaceGroup::factory()->create(['position' => 0]);
+    $loose = Workspace::factory()->create(['group_id' => null, 'position' => 0]);
+
+    $this->post('/workspaces', ['name' => 'Newest'])->assertRedirect();
+
+    $new = Workspace::firstWhere('name', 'Newest');
+    // Strictly below the minimum top-level position (groups + loose share one
+    // space), so it sorts first in the index without shifting existing rows.
+    expect($new->position)->toBeLessThan(0)
+        ->and($new->position)->toBeLessThan($loose->fresh()->position);
+});
+
+test('a new workspace created into a group lands above its siblings', function () {
+    login();
+    $group = WorkspaceGroup::factory()->create();
+    $sibling = Workspace::factory()->create(['group_id' => $group->id, 'position' => 0]);
+
+    $this->post('/workspaces', ['name' => 'FirstMember', 'group_id' => $group->id])
+        ->assertRedirect();
+
+    expect(Workspace::firstWhere('name', 'FirstMember')->position)
+        ->toBeLessThan($sibling->fresh()->position);
+});
+
+test('a workspace can be created straight into a group', function () {
+    login();
+    $group = WorkspaceGroup::factory()->create(['name' => 'Security']);
+
+    $this->post('/workspaces', [
+        'name'     => 'BitLocker',
+        'group_id' => $group->id,
+    ])->assertRedirect();
+
+    expect(Workspace::firstWhere('name', 'BitLocker')->group_id)->toBe($group->id);
+
+    // The group it was born in rides along in the audit context; a later move is
+    // its own workspace.moved event.
+    $event = AuditEvent::where('event', 'workspace.created')->latest('id')->first();
+    expect($event->context['group'])->toBe('Security');
+});
+
+test('creating a workspace in a non-existent group is rejected', function () {
+    login();
+
+    $this->post('/workspaces', ['name' => 'Nope', 'group_id' => 9999])
+        ->assertSessionHasErrors('group_id');
 });
 
 test('a workspace can be updated', function () {

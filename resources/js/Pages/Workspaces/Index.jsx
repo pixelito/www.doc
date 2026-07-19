@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
-    IconArrowsSort, IconCheck, IconChevronRight, IconDots, IconHistory, IconStarFilled,
-    IconLibrary, IconLibraryPlus, IconPencil, IconFolderSymlink,
+    IconCheck, IconChevronRight, IconDots, IconHistory, IconStarFilled,
+    IconLibrary, IconLibraryPlus, IconPencil, IconCornerDownRight,
 } from '@tabler/icons-react';
 import {
     DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -17,13 +17,14 @@ import DocsLayout from '@/Layouts/DocsLayout';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-    DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
-    DropdownMenuRadioGroup, DropdownMenuRadioItem,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import WorkspaceFormModal from '@/components/ui/WorkspaceFormModal';
 import GroupFormModal from '@/components/ui/GroupFormModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import InlineEditableTitle from '@/components/ui/InlineEditableTitle';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { flattenForDnd, getDescendantIds, buildTree } from '@/lib/dndTree';
 import { can } from '@/lib/permissions';
 import { timeAgo } from '@/lib/date';
 
@@ -76,36 +77,239 @@ function buildLayout(workspaces, groups, sortBy) {
     return tokens;
 }
 
-function SortableRow({ workspace, draggable, gridClass, groups, onMove, showMenu }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: `w:${workspace.id}` });
+// ── Reorder engine (mirrors Workspaces/Show.jsx's folder-aware tree) ──────────
+//
+// In reorder mode the index is ONE flat, projected list: each group becomes a
+// depth-0 pseudo-row whose children are its member workspaces, interleaved with
+// loose workspaces in the shared top-level order. A single drag can reorder the
+// top level, reorder a group's members, carry a workspace ACROSS groups (drop it
+// one level deep under a different group), or pull it out to loose (depth 0) —
+// the projection decides which from the drop row + horizontal offset. Strictly
+// two levels: groups never nest (pinned to depth 0) and a member can't parent, so
+// depth caps at 1. This replaces the old nested-SortableContext model, whose
+// per-group contexts made cross-group drag impossible.
 
+const REORDER_INDENT = 24; // px of indent for a group member (the one nesting level)
+
+/** layout tokens → reorder forest (group pseudo-nodes carry their members). */
+function buildForest(layout) {
+    return layout.map((t) => (
+        t.type === 'group'
+            ? {
+                id: `g:${t.id}`, __group: true, groupId: t.id, group: t.group,
+                children: t.items.map((w) => ({ id: `w:${w.id}`, workspace: w, children: [] })),
+            }
+            : { id: `w:${t.id}`, workspace: t.workspace, children: [] }
+    ));
+}
+
+/** reorder forest → read-view layout tokens (the inverse of buildForest). */
+function forestToLayout(forest) {
+    return forest.map((node) => (
+        node.__group
+            ? { type: 'group', id: node.groupId, position: 0, group: node.group, items: (node.children ?? []).map((c) => c.workspace) }
+            : { type: 'workspace', id: node.workspace.id, position: 0, workspace: node.workspace }
+    ));
+}
+
+/**
+ * Where would the dragged row land — its depth and new parent group — given the
+ * cursor offset. A group is pinned to depth 0; a workspace may sit at depth 1
+ * only when the row above it is a group header or an existing member (so its
+ * parent group is unambiguous). Mirrors Show.jsx getProjection, capped at 1 level.
+ */
+function getProjection(items, activeId, overId, dragOffset) {
+    const overIndex = items.findIndex((i) => i.id === overId);
+    const activeIndex = items.findIndex((i) => i.id === activeId);
+    if (overIndex === -1 || activeIndex === -1) return null;
+
+    const activeItem = items[activeIndex];
+    const newItems = arrayMove(items, activeIndex, overIndex);
+    const prevItem = newItems[overIndex - 1];
+
+    const isGroup = !!activeItem.node.__group;
+    const projectedDepth = activeItem.depth + Math.round(dragOffset / REORDER_INDENT);
+    // A workspace can nest only directly under a group header or another member.
+    const canNest = !isGroup && prevItem && (prevItem.node.__group || prevItem.depth === 1);
+    const depth = isGroup ? 0 : Math.max(0, Math.min(projectedDepth, canNest ? 1 : 0));
+
+    const parentId = (() => {
+        if (depth === 0 || !prevItem) return null;
+        if (prevItem.node.__group) return prevItem.id;   // right under a group header
+        if (prevItem.depth === 1) return prevItem.parentId; // after a sibling member
+        return null;
+    })();
+
+    return { depth, parentId };
+}
+
+/**
+ * Turn the final reorder forest into the top-level-order payload (M1's contract):
+ *   items  — the interleaved top level (groups + loose workspaces)
+ *   groups — each group with its ordered members, tagged by group id so a member
+ *            dragged into a new group refiles there in the same atomic save.
+ */
+function deriveGroupsPayload(forest) {
+    const items = [];
+    const groups = [];
+    for (const top of forest) {
+        if (top.__group) {
+            items.push({ type: 'group', id: top.groupId });
+            groups.push({ id: top.groupId, members: (top.children ?? []).map((c) => c.workspace.id) });
+        } else {
+            items.push({ type: 'workspace', id: top.workspace.id });
+        }
+    }
+    return { items, groups };
+}
+
+/** Grip handle shared by the flat reorder rows. */
+function RowGrip({ listeners, attributes, label }) {
+    return (
+        <button
+            type="button"
+            {...listeners}
+            {...attributes}
+            tabIndex={-1}
+            aria-label={label}
+            className="flex h-5 w-5 shrink-0 cursor-grab items-center justify-center text-text-tertiary active:cursor-grabbing"
+        >
+            <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
+        </button>
+    );
+}
+
+/**
+ * A group header while in EDIT mode: draggable by its grip (moves as a block),
+ * title renames in place, delete button. Group management lives here now, not in a
+ * read-view ⋯ menu.
+ */
+function EditGroupRow({ id, name, count, gridClass, ghost, isDropTarget, canManage, onRename, onDelete, collapsed, onToggleCollapse }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     return (
         <li
             ref={setNodeRef}
-            style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-            className={`group grid ${gridClass} items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60`}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
+            className={`group grid ${gridClass} items-center border-b border-border last:border-0 transition-colors ${
+                isDropTarget ? 'bg-accent-50 ring-1 ring-inset ring-accent-300' : 'bg-surface-hover/50'
+            }`}
         >
-            <div className="flex min-w-0 items-center gap-2 py-3 pl-3 pr-4">
-                {draggable ? (
+            <div className="flex min-w-0 items-center gap-2 py-2 pl-1.5 pr-4">
+                <RowGrip listeners={listeners} attributes={attributes} label={`Drag to reorder ${name}`} />
+                {/* Collapse hides the members so the top level is short and easy to
+                    reorder; the group still drags as a block either way. */}
+                <button
+                    type="button"
+                    onClick={onToggleCollapse}
+                    aria-expanded={!collapsed}
+                    aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${name}`}
+                    className="flex h-5 w-4 shrink-0 items-center justify-center text-text-tertiary transition-colors hover:text-foreground"
+                >
+                    <IconChevronRight className={`h-3.5 w-3.5 transition-transform ${collapsed ? '' : 'rotate-90'}`} stroke={1.5} />
+                </button>
+                <IconLibrary className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
+                {canManage ? (
+                    <InlineEditableTitle
+                        value={name}
+                        onCommit={onRename}
+                        ariaLabel={`Rename ${name}`}
+                        className="text-[13px] font-semibold text-foreground"
+                        inputClassName="text-[13px] font-semibold"
+                    />
+                ) : (
+                    <span className="truncate text-[13px] font-semibold text-foreground" title={name}>{name}</span>
+                )}
+                <span className="shrink-0 text-xs text-text-tertiary">({count})</span>
+                {isDropTarget && (
+                    <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-100 px-1.5 py-0.5 text-[10px] font-medium text-accent-700">
+                        <IconCornerDownRight className="h-3 w-3" stroke={1.5} />
+                        Into group
+                    </span>
+                )}
+            </div>
+            <div /><div />
+            <div className="flex items-center justify-center pr-1.5">
+                {canManage && (
                     <button
                         type="button"
-                        {...listeners}
-                        {...attributes}
-                        tabIndex={-1}
-                        aria-label="Drag to reorder"
-                        className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 active:cursor-grabbing"
+                        onClick={onDelete}
+                        aria-label={`Delete ${name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100 hover:text-danger"
                     >
-                        <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
+                        <IconTrash className="h-4 w-4" stroke={1.5} />
                     </button>
-                ) : (
-                    <span className="w-4 shrink-0" />
                 )}
+            </div>
+        </li>
+    );
+}
+
+/** A workspace row while in EDIT mode: draggable, indented inside a group, renames in place. */
+function EditWorkspaceRow({ id, workspace, depth, gridClass, ghost, canManage, onRename }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    return (
+        <li
+            ref={setNodeRef}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: ghost || isDragging ? 0.4 : 1 }}
+            className={`grid ${gridClass} items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60`}
+        >
+            <div className="flex min-w-0 items-center gap-2 py-3 pl-1.5 pr-4" style={{ paddingLeft: `${6 + depth * REORDER_INDENT}px` }}>
+                <RowGrip listeners={listeners} attributes={attributes} label={`Drag to move ${workspace.name}`} />
                 <IconFolderOpen className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
-                <Link
-                    href={`/workspaces/${workspace.id}`}
-                    className="min-w-0"
-                >
+                {canManage ? (
+                    <InlineEditableTitle
+                        value={workspace.name}
+                        onCommit={onRename}
+                        ariaLabel={`Rename ${workspace.name}`}
+                        className="text-sm font-medium text-foreground"
+                        inputClassName="text-sm font-medium"
+                    />
+                ) : (
+                    <span className="truncate text-sm font-medium text-foreground" title={workspace.name}>{workspace.name}</span>
+                )}
+            </div>
+            <div className="py-3 pr-4">
+                <span className="text-xs text-text-tertiary">
+                    {workspace.documents_count} {workspace.documents_count === 1 ? 'page' : 'pages'}
+                </span>
+            </div>
+            <div className="py-3 pr-4">
+                <span className="text-xs text-text-tertiary">{timeAgo(workspace.updated_at) ?? '—'}</span>
+            </div>
+            <div />
+        </li>
+    );
+}
+
+/**
+ * A drop target rendered inside an EMPTY group during reorder, so a workspace can
+ * be dragged into a group that has no members yet. It is a sortable (a valid drop
+ * `over`) but carries no grip, so it can never be picked up; buildTree strips it.
+ */
+function EmptyGroupDropRow({ id, gridClass, isDropTarget }) {
+    const { setNodeRef } = useSortable({ id });
+    return (
+        <li ref={setNodeRef} className={`grid ${gridClass} items-center border-b border-border-subtle last:border-0 ${isDropTarget ? 'bg-accent-50' : ''}`}>
+            <div className="py-3 pr-4" style={{ paddingLeft: `${6 + REORDER_INDENT}px` }}>
+                <span className="text-xs italic text-text-tertiary">Drop a workspace here</span>
+            </div>
+        </li>
+    );
+}
+
+// A read-view workspace row: a link + counts. Organizing (drag, rename, move to
+// group) happens in Edit mode via EditWorkspaceRow, so this row is inert.
+function SortableRow({ workspace, gridClass, inGroup = false }) {
+    return (
+        <li className={`group grid ${gridClass} items-center border-b border-border-subtle last:border-0 transition-colors hover:bg-surface-hover/60`}>
+            {/* Members indent to the group's interior (pl-9); loose rows stay at the
+                outer pl-3. Groups and loose workspaces share one order, so a loose row
+                can land directly under a group's last member — without this they are
+                pixel-identical and you can't tell what's filed where. */}
+            <div className={`flex min-w-0 items-center gap-2 py-3 pr-4 ${inGroup ? 'pl-9' : 'pl-3'}`}>
+                <span className="w-4 shrink-0" />
+                <IconFolderOpen className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} />
+                <Link href={`/workspaces/${workspace.id}`} className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-accent-600" title={workspace.name}>
                         {workspace.name}
                     </p>
@@ -122,87 +326,29 @@ function SortableRow({ workspace, draggable, gridClass, groups, onMove, showMenu
             <div className="py-3 pr-4">
                 <span className="text-xs text-text-tertiary">{timeAgo(workspace.updated_at) ?? '—'}</span>
             </div>
-            {showMenu && (
-                <div className="flex items-center justify-center pr-1.5">
-                    <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                type="button"
-                                aria-label="Workspace actions"
-                                className="flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary opacity-0 transition-[opacity,color,background-color] hover:bg-surface-hover hover:text-foreground focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
-                            >
-                                <IconDots className="h-4 w-4" stroke={1.5} />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <IconFolderSymlink stroke={1.5} />
-                                    Move to group
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuRadioGroup
-                                        value={String(workspace.group_id ?? 'none')}
-                                        onValueChange={(v) => onMove(workspace, v === 'none' ? null : Number(v))}
-                                    >
-                                        <DropdownMenuRadioItem value="none">No group</DropdownMenuRadioItem>
-                                        {groups.map((g) => (
-                                            <DropdownMenuRadioItem key={g.id} value={String(g.id)}>
-                                                {g.name}
-                                            </DropdownMenuRadioItem>
-                                        ))}
-                                    </DropdownMenuRadioGroup>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )}
         </li>
     );
 }
 
 /**
- * A group as a top-level slot: a draggable block (header + its member rows). The
- * whole block moves as one unit when reordering the top level; its members
- * reorder among themselves via the nested SortableContext. Filing a workspace
- * in/out of a group stays on the row's ⋯ menu — never a cross-block drag.
+ * A read-view group section: a collapsible header + its member rows. Organizing
+ * the group (drag, rename, delete, filing workspaces in/out) happens in Edit mode
+ * via EditGroupRow, so this section is inert.
  */
-function SortableGroupSection({
-    token, reordering, collapsed, onToggleCollapse, gridClass, groups, perms,
-    onMove, onRenameGroup, onDeleteGroup,
-}) {
+function GroupSection({ token, collapsed, onToggleCollapse, gridClass }) {
     const group = token.group;
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-        useSortable({ id: `g:${group.id}` });
 
     return (
-        <div
-            ref={setNodeRef}
-            style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-            className="border-b border-border last:border-0"
-        >
-            <div className={`flex items-center bg-surface-hover/50 has-[[data-state=open]]:bg-surface-hover ${reordering ? '' : 'transition-colors hover:bg-surface-hover'}`}>
-                {reordering && (
-                    <button
-                        type="button"
-                        {...listeners}
-                        {...attributes}
-                        tabIndex={-1}
-                        aria-label={`Drag to reorder ${group.name}`}
-                        className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center pl-1.5 text-text-tertiary active:cursor-grabbing"
-                    >
-                        <IconGripVertical className="h-3.5 w-3.5" stroke={1.5} />
-                    </button>
-                )}
+        <div className="border-b border-border last:border-0">
+            <div className="flex items-center bg-surface-hover/50 has-[[data-state=open]]:bg-surface-hover transition-colors hover:bg-surface-hover">
                 <button
                     type="button"
-                    onClick={() => !reordering && onToggleCollapse(`g:${group.id}`)}
+                    onClick={() => onToggleCollapse(`g:${group.id}`)}
                     aria-expanded={!collapsed}
-                    className={`flex min-w-0 flex-1 items-center gap-2 py-2 text-left ${reordering ? 'cursor-default pl-1' : 'pl-3'} pr-2`}
+                    className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-2 text-left"
                 >
                     <IconChevronRight
-                        className={`h-3.5 w-3.5 shrink-0 text-text-tertiary transition-transform ${collapsed ? '' : 'rotate-90'} ${reordering ? 'invisible' : ''}`}
+                        className={`h-3.5 w-3.5 shrink-0 text-text-tertiary transition-transform ${collapsed ? '' : 'rotate-90'}`}
                         stroke={1.5}
                     />
                     <IconLibrary className="h-3.5 w-3.5 shrink-0 text-text-tertiary" stroke={1.5} />
@@ -211,56 +357,19 @@ function SortableGroupSection({
                     </span>
                     <span className="shrink-0 text-xs text-text-tertiary">({token.items.length})</span>
                 </button>
-                {perms.update && !reordering && (
-                    <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                type="button"
-                                aria-label={`Actions for ${group.name}`}
-                                className="mr-1.5 flex h-7 w-7 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:text-foreground data-[state=open]:text-foreground"
-                            >
-                                <IconDots className="h-4 w-4" stroke={1.5} />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onSelect={() => onRenameGroup(group)}>
-                                <IconPencil stroke={1.5} />
-                                Rename group
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onSelect={() => onDeleteGroup(group)}
-                                className="text-danger focus:bg-danger-surface focus:text-danger"
-                            >
-                                <IconTrash stroke={1.5} />
-                                Delete group
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
             </div>
 
             {!collapsed && (
                 token.items.length === 0 ? (
                     <p className="px-3 py-3 pl-9 text-xs text-text-tertiary">
-                        No workspaces here yet — move some in from their ⋯ menu.
+                        No workspaces here yet — open Edit to drag some in.
                     </p>
                 ) : (
-                    <SortableContext items={token.items.map((w) => `w:${w.id}`)} strategy={verticalListSortingStrategy}>
-                        <ul>
-                            {token.items.map((w) => (
-                                <SortableRow
-                                    key={w.id}
-                                    workspace={w}
-                                    draggable={reordering && perms.update}
-                                    gridClass={gridClass}
-                                    groups={groups}
-                                    onMove={onMove}
-                                    showMenu={perms.update && !reordering}
-                                />
-                            ))}
-                        </ul>
-                    </SortableContext>
+                    <ul>
+                        {token.items.map((w) => (
+                            <SortableRow key={w.id} workspace={w} gridClass={gridClass} inGroup />
+                        ))}
+                    </ul>
                 )
             )}
         </div>
@@ -337,8 +446,24 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
 
     // Explicit reorder mode (like the page tree's): drags only mutate local
     // state, and the new order is saved once on "Done".
-    const [reordering, setReordering] = useState(false);
-    const reorderDirty = useRef(false);
+    const [editing, setEditing] = useState(false);
+    const editDirty = useRef(false); // any unsaved edit (drag OR rename) — drives the guard + Done
+    const dragDirty = useRef(false); // drags specifically — gates the structural order save
+    // The flat, folder-aware forest the DnD mutates while editing (groups as
+    // depth-0 pseudo-nodes; see buildForest). Separate from `layout` so the read
+    // view keeps its plain sectioned tree. Empty when not editing.
+    const [editForest, setEditForest] = useState([]);
+    // Pending inline renames (key `g:${id}` / `w:${id}` → new name), applied
+    // optimistically to the rows and persisted on Done — so Cancel discards them
+    // (mirrors how dragged order is pending). A ref shadows the state so the async
+    // save can read the latest map. `editDirty` covers renames too.
+    const [pendingRenames, setPendingRenames] = useState({});
+    const pendingRenamesRef = useRef({});
+    const setRenames = (next) => { pendingRenamesRef.current = next; setPendingRenames(next); };
+    // Drag state for the projection: what's held, what it's over, how far right.
+    const [activeId, setActiveId]     = useState(null);
+    const [overId, setOverId]         = useState(null);
+    const [offsetLeft, setOffsetLeft] = useState(0);
 
     // The interleaved top-level order (group blocks + loose rows). Held as state
     // so reorder drags mutate it directly; rebuilt from server data + the sort
@@ -361,20 +486,22 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
             return next;
         });
     }
-    // Reorder mode force-expands so every row is reachable to drag.
-    const isCollapsed = (key) => !reordering && collapsedKeys.has(key);
+    const isCollapsed = (key) => collapsedKeys.has(key);
 
     // Warn before losing unsaved moves on close/refresh or any in-app navigation
     // (a workspace row, a nav link, "New workspace"); see the discard modal below.
     const { promptOpen, requestLeave, confirmDiscard, dismissPrompt } = useUnsavedChangesGuard({
-        active: reordering,
-        dirtyRef: reorderDirty,
-        // Drags mutate `layout`, not `workspaces`, so discarding has to rebuild the
-        // layout from the untouched server order explicitly — otherwise the dragged
-        // arrangement would linger on screen after "Discard".
+        active: editing,
+        dirtyRef: editDirty,
+        // Drags mutate `editForest`, not `workspaces`; discarding drops it and
+        // rebuilds the read `layout` from the untouched server order — otherwise the
+        // dragged arrangement would linger on screen after "Discard".
         revert: () => {
-            reorderDirty.current = false;
-            setReordering(false);
+            editDirty.current = false;
+            dragDirty.current = false;
+            setRenames({});
+            setEditing(false);
+            setEditForest([]);
             setLayout(buildLayout(workspaces, groups, sortBy));
         },
     });
@@ -382,11 +509,11 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
     useEffect(() => { setWorkspaces(initial); }, [initial]);
 
     // Rebuild the interleaved layout from server data + the sort toggle. Keyed on
-    // those inputs ONLY (not `reordering`): none of them change during a drag, so
+    // those inputs ONLY (not `editing`): none of them change during a drag, so
     // in-progress drags are never clobbered, and — crucially — leaving reorder
     // mode does NOT re-run this. That means `layout` keeps the order you dragged
     // until the server reload lands the persisted order, with no flicker back to
-    // the pre-drag arrangement in between. `startReorder` seeds a fresh layout.
+    // the pre-drag arrangement in between. `startEditing` seeds a fresh layout.
     useEffect(() => {
         setLayout(buildLayout(workspaces, groups, sortBy));
     }, [workspaces, groups, sortBy]);
@@ -398,89 +525,165 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
     );
 
-    // A drag is only ever WITHIN one container — the top level (group blocks +
-    // loose rows share it) or a single group's members. Cross-container moves are
-    // the row's "Move to group" menu, not a drag.
-    function containerOf(id) {
-        if (layout.some((t) => tokenId(t) === id)) return 'top';
-        for (const t of layout) {
-            if (t.type === 'group' && t.items.some((w) => `w:${w.id}` === id)) return `group:${t.id}`;
+    // Flat list for the reorder DnD: the forest flattened, with an empty-group
+    // placeholder drop-row injected after any group that has no members yet — so a
+    // workspace can be dragged INTO a group before it has any members. Members of a
+    // COLLAPSED group are omitted so the top level stays short and easy to reorder;
+    // the group still drags as a block (buildTree works off the full forest, not
+    // this render list). The dragged row's descendants are hidden while dragging.
+    const flatWithPlaceholders = useMemo(() => {
+        const flat = flattenForDnd(editForest);
+        const out = [];
+        for (const item of flat) {
+            // A member (or placeholder) of a collapsed group is not rendered.
+            if (item.parentId && collapsedKeys.has(item.parentId)) continue;
+            out.push(item);
+            if (item.node.__group && !collapsedKeys.has(item.id) && !flat.some((x) => x.parentId === item.id)) {
+                out.push({
+                    id: `drop:${item.node.groupId}`, parentId: item.id, depth: 1,
+                    node: { __placeholder: true, groupId: item.node.groupId },
+                });
+            }
         }
-        return null;
-    }
+        return out;
+    }, [editForest, collapsedKeys]);
+
+    const flattenedItems = useMemo(() => {
+        if (activeId == null) return flatWithPlaceholders;
+        const descendants = getDescendantIds(flatWithPlaceholders, activeId);
+        return flatWithPlaceholders.filter((i) => i.id === activeId || !descendants.includes(i.id));
+    }, [flatWithPlaceholders, activeId]);
+
+    const projected = activeId != null && overId != null
+        ? getProjection(flattenedItems, activeId, overId, offsetLeft)
+        : null;
+
+    function resetDrag() { setActiveId(null); setOverId(null); setOffsetLeft(0); }
 
     function handleDragEnd({ active, over }) {
-        if (!over || active.id === over.id) return;
-        const from = containerOf(active.id);
-        const to = containerOf(over.id);
-        if (!from || from !== to) return; // ignore drops that left the container
+        const projection = over && activeId != null
+            ? getProjection(flattenedItems, active.id, over.id, offsetLeft)
+            : null;
+        resetDrag();
+        if (!over || !projection) return;
 
-        if (from === 'top') {
-            const oldIndex = layout.findIndex((t) => tokenId(t) === active.id);
-            const newIndex = layout.findIndex((t) => tokenId(t) === over.id);
-            if (oldIndex === -1 || newIndex === -1) return;
-            setLayout(arrayMove(layout, oldIndex, newIndex));
-        } else {
-            const gid = Number(from.slice('group:'.length));
-            setLayout(layout.map((t) => {
-                if (!(t.type === 'group' && t.id === gid)) return t;
-                const oldIndex = t.items.findIndex((w) => `w:${w.id}` === active.id);
-                const newIndex = t.items.findIndex((w) => `w:${w.id}` === over.id);
-                if (oldIndex === -1 || newIndex === -1) return t;
-                return { ...t, items: arrayMove(t.items, oldIndex, newIndex) };
-            }));
+        // Rebuild over the REAL rows (no placeholders, descendants included so a
+        // dragged group carries its members along on buildTree).
+        const full = flattenForDnd(editForest);
+        const activeIndex = full.findIndex((i) => i.id === active.id);
+        if (activeIndex === -1) return;
+        const original = full[activeIndex];
+
+        let { depth, parentId } = projection;
+        if (original.node.__group) { depth = 0; parentId = null; } // groups never nest
+
+        // A drop onto an empty group's placeholder has no real row — resolve it to
+        // just after that group's header so the workspace lands as its first member.
+        let overIndex = full.findIndex((i) => i.id === over.id);
+        if (overIndex === -1) {
+            const gid = String(over.id).slice('drop:'.length);
+            overIndex = full.findIndex((i) => i.node.__group && String(i.node.groupId) === gid);
         }
-        reorderDirty.current = true;
+        if (overIndex === -1) return;
+
+        if (active.id === over.id && original.parentId === parentId && original.depth === depth) return;
+
+        const moved = full.slice();
+        moved[activeIndex] = { ...original, depth, parentId };
+        const sorted = arrayMove(moved, activeIndex, overIndex);
+
+        setEditForest(buildTree(sorted));
+        editDirty.current = true;
+        dragDirty.current = true;
     }
 
-    /** Leave reorder mode, saving the whole arrangement once if it changed. */
-    function finishReorder() {
-        setReordering(false);
-        if (!reorderDirty.current) return;
-        reorderDirty.current = false;
-        // Two disjoint axes in one atomic save: `items` = the interleaved top level
-        // (groups + ungrouped workspaces, shared position space); `grouped` = every
-        // group's members concatenated in display order (per-group order).
-        const items = layout.map((t) => ({ type: t.type, id: t.id }));
-        const grouped = layout.flatMap((t) => (t.type === 'group' ? t.items.map((w) => w.id) : []));
-        const keepOrderForRetry = () => {
-            reorderDirty.current = true;
-            setReordering(true);
-            toast.error("Couldn't save the new order — it's still here, click Done to retry.");
+    /**
+     * Persist everything pending — inline renames FIRST (chained; Inertia
+     * serializes visits, so they can't run concurrently), then the one atomic order
+     * save. `onDone` runs after it all lands; `onFail` on any error (keeps state so
+     * Done/the action can retry).
+     */
+    function persistPending(onDone, onFail) {
+        // Optimistically reflect the arrangement in the read view so leaving Edit
+        // doesn't flicker to the pre-drag order.
+        setLayout(forestToLayout(editForest));
+
+        // Capture the order payload NOW, before the rename chain's reloads re-seed
+        // the forest (which would drop the drag arrangement). Only when something
+        // actually moved — a pure rename must not re-save. `items` = the interleaved
+        // top level; `groups` = each group's members (a cross-group drag refiles).
+        const orderPayload = dragDirty.current ? deriveGroupsPayload(editForest) : null;
+
+        const renames = Object.entries(pendingRenamesRef.current).map(([key, name]) => {
+            const [type, id] = key.split(':');
+            return type === 'g'
+                ? { url: `/workspaces/groups/${id}`, payload: { name } }
+                : { url: `/workspaces/${id}`, payload: { name } };
+        });
+
+        const opts = (handlers) => ({ preserveState: true, preserveScroll: true, ...handlers });
+        const finish = () => { editDirty.current = false; dragDirty.current = false; setRenames({}); onDone?.(); };
+        const runOrder = () => {
+            if (!orderPayload) return finish();
+            router.patch('/workspaces/top-level-order', { items: orderPayload.items, groups: orderPayload.groups }, opts({
+                onSuccess: finish, onError: onFail, onNetworkError: () => { onFail(); return false; },
+            }));
         };
-
-        router.patch('/workspaces/top-level-order', { items, grouped }, {
-            preserveState: true,
-            preserveScroll: true,
-            onError: keepOrderForRetry,
-            onNetworkError: () => { keepOrderForRetry(); return false; },
-        });
+        let i = 0;
+        const runNext = () => {
+            if (i >= renames.length) return runOrder();
+            const r = renames[i++];
+            router.patch(r.url, r.payload, opts({ onSuccess: runNext, onError: onFail, onNetworkError: () => { onFail(); return false; } }));
+        };
+        runNext();
     }
 
-    /** Enter reorder mode with a fresh position-ordered layout (ignores sort view). */
-    function startReorder() {
-        reorderDirty.current = false;
-        setLayout(buildLayout(workspaces, groups, 'arranged'));
-        setReordering(true);
+    /** Leave Edit mode, persisting drags + renames once if anything changed. */
+    function finishEditing() {
+        setEditing(false);
+        if (!editDirty.current) { setEditForest([]); return; }
+        persistPending(
+            () => setEditForest([]),
+            () => {
+                editDirty.current = true;
+                setEditing(true);
+                toast.error("Couldn't save your changes — they're still here, click Done to retry.");
+            },
+        );
     }
 
-    function moveToGroup(workspace, groupId) {
-        if ((workspace.group_id ?? null) === groupId) return; // already there
-        // Append to the end of the destination group so the landing spot is
-        // predictable (the row jumps to the bottom of its new section).
-        const siblings = workspaces.filter((w) => (w.group_id ?? null) === groupId);
-        const position = siblings.reduce((max, w) => Math.max(max, w.position ?? 0), -1) + 1;
-        const destName = groups.find((g) => g.id === groupId)?.name;
-        const done = groupId == null
-            ? `Removed “${workspace.name}” from its group.`
-            : `Moved “${workspace.name}” to ${destName}.`;
-
-        router.patch(`/workspaces/${workspace.id}/group`, { group_id: groupId, position }, {
-            preserveScroll: true,
-            onSuccess: () => toast.success(done),
-            onError: () => toast.error("Couldn't move the workspace."),
-        });
+    /** Enter Edit mode with a fresh position-ordered forest (ignores sort view). */
+    function startEditing() {
+        editDirty.current = false;
+        dragDirty.current = false;
+        setRenames({});
+        const fresh = buildLayout(workspaces, groups, 'arranged');
+        setLayout(fresh);
+        setEditForest(buildForest(fresh));
+        setEditing(true);
     }
+
+    /**
+     * Run an immediate Edit-mode mutation (create / delete a container), flushing
+     * pending drags + renames to the server FIRST so the mutation's own reload
+     * can't clobber them (the re-seed effect below rebuilds the forest afterward).
+     */
+    function flushThen(action) {
+        if (!editDirty.current) { action(); return; }
+        persistPending(action, () => { editDirty.current = true; toast.error("Couldn't save your changes — try again."); });
+    }
+
+    // Inline renames are PENDING (local) until Done, so Cancel can discard them.
+    const renameWorkspace = (workspace, name) => { setRenames({ ...pendingRenamesRef.current, [`w:${workspace.id}`]: name }); editDirty.current = true; };
+    const renameGroup = (group, name) => { setRenames({ ...pendingRenamesRef.current, [`g:${group.id}`]: name }); editDirty.current = true; };
+
+    // While in Edit mode, an immediate mutation reloads server props; re-seed the
+    // drag forest from the fresh data so the new state shows without leaving Edit
+    // mode. Safe against losing drags: every immediate action flushes pending drags
+    // FIRST. Not keyed on `editing` — startEditing seeds explicitly.
+    useEffect(() => {
+        if (editing) setEditForest(buildForest(buildLayout(workspaces, groups, 'arranged')));
+    }, [workspaces, groups]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function deleteGroup() {
         const group = groupToDelete;
@@ -511,7 +714,7 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5 self-center">
-                    {workspaces.length > 1 && !reordering && (
+                    {workspaces.length > 1 && !editing && (
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
@@ -521,14 +724,25 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                             <option value="updated">Last updated</option>
                         </select>
                     )}
-                    {/* Reorder mode owns the header while active; otherwise ONE
-                        primary button + the ⋯ menu for occasional actions. */}
-                    {reordering ? (
+                    {/* Edit mode is arrange-only (Cancel/Done + on-row rename/delete/
+                        drag). Creation + Trash live in the read-view ⋯, next to the
+                        New primary and the Edit toggle. */}
+                    {editing ? (
                         <>
+                            {perms.create && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border hover:bg-surface-hover"
+                                    onClick={() => flushThen(() => setGroupModal({ open: true, group: null }))}
+                                >
+                                    <IconLibraryPlus stroke={1.5} />
+                                    New group
+                                </Button>
+                            )}
                             <Button variant="outline" onClick={requestLeave}>
                                 Cancel
                             </Button>
-                            <Button onClick={finishReorder}>
+                            <Button onClick={finishEditing}>
                                 <IconCheck stroke={1.5} />
                                 Done
                             </Button>
@@ -541,7 +755,7 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                                     New workspace
                                 </Button>
                             )}
-                            {(perms.create || (perms.update && workspaces.length > 1) || perms.isAdmin) && (
+                            {(perms.create || perms.isAdmin) && (
                                 <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
                                         <Button
@@ -560,15 +774,9 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                                                 New group
                                             </DropdownMenuItem>
                                         )}
-                                        {perms.update && workspaces.length > 1 && (
-                                            <DropdownMenuItem onSelect={startReorder}>
-                                                <IconArrowsSort stroke={1.5} />
-                                                Reorder
-                                            </DropdownMenuItem>
-                                        )}
                                         {perms.isAdmin && (
                                             <>
-                                                <DropdownMenuSeparator />
+                                                {perms.create && <DropdownMenuSeparator />}
                                                 <DropdownMenuItem asChild>
                                                     <Link href="/trash">
                                                         <IconTrash stroke={1.5} />
@@ -580,13 +788,23 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
+                            {perms.update && workspaces.length > 0 && (
+                                <Button
+                                    variant="outline"
+                                    className="border-border hover:bg-surface-hover"
+                                    onClick={startEditing}
+                                >
+                                    <IconPencil stroke={1.5} />
+                                    Edit
+                                </Button>
+                            )}
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Personal quick access — starred + recently viewed (hidden while reordering) */}
-            {!reordering && (starred.length > 0 || recentlyViewed.length > 0) && (
+            {/* Personal quick access — starred + recently viewed (hidden while editing) */}
+            {!editing && (starred.length > 0 || recentlyViewed.length > 0) && (
                 <div className="mt-5 space-y-3">
                     {starred.length > 0 && (
                         <QuickAccess id="starred" title="Starred" icon={IconStarFilled} items={starred} />
@@ -600,6 +818,17 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                             meta={(doc) => timeAgo(doc.viewed_at) ?? '—'}
                         />
                     )}
+                </div>
+            )}
+
+            {/* Edit-mode hint — pinned above the table so it stays visible no
+                matter how long the list is. */}
+            {editing && workspaces.length > 0 && (
+                <div className="mt-4 flex items-start gap-2 rounded-md border border-accent-200 bg-accent-50 px-3 py-2 text-xs text-accent-700">
+                    <IconPencil className="mt-0.5 h-3.5 w-3.5 shrink-0" stroke={1.5} />
+                    <span>
+                        Drag a workspace to reorder it, or onto a group to file it there; drag it out to the top level to ungroup. Drag a group to move the whole shelf. Click “Done” when finished.
+                    </span>
                 </div>
             )}
 
@@ -634,40 +863,87 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                         )}
                     </div>
                 ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reordering ? handleDragEnd : undefined}>
-                        {/* One shared top-level order: group blocks and loose rows are
-                            sortable against each other, so an ungrouped workspace can sit
-                            between two groups. */}
-                        <SortableContext items={layout.map(tokenId)} strategy={verticalListSortingStrategy}>
-                            {layout.map((token) => (
-                                token.type === 'group' ? (
-                                    <SortableGroupSection
-                                        key={`g:${token.id}`}
-                                        token={token}
-                                        reordering={reordering}
-                                        collapsed={isCollapsed(`g:${token.id}`)}
-                                        onToggleCollapse={toggleCollapsed}
-                                        gridClass={gridClass}
-                                        groups={groups}
-                                        perms={perms}
-                                        onMove={moveToGroup}
-                                        onRenameGroup={(group) => setGroupModal({ open: true, group })}
-                                        onDeleteGroup={(group) => setGroupToDelete(group)}
-                                    />
-                                ) : (
-                                    <ul key={`w:${token.id}`} className="border-b border-border last:border-0">
-                                        <SortableRow
-                                            workspace={token.workspace}
-                                            draggable={reordering && perms.update}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={editing ? ({ active }) => { setActiveId(active.id); setOverId(active.id); } : undefined}
+                        onDragMove={editing ? ({ delta }) => setOffsetLeft(delta.x) : undefined}
+                        onDragOver={editing ? ({ over }) => setOverId(over?.id ?? null) : undefined}
+                        onDragEnd={editing ? handleDragEnd : undefined}
+                        onDragCancel={editing ? resetDrag : undefined}
+                    >
+                        {editing ? (
+                            /* One flat, projected list: group headers + their members +
+                               loose rows all sort against each other, so a workspace can be
+                               dragged across groups or out to loose in a single gesture. */
+                            <SortableContext items={flattenedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                                <ul>
+                                    {flattenedItems.map((item) => {
+                                        if (item.node.__placeholder) {
+                                            return (
+                                                <EmptyGroupDropRow
+                                                    key={item.id}
+                                                    id={item.id}
+                                                    gridClass={gridClass}
+                                                    isDropTarget={projected?.parentId === item.parentId}
+                                                />
+                                            );
+                                        }
+                                        if (item.node.__group) {
+                                            return (
+                                                <EditGroupRow
+                                                    key={item.id}
+                                                    id={item.id}
+                                                    name={pendingRenames[item.id] ?? item.node.group.name}
+                                                    count={item.node.children?.length ?? 0}
+                                                    gridClass={gridClass}
+                                                    ghost={item.id === activeId}
+                                                    isDropTarget={projected?.parentId === item.id && item.id !== activeId}
+                                                    canManage={perms.update}
+                                                    onRename={(name) => renameGroup(item.node.group, name)}
+                                                    onDelete={() => flushThen(() => setGroupToDelete(item.node.group))}
+                                                    collapsed={isCollapsed(item.id)}
+                                                    onToggleCollapse={() => toggleCollapsed(item.id)}
+                                                />
+                                            );
+                                        }
+                                        const depth = item.id === activeId && projected ? projected.depth : item.depth;
+                                        return (
+                                            <EditWorkspaceRow
+                                                key={item.id}
+                                                id={item.id}
+                                                workspace={pendingRenames[item.id] ? { ...item.node.workspace, name: pendingRenames[item.id] } : item.node.workspace}
+                                                depth={depth}
+                                                gridClass={gridClass}
+                                                ghost={item.id === activeId}
+                                                canManage={perms.update}
+                                                onRename={(name) => renameWorkspace(item.node.workspace, name)}
+                                            />
+                                        );
+                                    })}
+                                </ul>
+                            </SortableContext>
+                        ) : (
+                            /* Read view: group blocks and loose rows in one shared order.
+                               No drag — the sortables are inert (handles hidden). */
+                            <SortableContext items={layout.map(tokenId)} strategy={verticalListSortingStrategy}>
+                                {layout.map((token) => (
+                                    token.type === 'group' ? (
+                                        <GroupSection
+                                            key={`g:${token.id}`}
+                                            token={token}
+                                            collapsed={isCollapsed(`g:${token.id}`)}
+                                            onToggleCollapse={toggleCollapsed}
                                             gridClass={gridClass}
-                                            groups={groups}
-                                            onMove={moveToGroup}
-                                            showMenu={hasGroups && perms.update && !reordering}
                                         />
-                                    </ul>
-                                )
-                            ))}
-                        </SortableContext>
+                                    ) : (
+                                        <ul key={`w:${token.id}`} className="border-b border-border last:border-0">
+                                            <SortableRow workspace={token.workspace} gridClass={gridClass} />
+                                        </ul>
+                                    )
+                                ))}
+                            </SortableContext>
+                        )}
                     </DndContext>
                 )}
 
@@ -715,7 +991,7 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                 </section>
             )}
 
-            <WorkspaceFormModal open={modalOpen} onClose={() => setModalOpen(false)} />
+            <WorkspaceFormModal open={modalOpen} onClose={() => setModalOpen(false)} groups={groups} />
 
             <GroupFormModal
                 open={groupModal.open}
@@ -739,7 +1015,7 @@ export default function WorkspacesIndex({ workspaces: initial, groups = [], rece
                 title="Discard changes?"
                 message="You have unsaved order changes. Leaving reorder mode will discard them permanently."
                 confirmLabel="Discard changes"
-                cancelLabel="Keep reordering"
+                cancelLabel="Keep editing"
                 variant="danger"
                 onConfirm={confirmDiscard}
                 onCancel={dismissPrompt}

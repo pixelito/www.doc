@@ -15,11 +15,29 @@ class WorkspaceGroupController extends Controller
     {
         $this->authorize('create', WorkspaceGroup::class);
 
-        $group = WorkspaceGroup::create($request->validated());
+        // Land a new group at the TOP of the shared top-level order (groups +
+        // ungrouped workspaces), not below its same-position siblings. Position is
+        // a plain sort key, so one below the current minimum sorts it first; a
+        // later reorder normalises everything back to 0-based.
+        $group = WorkspaceGroup::create([
+            ...$request->validated(),
+            'position' => $this->topOfOrder(),
+        ]);
 
         Audit::record('group.created', $group, ['name' => $group->name]);
 
         return back();
+    }
+
+    /** One below the lowest top-level position (groups + ungrouped workspaces), or 0 when empty. */
+    private function topOfOrder(): int
+    {
+        $mins = array_filter([
+            WorkspaceGroup::min('position'),
+            Workspace::whereNull('group_id')->min('position'),
+        ], fn ($p) => $p !== null);
+
+        return $mins ? min($mins) - 1 : 0;
     }
 
     public function update(UpdateWorkspaceGroupRequest $request, WorkspaceGroup $group): RedirectResponse

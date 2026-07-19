@@ -27,6 +27,12 @@ class Workspace extends Model
         return $this->hasMany(Document::class);
     }
 
+    /** Page folders in this workspace, in display order. */
+    public function folders(): HasMany
+    {
+        return $this->hasMany(DocumentFolder::class)->orderBy('position');
+    }
+
     /** Top-level documents (no parent), in display order. */
     public function rootDocuments(): HasMany
     {

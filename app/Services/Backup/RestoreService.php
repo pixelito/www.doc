@@ -58,6 +58,10 @@ class RestoreService
                 // archive simply has no file and inserts nothing.
                 $this->insert('workspace_groups', $this->jsonArray($work, 'workspace_groups'));
                 $this->insert('workspaces', $this->jsonArray($work, 'workspaces'));
+                // Page folders: after workspaces (document_folders.workspace_id),
+                // before documents (documents.folder_id → document_folders). A
+                // pre-folders archive has no file and inserts nothing.
+                $this->insert('document_folders', $this->jsonArray($work, 'document_folders'));
                 $this->insert('tags', $this->jsonArray($work, 'tags'));
 
                 // High-volume tables stream row-by-row from NDJSON (a format 1
@@ -170,9 +174,10 @@ class RestoreService
     private function wipe(): void
     {
         // Children before parents. taggables/links/versions/attachments reference
-        // documents; documents reference workspaces; workspaces reference
-        // workspace_groups. assets/templates are standalone.
-        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'tags', 'workspaces', 'workspace_groups', 'assets', 'templates'] as $table) {
+        // documents; documents reference workspaces and document_folders;
+        // document_folders and workspaces reference workspace_groups. assets/
+        // templates are standalone.
+        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'document_folders', 'tags', 'workspaces', 'workspace_groups', 'assets', 'templates'] as $table) {
             DB::table($table)->delete();
         }
     }
@@ -297,7 +302,7 @@ class RestoreService
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspace_groups', 'workspaces', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
+        foreach (['workspace_groups', 'workspaces', 'document_folders', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],

@@ -34,6 +34,9 @@ class DocumentTree
                 'title'      => $doc->title,
                 'slug'       => $doc->slug,
                 'position'   => $doc->position,
+                // Only ever set on root pages (schema-enforced); the tree view
+                // reads it at depth 0 to group pages under their folder.
+                'folder_id'  => $doc->folder_id,
                 'updated_at' => $doc->updated_at?->diffForHumans(),
                 'tags'       => $doc->tags
                     ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name])

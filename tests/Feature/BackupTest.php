@@ -3,6 +3,7 @@
 use App\Models\Attachment;
 use App\Models\Backup;
 use App\Models\Document;
+use App\Models\DocumentFolder;
 use App\Models\DocumentVersion;
 use App\Models\Setting;
 use App\Models\Tag;
@@ -476,6 +477,31 @@ test('restore round-trips workspace groups and each workspace group_id', functio
     expect(WorkspaceGroup::find($group->id)?->name)->toBe('Security');
     expect(Workspace::find($grouped->id)->group_id)->toBe($group->id);
     expect(Workspace::find($ungrouped->id)->group_id)->toBeNull();
+});
+
+test('restore round-trips page folders and each page\'s folder_id', function () {
+    Storage::fake('local');
+    login();
+
+    $ws     = Workspace::factory()->create(['name' => 'Engineering']);
+    $folder = DocumentFolder::factory()->create(['workspace_id' => $ws->id, 'name' => 'Runbooks']);
+    $filed  = Document::factory()->for($ws)->create(['title' => 'Restore procedure', 'folder_id' => $folder->id]);
+    $loose  = Document::factory()->for($ws)->create(['title' => 'Scratch']);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift after the backup: delete the folder (its page reverts to loose).
+    $folder->documents()->update(['folder_id' => null]);
+    $folder->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    // Folder table + each page's folder_id come back — proves document_folders is
+    // inserted after workspaces (its FK) and before documents (their folder_id FK).
+    expect(DocumentFolder::find($folder->id)?->name)->toBe('Runbooks');
+    expect(Document::find($filed->id)->folder_id)->toBe($folder->id);
+    expect(Document::find($loose->id)->folder_id)->toBeNull();
 });
 
 test('restore round-trips the page tree, tags, versions and verbatim content', function () {

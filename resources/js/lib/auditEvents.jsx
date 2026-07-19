@@ -1,5 +1,5 @@
 import {
-    IconDatabaseExport, IconFileText, IconFolders, IconHistory, IconLibrary,
+    IconDatabaseExport, IconFileText, IconFolder, IconFolders, IconHistory, IconLibrary,
     IconSettings, IconShieldLock, IconTag, IconTemplate, IconTrash, IconUsers,
 } from '@tabler/icons-react';
 
@@ -32,7 +32,16 @@ const EVENTS = {
     'document.created':          { tone: 'good',    text: (c) => <>created {quoted(c?.title)}{c?.template ? <> from the <span className="font-medium">{c.template}</span> template</> : ''}</> },
     'document.updated':          { tone: 'neutral', text: (c) => <>edited {quoted(c?.title)}</> },
     'document.tags_changed':     { tone: 'neutral', text: (c) => <>changed the tags on {quoted(c?.title)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
-    'document.moved':            { tone: 'neutral', text: (c) => <>moved {quoted(c?.title)}</> },
+    'document.moved': {
+        tone: 'neutral',
+        text: (c) => <>moved {quoted(c?.title)}</>,
+        // Shared by two shapes. A folder refile carries readable folder names, so
+        // it gets from→to chips; a re-parent / cross-workspace move carries raw
+        // ids (from/to objects), which are not chip material — so no chips there.
+        change: (c) => (c && ('from_folder' in c || 'to_folder' in c))
+            ? { from: c.from_folder ?? 'Loose', to: c.to_folder ?? 'Loose' }
+            : undefined,
+    },
     'document.trashed':          { tone: 'warning', text: (c) => <>moved {quoted(c?.title)} to the trash</> },
     'document.restored':         { tone: 'good',    text: (c) => <>restored {quoted(c?.title)} from the trash</> },
     'document.purged':           { tone: 'danger',  text: (c) => <>permanently deleted {quoted(c?.title)}</> },
@@ -41,7 +50,7 @@ const EVENTS = {
         text: (c) => <>restored {quoted(c?.title)} to an earlier version{c?.version_date ? ` (${new Date(c.version_date).toLocaleDateString()})` : ''}</>,
     },
 
-    'workspace.created':       { tone: 'good',    text: (c) => <>created the workspace {quoted(c?.name)}</> },
+    'workspace.created':       { tone: 'good',    text: (c) => <>created the workspace {quoted(c?.name)}{c?.group ? <> in the group {quoted(c.group)}</> : ''}</> },
     'workspace.renamed':       { tone: 'neutral', text: () => 'renamed a workspace', change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.updated':       { tone: 'neutral', text: (c) => <>updated the description of {quoted(c?.name)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.restructured':  { tone: 'neutral', text: (c) => <>reorganised the page tree in {quoted(c?.name)}{c?.page_count ? ` (${c.page_count} pages)` : ''}</> },
@@ -53,6 +62,11 @@ const EVENTS = {
     'group.created':           { tone: 'good',    text: (c) => <>created the group {quoted(c?.name)}</> },
     'group.renamed':           { tone: 'neutral', text: () => 'renamed a group', change: (c) => ({ from: c?.from, to: c?.to }) },
     'group.deleted':           { tone: 'warning', text: (c) => <>deleted the group {quoted(c?.name)}</> },
+
+    'folder.created':          { tone: 'good',    text: (c) => <>created the folder {quoted(c?.name)}{c?.workspace ? <> in {quoted(c.workspace)}</> : ''}</> },
+    'folder.renamed':          { tone: 'neutral', text: () => 'renamed a folder', change: (c) => ({ from: c?.from, to: c?.to }) },
+    // Non-destructive: its pages revert to loose, so this is a warning, not danger.
+    'folder.deleted':          { tone: 'warning', text: (c) => <>deleted the folder {quoted(c?.name)}</> },
 
     'template.created': {
         tone: 'good',
@@ -102,6 +116,7 @@ const NAMESPACES = {
     document:  { label: 'Documents',  Icon: IconFileText },
     workspace: { label: 'Workspaces', Icon: IconFolders },
     group:     { label: 'Groups',     Icon: IconLibrary },
+    folder:    { label: 'Folders',    Icon: IconFolder },
     template:  { label: 'Templates',  Icon: IconTemplate },
     tag:       { label: 'Tags',       Icon: IconTag },
     trash:     { label: 'Trash',      Icon: IconTrash },
