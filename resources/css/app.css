@@ -895,6 +895,18 @@
     background: transparent;
 }
 
+/* Multi-selection bounding box: a visual affordance only. React Flow's base CSS
+   gives `.react-flow__nodesselection-rect` `pointer-events: all` so the whole box
+   can be grabbed to drag the group — but that same box then sits over the selected
+   nodes and swallows every click, so a marquee selection can never be narrowed
+   back to a single node (click a node to edit it) and the click just retries
+   forever. Let clicks/drags fall through: a node still moves the whole group when
+   dragged (React Flow default), clicking a node narrows to it, and dragging empty
+   space inside the box starts a fresh marquee. */
+.network-diagram-block .react-flow__nodesselection-rect {
+    pointer-events: none;
+}
+
 /* Compact markdown for cached GitHub release notes in the Updates settings tab.
    Deliberately lighter than `.tiptap` (which is tuned for full documents): small
    headings and tight margins so a changelog reads as dense admin UI, not prose. */
