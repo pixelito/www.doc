@@ -140,8 +140,21 @@ export const ImageUpload = Extension.create({
                                             const { url } = await uploadFile(dataUriToFile(src));
                                             img.setAttribute('src', url);
                                         } else if (/^https?:\/\//i.test(src)) {
-                                            const { url } = await rehostUrl(src);
-                                            img.setAttribute('src', url);
+                                            // A single "Copy Image" from a browser puts the decoded
+                                            // bitmap on the clipboard alongside an <img> pointing at
+                                            // the ORIGINAL remote URL. Prefer those exact local bytes:
+                                            // re-fetching the remote URL (rehost) fails for
+                                            // hotlink-protected / redirecting / auth'd images, and on
+                                            // failure we'd fall back to the dead external reference —
+                                            // the image displays but is never saved locally. Multi-image
+                                            // HTML pastes carry no bitmaps, so they still rehost each URL.
+                                            if (imgs.length === 1 && imageFiles.length > 0) {
+                                                const { url } = await uploadFile(imageFiles[0]);
+                                                img.setAttribute('src', url);
+                                            } else {
+                                                const { url } = await rehostUrl(src);
+                                                img.setAttribute('src', url);
+                                            }
                                         } else if (src.startsWith('file://')) {
                                             const file = imageFiles[fileIdx++];
                                             if (file) {
