@@ -872,7 +872,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                             {/* Star is personal quick access — any role, not audited. */}
                             <button
                                 type="button"
-                                onClick={() => router.post(`/documents/${document.id}/star`, {}, { preserveScroll: true })}
+                                onClick={() => router.post(`/documents/${document.id}/star`, {}, { preserveScroll: true, preserveState: true })}
                                 title={isStarred ? 'Unstar this page' : 'Star this page'}
                                 aria-pressed={isStarred}
                                 className={`flex h-8 w-8 items-center justify-center rounded-sm transition-colors hover:bg-surface-hover ${
