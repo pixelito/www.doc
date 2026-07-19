@@ -1481,6 +1481,22 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         setSelEdgeCount(sel.edges?.length ?? 0);
     }, []);
 
+    // A plain click on a node that is part of a multi-selection narrows the
+    // selection to just that node, so its per-item options panel opens (React
+    // Flow's default keeps the whole marquee selection so the group can be
+    // dragged as one). A DRAG still moves the group — that fires drag events, not
+    // a click — so group-move is unaffected. Runs only in the editor.
+    const handleNodeClick = useCallback((_, node) => {
+        const sel = selectionRef.current;
+        if ((sel.nodes?.length ?? 0) + (sel.edges?.length ?? 0) <= 1) {
+            return;
+        }
+        setNodes(nodesRef.current.map((n) => (
+            n.selected === (n.id === node.id) ? n : { ...n, selected: n.id === node.id }
+        )));
+        setEdges(edgesRef.current.map((e) => (e.selected ? { ...e, selected: false } : e)));
+    }, [setNodes, setEdges]);
+
     const [downloading, setDownloading] = useState(false);
 
     const downloadSvg = async () => {
@@ -1544,6 +1560,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                     onNodeDragStop={editable ? handleNodeDragStop : undefined}
                     onMoveEnd={editable ? handleMoveEnd : undefined}
                     onSelectionChange={handleSelectionChange}
+                    onNodeClick={editable ? handleNodeClick : undefined}
                     defaultViewport={seed.current.viewport ?? DEFAULT_VIEWPORT}
                     {...interactionProps}
                     // Navigation (both views): pinch / double-click / the Controls
