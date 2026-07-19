@@ -41,7 +41,14 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            // Root-relative on purpose: uploaded-image srcs are stored in the
+            // document JSON and must resolve against whatever origin the page is
+            // served from — the dev host, or a reverse-proxied domain (Cloudflare)
+            // over HTTPS — not a baked-in APP_URL that would be a wrong/mixed-content
+            // host in the browser AND an SSRF-blocked fetch in PDF/DOCX export.
+            // RenderDocument::resolveImageToDataUri reads "/storage/…" straight
+            // from the public disk, so relative is also the fast export path.
+            'url' => '/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

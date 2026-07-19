@@ -13,12 +13,21 @@ import { useScrollLock } from '@/hooks/useScrollLock';
  *   onClose   – called on cancel / success / backdrop click
  *   workspace – when present, the dialog edits it (PATCH); otherwise it
  *               creates a new one (POST). Only name + description are editable.
+ *   groups    – groups offered by the create form's picker. Empty (or no groups
+ *               at all) simply hides it.
+ *
+ * The group picker is deliberately CREATE-ONLY. Re-grouping an existing
+ * workspace is a structural move: it goes through "Move to group" → regroup(),
+ * which saves withoutTimestamps and records `workspace.moved`. Editing group
+ * here would route it through update() instead, bumping updated_at (making a
+ * move look like an edit) and skipping the audit event.
  */
-export default function WorkspaceFormModal({ open, onClose, workspace = null }) {
+export default function WorkspaceFormModal({ open, onClose, workspace = null, groups = [] }) {
     const editing = Boolean(workspace);
 
     const [name, setName]               = useState('');
     const [description, setDescription] = useState('');
+    const [groupId, setGroupId]         = useState('');
     const [error, setError]             = useState('');
     const [busy, setBusy]               = useState(false);
 
@@ -27,6 +36,7 @@ export default function WorkspaceFormModal({ open, onClose, workspace = null }) 
         if (open) {
             setName(workspace?.name ?? '');
             setDescription(workspace?.description ?? '');
+            setGroupId('');
             setError('');
         }
     }, [open, workspace]);
@@ -60,7 +70,8 @@ export default function WorkspaceFormModal({ open, onClose, workspace = null }) 
         if (editing) {
             router.patch(`/workspaces/${workspace.id}`, payload, opts);
         } else {
-            router.post('/workspaces', payload, opts);
+            // Blank = ungrouped (top level), the default.
+            router.post('/workspaces', { ...payload, group_id: groupId || null }, opts);
         }
     }
 
@@ -124,6 +135,29 @@ export default function WorkspaceFormModal({ open, onClose, workspace = null }) 
                                 className="h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground placeholder:text-text-tertiary outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             />
                         </div>
+
+                        {/* Group — create only (see the note on this component).
+                            Hidden when no groups exist, so an instance that never
+                            made one sees the dialog exactly as before. */}
+                        {!editing && groups.length > 0 && (
+                            <div>
+                                <label htmlFor="workspace-group" className="mb-1.5 block text-xs font-medium text-foreground">
+                                    Group{' '}
+                                    <span className="font-normal text-text-tertiary">(optional)</span>
+                                </label>
+                                <select
+                                    id="workspace-group"
+                                    value={groupId}
+                                    onChange={(e) => setGroupId(e.target.value)}
+                                    className="ui-select h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
+                                >
+                                    <option value="">Ungrouped (top level)</option>
+                                    {groups.map((g) => (
+                                        <option key={g.id} value={g.id}>{g.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* Footer */}

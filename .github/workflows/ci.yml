@@ -9,6 +9,7 @@ jobs:
   tests:
     name: Pest + build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       db:
@@ -70,6 +71,9 @@ jobs:
   e2e:
     name: Docker E2E & Worker Permissions
     runs-on: ubuntu-latest
+    # Cap the job so a hung interaction (e.g. a Playwright click that never
+    # lands) can't run toward GitHub's 6-hour default before failing.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 

@@ -8,6 +8,8 @@ import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table
 import Placeholder from '@tiptap/extension-placeholder';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Code } from '@tiptap/extension-code';
+import { Link } from '@tiptap/extension-link';
 import { createLowlight, common } from 'lowlight';
 import { IconPlus } from '@tabler/icons-react';
 
@@ -17,6 +19,7 @@ import { WikiLink } from '@/extensions/WikiLink';
 import { Diagram } from '@/extensions/Diagram';
 import { SlashCommands } from '@/extensions/SlashCommands';
 import { ImageUpload } from '@/extensions/ImageUpload';
+import { LeadingParagraph } from '@/extensions/LeadingParagraph';
 import { cleanPastedHtml } from '@/utils/pasteCleanup';
 import Toolbar from './Toolbar';
 import SuggestionList from './SuggestionList';
@@ -25,6 +28,25 @@ import WikiLinkPreview from './WikiLinkPreview';
 // Module-level: the grammar registry is stateless and shared by every editor
 // instance (edit + read views highlight identically).
 const lowlight = createLowlight(common);
+
+// StarterKit's Link derives `inclusive` from `autolink` (default true), which
+// makes the cursor at a link's end boundary count as "inside" it — typing there
+// extends the link and the toolbar stays in link mode. Force non-inclusive so
+// text typed after a link is plain, while keeping autolink on paste/type.
+const NonInclusiveLink = Link.extend({
+    inclusive() {
+        return false;
+    },
+});
+
+// Same boundary trap as Link: inline code defaults to inclusive, so typing at
+// the end of a code span extends it. Force non-inclusive so text after a code
+// span is plain (toggle the button again to resume code).
+const NonInclusiveCode = Code.extend({
+    inclusive() {
+        return false;
+    },
+});
 
 /**
  * Recursively drop invalid empty text nodes. ProseMirror requires every text
@@ -156,17 +178,22 @@ export default function TipTapEditor({
         extensions: [
             StarterKit.configure({
                 heading: { levels: [1, 2, 3] },
-                // Link and Underline are now built into StarterKit v3
-                link: {
-                    openOnClick: !editable,
-                    HTMLAttributes: { rel: 'noopener noreferrer' },
-                },
+                // Link and Underline are now built into StarterKit v3. Link and
+                // inline code are replaced below by non-inclusive variants so
+                // typing past their end boundary produces plain text.
+                link: false,
+                code: false,
                 underline: {},
                 // Replaced by CodeBlockLowlight below (same node name, plus
                 // a language attr and client-side syntax highlighting).
                 codeBlock: false,
             }),
             CodeBlockLowlight.configure({ lowlight }),
+            NonInclusiveLink.configure({
+                openOnClick: !editable,
+                HTMLAttributes: { rel: 'noopener noreferrer' },
+            }),
+            NonInclusiveCode,
             TaskList,
             TaskItem.configure({ nested: true }),
             Callout,
@@ -198,6 +225,7 @@ export default function TipTapEditor({
                           onSuggestionKeyDown: (e) => slashKeyRef.current?.(e) ?? false,
                       }),
                       ImageUpload,
+                      LeadingParagraph,
                   ]
                 : []),
         ],

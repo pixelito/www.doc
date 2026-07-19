@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy(DocumentObserver::class)]
-#[Fillable(['title', 'slug', 'workspace_id', 'parent_id', 'position', 'content', 'content_html', 'metadata'])]
+#[Fillable(['title', 'slug', 'workspace_id', 'parent_id', 'folder_id', 'position', 'content', 'content_html', 'metadata'])]
 #[Hidden(['search_vector'])]
 class Document extends Model
 {
@@ -58,6 +58,16 @@ class Document extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Document::class, 'parent_id');
+    }
+
+    /**
+     * The folder this page is filed under, or null when loose (top level).
+     * Only ever set on ROOT pages — a subpage's folder is its root ancestor's
+     * (enforced by a CHECK constraint, not just convention).
+     */
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(DocumentFolder::class, 'folder_id');
     }
 
     public function children(): HasMany

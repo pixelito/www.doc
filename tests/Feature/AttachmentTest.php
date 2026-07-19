@@ -132,6 +132,9 @@ it('404s when the attachment belongs to another document', function () {
     $this->get("/documents/{$docA->id}/attachments/{$attachment->id}")
         ->assertNotFound();
 
+    $this->patch("/documents/{$docA->id}/attachments/{$attachment->id}", ['name' => 'Nope'])
+        ->assertNotFound();
+
     $this->delete("/documents/{$docA->id}/attachments/{$attachment->id}")
         ->assertNotFound();
 });
@@ -158,6 +161,56 @@ it('viewers cannot delete attachments', function () {
         ->assertForbidden();
 
     expect(Attachment::find($attachment->id))->not->toBeNull();
+});
+
+it('editor can rename an attachment', function () {
+    login(role: 'editor');
+    $document = Document::factory()->create();
+    $attachment = Attachment::factory()->for($document)->create([
+        'path' => 'attachments/keep.pdf',
+        'original_name' => 'Old Name.pdf',
+    ]);
+
+    $this->patch("/documents/{$document->id}/attachments/{$attachment->id}", ['name' => 'New Name'])
+        ->assertNoContent();
+
+    expect($attachment->fresh()->original_name)->toBe('New Name.pdf');
+});
+
+it('re-pins the real extension when renaming, ignoring one typed in the name', function () {
+    login(role: 'editor');
+    $document = Document::factory()->create();
+    $attachment = Attachment::factory()->for($document)->create([
+        'path' => 'attachments/keep.pdf',
+        'original_name' => 'Report.pdf',
+    ]);
+
+    $this->patch("/documents/{$document->id}/attachments/{$attachment->id}", ['name' => 'Report.txt'])
+        ->assertNoContent();
+
+    expect($attachment->fresh()->original_name)->toBe('Report.pdf');
+});
+
+it('rejects a blank rename', function () {
+    login(role: 'editor');
+    $document = Document::factory()->create();
+    $attachment = Attachment::factory()->for($document)->create(['original_name' => 'Keep.pdf']);
+
+    $this->patchJson("/documents/{$document->id}/attachments/{$attachment->id}", ['name' => '   '])
+        ->assertStatus(422);
+
+    expect($attachment->fresh()->original_name)->toBe('Keep.pdf');
+});
+
+it('viewers cannot rename attachments', function () {
+    login(role: 'viewer');
+    $document = Document::factory()->create();
+    $attachment = Attachment::factory()->for($document)->create(['original_name' => 'Keep.pdf']);
+
+    $this->patch("/documents/{$document->id}/attachments/{$attachment->id}", ['name' => 'Hacked'])
+        ->assertForbidden();
+
+    expect($attachment->fresh()->original_name)->toBe('Keep.pdf');
 });
 
 it('purging a document removes its attachment binaries', function () {

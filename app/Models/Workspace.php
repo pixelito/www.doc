@@ -6,18 +6,31 @@ use App\Models\Concerns\HasSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'slug', 'description', 'position'])]
+#[Fillable(['name', 'slug', 'description', 'position', 'group_id'])]
 class Workspace extends Model
 {
     /** @use HasFactory<\Database\Factories\WorkspaceFactory> */
     use HasFactory, HasSlug, SoftDeletes;
 
+    /** The group this workspace is filed under, or null when ungrouped (top level). */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(WorkspaceGroup::class, 'group_id');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    /** Page folders in this workspace, in display order. */
+    public function folders(): HasMany
+    {
+        return $this->hasMany(DocumentFolder::class)->orderBy('position');
     }
 
     /** Top-level documents (no parent), in display order. */

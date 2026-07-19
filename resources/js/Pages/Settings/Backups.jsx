@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import ConnectionStatus from '@/components/ui/ConnectionStatus';
 import { Switch } from '@/components/ui/switch';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -98,7 +99,7 @@ const selectCls =
     'ui-select mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2 text-sm text-foreground disabled:cursor-not-allowed';
 
 export default function Backups() {
-    const { backups, settings, intervals, drivers } = usePage().props;
+    const { backups, settings, intervals, drivers, destinationTest, emailTest } = usePage().props;
     const smtpTest = usePage().props.flash?.smtpTest;
     const [confirm, setConfirm] = useState(null); // { type: 'restore'|'delete', backup }
     const [testing, setTesting] = useState(null);  // 'destination' | 'email' | null
@@ -577,6 +578,11 @@ export default function Backups() {
                                 {!smbReady && (
                                     <span className="text-xs text-text-tertiary">Enter a host and share to test.</span>
                                 )}
+                                <ConnectionStatus
+                                    configured={Boolean(settings.smb?.host) && Boolean(settings.smb?.share)}
+                                    status={destinationTest}
+                                    className="ml-auto"
+                                />
                             </div>
                         </div>
                     )}
@@ -798,6 +804,11 @@ export default function Backups() {
                                                 : 'Fill in the recipient, SMTP host, port and from address.'}
                                         </span>
                                     )}
+                                    <ConnectionStatus
+                                        configured={Boolean(settings.mail?.enabled) && Boolean(settings.mail?.to)}
+                                        status={emailTest}
+                                        className="ml-auto"
+                                    />
                                 </div>
                                 <SmtpTestPanel result={smtpTest} />
                             </div>

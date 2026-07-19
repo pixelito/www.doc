@@ -7,6 +7,7 @@ use App\Http\Requests\MailSettingsRequest;
 use App\Support\MailSettings;
 use App\Support\MailTester;
 use App\Support\Smtp\TestRun;
+use App\Support\TestStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +24,8 @@ class MailSettingsController extends Controller
     public function index(): Response
     {
         return Inertia::render('Settings/Mail', [
-            'settings' => MailSettings::forDisplay(),
+            'settings'   => MailSettings::forDisplay(),
+            'testStatus' => TestStatus::get('mail'),
         ]);
     }
 
@@ -31,6 +33,10 @@ class MailSettingsController extends Controller
     {
         $validated = $request->validated();
         MailSettings::save($validated);
+
+        // The saved transport may differ from whatever the last test hit, so the
+        // "verified" badge would be stale — clear it until the operator re-tests.
+        TestStatus::clear('mail');
 
         // Connection endpoint only — never credentials — in the audit snapshot.
         // verify_peer is security-relevant (disabling it weakens TLS), so it
@@ -67,6 +73,8 @@ class MailSettingsController extends Controller
             $config,
             fn () => $tester->send($config, $validated['to']),
             'Test email sent to ' . $validated['to'] . '.',
+            [],
+            fn (bool $ok) => TestStatus::record('mail', $ok),
         );
     }
 }

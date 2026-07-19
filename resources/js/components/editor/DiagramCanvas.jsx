@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -9,6 +9,7 @@ import {
     Position,
     MarkerType,
     ConnectionMode,
+    SelectionMode,
     NodeToolbar,
     NodeResizer,
     BaseEdge,
@@ -28,7 +29,7 @@ import {
     IconShieldLock, IconCloud, IconDatabase, IconDeviceDesktop, IconAccessPoint,
     IconServer2, IconArrowsSplit2, IconKey, IconWorld, IconWifi, IconDeviceLaptop,
     IconDeviceMobile, IconPhone, IconPrinter, IconDeviceCctv, IconBroadcast,
-    IconBrandDocker, IconStack2, IconMail, IconActivity, IconLock, IconUser, IconUsers,
+    IconBrandDocker, IconStack2, IconMail, IconActivity, IconLock, IconLockOpen, IconUser, IconUsers,
     IconChevronDown, IconChevronUp,
     IconLineDashed, IconArrowNarrowRight, IconArrowsHorizontal, IconMinus, IconSquareDashed,
     IconVectorSpline, IconLine, IconCornerDownRight, IconMap2,
@@ -57,8 +58,8 @@ const uid = () =>
 const NodeBehavior = createContext({
     editable: false, onLabelChange: () => {}, onLabelLive: () => {}, onKindChange: () => {},
     onPropsChange: () => {}, onPropsLive: () => {},
-    onNodeColorChange: () => {}, onNodeColorLive: () => {}, onPersist: () => {},
-    snapToGrid: false,
+    onNodeColorChange: () => {}, onNodeColorLive: () => {}, onLockToggle: () => {}, onPersist: () => {},
+    snapToGrid: false, interactive: true, soloSelection: false,
 });
 
 // Device kinds a node can take. `id` is persisted in node.data.kind; the icon and
@@ -180,6 +181,38 @@ function NodeColorRow({ value, onPick, onLive, includeDefault = true }) {
     );
 }
 
+// Position-lock toggle shown in a node/zone toolbar. Locked elements can't be
+// dragged or nudged (still selectable, editable, deletable).
+function LockToggle({ locked, onToggle }) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            title={locked ? 'Unlock position' : 'Lock position'}
+            aria-label={locked ? 'Unlock position' : 'Lock position'}
+            aria-pressed={locked}
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors ${
+                locked ? 'bg-accent-100 text-accent-700' : 'text-text-secondary hover:bg-surface-hover hover:text-foreground'
+            }`}
+        >
+            {locked ? <IconLock className="h-3.5 w-3.5" stroke={1.5} /> : <IconLockOpen className="h-3.5 w-3.5" stroke={1.5} />}
+        </button>
+    );
+}
+
+// Small badge marking a locked element so its state reads without selecting it.
+// `className` positions it (nodes overhang the corner; zones tuck inside).
+function LockBadge({ className }) {
+    return (
+        <span
+            className={`absolute flex h-4 w-4 items-center justify-center rounded-full border border-border bg-surface text-text-tertiary shadow-sm ${className}`}
+            title="Position locked"
+        >
+            <IconLock className="h-2.5 w-2.5" stroke={2} />
+        </span>
+    );
+}
+
 // A connection point on each side of a node. With ConnectionMode.Loose every
 // handle can be both a source and a target, so any node connects to any node.
 const HANDLE_SIDES = [
@@ -189,8 +222,8 @@ const HANDLE_SIDES = [
     { id: 'left', position: Position.Left },
 ];
 
-function LabeledNode({ id, data, selected }) {
-    const { editable, onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onPersist, snapToGrid } = useContext(NodeBehavior);
+function LabeledNode({ id, data, selected, dragging }) {
+    const { editable, onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onLockToggle, onPersist, snapToGrid, soloSelection } = useContext(NodeBehavior);
     const name = (data.label ?? '').trim();
     const props = Array.isArray(data.props) ? data.props : [];
 
@@ -214,25 +247,29 @@ function LabeledNode({ id, data, selected }) {
         // node the wrapper is auto-sized, so this just resolves to the label size
         // (minWidth keeps small labels legible).
         <div
-            className={`group flex h-full w-full ${props.length ? 'flex-col items-start justify-start gap-0.5' : 'items-center justify-center'} gap-1.5 rounded-md border px-3 py-2 text-xs text-foreground shadow-md ${
-                selected ? 'ring-1 ring-accent-400' : ''
-            }`}
+            className={`group relative flex h-full w-full ${props.length ? 'flex-col items-start justify-start gap-0.5' : 'items-center justify-center'} gap-1.5 rounded-md border px-3 py-2 text-xs text-foreground shadow-md`}
             style={{ minWidth: 90, background: color.bg, borderColor: color.border }}
         >
+            {/* At-rest lock badge only: while selected the resize handle sits on this
+                same corner (and the toolbar shows the lock state), and in the read
+                view locks are meaningless — so hide it in both cases. */}
+            {editable && !selected && data.locked && <LockBadge className="-right-1.5 -top-1.5" />}
             {editable && (
                 <NodeResizer
                     minWidth={90}
-                    minHeight={40}
-                    isVisible={selected}
+                    minHeight={36}
+                    isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
                     handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
 
-            {/* Type + colour picker — appears above the node while it's selected. */}
+            {/* Type + colour picker — appears above the node while it's the whole
+                selection (a marquee over several nodes would stack one of these
+                panels per node). */}
             {editable && (
-                <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+                <NodeToolbar isVisible={!dragging && selected && soloSelection} position={Position.Top} offset={8}>
                     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
                         <div className="grid grid-cols-9 gap-0.5">
                             {shownKinds.map((k) => (
@@ -259,11 +296,14 @@ function LabeledNode({ id, data, selected }) {
                                     : <IconChevronDown className="h-3.5 w-3.5" stroke={1.5} />}
                             </button>
                         </div>
-                        <NodeColorRow
-                            value={data.color ?? 'default'}
-                            onPick={(c) => onNodeColorChange(id, c)}
-                            onLive={(c) => onNodeColorLive(id, c)}
-                        />
+                        <div className="flex items-center gap-1">
+                            <NodeColorRow
+                                value={data.color ?? 'default'}
+                                onPick={(c) => onNodeColorChange(id, c)}
+                                onLive={(c) => onNodeColorLive(id, c)}
+                            />
+                            <LockToggle locked={!!data.locked} onToggle={() => onLockToggle(id)} />
+                        </div>
                         <div className="flex flex-col gap-1 border-t border-border pt-1">
                             <input
                                 type="text"
@@ -362,8 +402,8 @@ function LabeledNode({ id, data, selected }) {
 
 // A zone / grouping container. Renders behind device nodes; nodes dropped inside
 // become its children (handled in onNodeDragStop) and move with it.
-function GroupNode({ id, data, selected }) {
-    const { editable, onLabelChange, onNodeColorChange, onNodeColorLive, onPersist } = useContext(NodeBehavior);
+function GroupNode({ id, data, selected, dragging }) {
+    const { editable, interactive, onLabelChange, onNodeColorChange, onNodeColorLive, onLockToggle, onPersist, soloSelection } = useContext(NodeBehavior);
     const color = colorMeta(data.color ?? 'sage');
     const [editing, setEditing] = useState(false);
     const [val, setVal] = useState(data.label ?? 'Zone');
@@ -379,16 +419,16 @@ function GroupNode({ id, data, selected }) {
         >
             {editable && (
                 <NodeResizer
-                    minWidth={140}
+                    minWidth={144}
                     minHeight={90}
-                    isVisible={selected}
+                    isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
                     handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
                     onResizeEnd={onPersist}
                 />
             )}
             {editable && (
-                <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+                <NodeToolbar isVisible={!dragging && selected && soloSelection} position={Position.Top} offset={8}>
                     <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md">
                         <NodeColorRow
                             value={data.color ?? 'sage'}
@@ -396,10 +436,12 @@ function GroupNode({ id, data, selected }) {
                             onLive={(c) => onNodeColorLive(id, c)}
                             includeDefault={false}
                         />
+                        <LockToggle locked={!!data.locked} onToggle={() => onLockToggle(id)} />
                     </div>
                 </NodeToolbar>
             )}
-            <div className="absolute left-2 top-1.5 max-w-[85%]" onDoubleClick={() => editable && setEditing(true)}>
+            {editable && !selected && data.locked && <LockBadge className="right-1.5 top-1.5" />}
+            <div className="absolute left-2 top-1.5 max-w-[85%]" onDoubleClick={() => editable && interactive && setEditing(true)}>
                 {editing ? (
                     <input
                         autoFocus
@@ -408,6 +450,10 @@ function GroupNode({ id, data, selected }) {
                         onChange={(e) => setVal(e.target.value)}
                         onBlur={commit}
                         onKeyDown={(e) => {
+                            // Keep label keystrokes inside the input (like the other
+                            // label editors) so Esc cancels the edit here and does
+                            // NOT bubble to the maximize handler's window listener.
+                            e.stopPropagation();
                             if (e.key === 'Enter') { e.preventDefault(); commit(); }
                             if (e.key === 'Escape') { setEditing(false); setVal(data.label ?? 'Zone'); }
                         }}
@@ -424,11 +470,60 @@ function GroupNode({ id, data, selected }) {
 // memo() so a node only re-renders when its own props change — during a drag only
 // the moved node updates, instead of every node re-rendering on each frame.
 const nodeTypes = { labeled: memo(LabeledNode), group: memo(GroupNode) };
+const PAN_ON_DRAG = [1, 2];
+const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
+// Order groups so a parent zone always precedes the zones nested inside it —
+// React Flow requires every parent to appear before its children, and array
+// order also drives paint order (later = on top), so inner zones sit above
+// their container. Stable otherwise; the `visiting` set makes a malformed
+// parent cycle terminate rather than recurse forever (the real cycle guard
+// lives in reparentOnDragStop).
+const topoSortGroups = (groups) => {
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const emitted = new Set();
+    const visiting = new Set();
+    const out = [];
+    const visit = (g) => {
+        if (emitted.has(g.id) || visiting.has(g.id)) return;
+        visiting.add(g.id);
+        const parent = g.parentId ? byId.get(g.parentId) : null;
+        if (parent) visit(parent);
+        visiting.delete(g.id);
+        emitted.add(g.id);
+        out.push(g);
+    };
+    groups.forEach(visit);
+    return out;
+};
+
+// Groups first (topologically, ancestors before descendants), then every other
+// node. Keeping all non-group nodes after all groups preserves the invariant
+// that a device node always paints above any zone, while the group ordering
+// lets zones nest.
 const sortGroupsFirst = (nodes) => {
     const groups = nodes.filter((n) => n.type === 'group');
     const rest = nodes.filter((n) => n.type !== 'group');
-    return [...groups, ...rest];
+    return [...topoSortGroups(groups), ...rest];
+};
+
+// Every node transitively parented under `rootId` (BFS over parentId). Drives
+// the self/descendant exclusion when re-parenting a zone, so a zone can never be
+// dropped into its own child (which would create a cycle).
+const collectDescendants = (rootId, nodes) => {
+    const out = new Set();
+    let frontier = new Set([rootId]);
+    while (frontier.size) {
+        const next = new Set();
+        for (const n of nodes) {
+            if (n.parentId && frontier.has(n.parentId) && !out.has(n.id)) {
+                out.add(n.id);
+                next.add(n.id);
+            }
+        }
+        frontier = next;
+    }
+    return out;
 };
 
 // ── Edges ────────────────────────────────────────────────────────────────────
@@ -463,7 +558,7 @@ const decorateEdge = (e) => {
 };
 
 function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerStart, markerEnd, data, selected }) {
-    const { editable, onEdgeChange, onEdgeDelete } = useContext(NodeBehavior);
+    const { editable, onEdgeChange, onEdgeDelete, soloSelection } = useContext(NodeBehavior);
     const d = edgeData({ data });
     const geom = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
     const [path, labelX, labelY] =
@@ -494,7 +589,7 @@ function ConfigurableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                     </div>
                 )}
 
-                {editable && selected && (
+                {editable && selected && soloSelection && (
                     <div
                         className="nodrag nopan flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-md"
                         // High z-index so the controls sit ABOVE nodes: the edge-label
@@ -580,13 +675,29 @@ function EdgeIconButton({ active, danger, title, onClick, children }) {
     );
 }
 
+// Compact toolbar button used by the align/distribute cluster — same flat,
+// bordered card styling as the duplicate/download controls beside it.
+function ToolbarIconButton({ title, onClick, disabled, children }) {
+    return (
+        <button
+            type="button"
+            title={title}
+            onClick={onClick}
+            disabled={disabled}
+            className="flex items-center justify-center rounded-sm border border-border bg-card px-1.5 py-1 text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-text-secondary"
+        >
+            {children}
+        </button>
+    );
+}
+
 const edgeTypes = { configurable: memo(ConfigurableEdge) };
 
 // Persisted shape — strip React Flow's transient fields and render-only data.
 const cleanNodes = (nodes) =>
     nodes.map((n) => {
         if (n.type === 'group') {
-            return {
+            const g = {
                 id: n.id,
                 type: 'group',
                 position: n.position,
@@ -594,6 +705,9 @@ const cleanNodes = (nodes) =>
                 height: n.height,
                 data: { label: n.data?.label ?? 'Zone', color: n.data?.color ?? 'sage' },
             };
+            if (n.parentId) g.parentId = n.parentId;   // a zone nested in another zone
+            if (n.data?.locked) g.data.locked = true;  // position lock
+            return g;
         }
         const props = (Array.isArray(n.data?.props) ? n.data.props : [])
             .map((p) => ({ key: (p?.key ?? '').trim(), value: (p?.value ?? '').trim() }))
@@ -604,6 +718,7 @@ const cleanNodes = (nodes) =>
             position: n.position,
             data: { label: n.data?.label ?? '', kind: n.data?.kind ?? 'generic', color: n.data?.color ?? 'default', props },
         };
+        if (n.data?.locked) out.data.locked = true;  // position lock
         if (n.parentId) out.parentId = n.parentId;   // membership in a zone
         if (n.width != null) out.width = n.width;     // present only once manually resized
         if (n.height != null) out.height = n.height;
@@ -645,11 +760,14 @@ const normalizeNodeData = (data = {}) => {
 // seed the canvas and to restore a snapshot on undo/redo.
 const hydrateNodes = (raw) =>
     sortGroupsFirst((raw ?? []).map((n) => {
+        // A persisted lock maps to React Flow's `draggable: false` so the element
+        // loads un-draggable (the toggle keeps this in sync on change).
+        const draggable = n.data?.locked ? false : undefined;
         if (n.type === 'group') {
-            return { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150 };
+            return { ...n, type: 'group', width: n.width ?? 240, height: n.height ?? 150, draggable };
         }
         const { name, props } = normalizeNodeData(n.data ?? {});
-        return { ...n, type: 'labeled', data: { ...n.data, label: name, props } };
+        return { ...n, type: 'labeled', draggable, data: { ...n.data, label: name, props } };
     }));
 const hydrateEdges = (raw) =>
     (raw ?? []).map((e) => decorateEdge({
@@ -668,6 +786,16 @@ const PRO_OPTIONS = { hideAttribution: true };
 // Snap step for the optional grid — matches the dotted Background gap so nodes
 // land on the dots.
 const SNAP_GRID = [18, 18];
+
+// Snap a world-space position to the grid. New nodes are placed here so their
+// origin sits on a grid line: React Flow's NodeResizer snaps the pointer but not
+// the node's origin, so an off-grid origin makes a snapped resize compute
+// arbitrary, un-roundable sizes (the "weird height" you can't reset). With the
+// origin on-grid, snapped pointer − snapped origin is always a clean multiple.
+const snapToGridPos = ({ x, y }) => ({
+    x: Math.round(x / SNAP_GRID[0]) * SNAP_GRID[0],
+    y: Math.round(y / SNAP_GRID[1]) * SNAP_GRID[1],
+});
 
 // Padding (flow units) added around the graph's bounding box to form the
 // read-view pan boundary, so viewers can pan/zoom but not wander into the void.
@@ -703,6 +831,20 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     const hasSel = selCount > 0;
     const canAlign = selCount >= 2;
     const canDistribute = selCount >= 3;
+    // Edges are counted separately: only the whole-selection total gates the
+    // per-item options popovers (see soloSelection), while the align/duplicate
+    // controls above stay node-only.
+    const [selEdgeCount, setSelEdgeCount] = useState(0);
+    // A node's (or edge's) options popover is per-ITEM, so a marquee drag over a
+    // dozen of them would pop a dozen overlapping panels. Show one only when it's
+    // unambiguously the thing being edited — i.e. it is the entire selection.
+    // Multi-selection is served by the canvas toolbar (align/distribute/duplicate)
+    // instead; resize handles and selection outlines are unaffected.
+    const soloSelection = selCount + selEdgeCount === 1;
+    // Global interactivity (the Controls padlock): true = draggable/selectable,
+    // false = frozen. Tracked here so we can clear the selection on freeze and
+    // give the padlock an active style. Editor starts fully interactive.
+    const [interactive, setInteractive] = useState(true);
     // Internal clipboard for copy/paste/duplicate (not the system clipboard).
     const clipboard = useRef(null);
 
@@ -715,8 +857,8 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     const viewportRef = useRef(seed.current.viewport ?? { x: 0, y: 0, zoom: 1 });
     const selectionRef = useRef({ nodes: [], edges: [] });
 
-    const setNodes = (next) => { nodesRef.current = next; setNodesState(next); };
-    const setEdges = (next) => { edgesRef.current = next; setEdgesState(next); };
+    const setNodes = useCallback((next) => { nodesRef.current = next; setNodesState(next); }, []);
+    const setEdges = useCallback((next) => { edgesRef.current = next; setEdgesState(next); }, []);
 
     const dirtyRef = useRef(false);
     const hasInteractedRef = useRef(false);
@@ -835,6 +977,10 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
             // selects its own (atom) node in ProseMirror, where a stray Backspace
             // or keystroke would otherwise delete or replace the whole block.
             if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+                // Esc clears the selection first (swallowing the key in capture so
+                // it can't reach the maximize handler); with nothing selected it
+                // falls through, so a second Esc exits full screen.
+                if (e.key === 'Escape') { if (a.clearSelection()) stop(); return; }
                 if (e.key === 'Delete' || e.key === 'Backspace') { a.deleteSelected(); stop(); return; }
                 const step = e.shiftKey ? 10 : 1;
                 if (e.key === 'ArrowUp')    { if (a.nudge(0, -step)) stop(); return; }
@@ -892,13 +1038,13 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const onNodesChange = (changes) => setNodes(applyNodeChanges(changes, nodesRef.current));
-    const onEdgesChange = (changes) => setEdges(applyEdgeChanges(changes, edgesRef.current));
+    const onNodesChange = useCallback((changes) => setNodes(applyNodeChanges(changes, nodesRef.current)), [setNodes]);
+    const onEdgesChange = useCallback((changes) => setEdges(applyEdgeChanges(changes, edgesRef.current)), [setEdges]);
 
-    const onConnect = (params) => {
+    const onConnect = useCallback((params) => {
         setEdges(addEdge(decorateEdge({ ...params, id: uid(), data: { routing: routingRef.current } }), edgesRef.current));
         commit();
-    };
+    }, [setEdges]);
 
     const onEdgeChange = (id, patch) => {
         setEdges(edgesRef.current.map((e) => (e.id === id ? decorateEdge({ ...e, data: { ...edgeData(e), ...patch } }) : e)));
@@ -950,6 +1096,21 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         commit();
     };
 
+    // Position lock: flip data.locked and mirror it onto React Flow's `draggable`
+    // so the element can't be dragged (nudge + reparent guards read data.locked).
+    const onLockToggle = (id) => {
+        setNodes(nodesRef.current.map((n) => {
+            if (n.id !== id) return n;
+            const locked = !n.data?.locked;
+            // Mirror the load path (line ~739): locked -> draggable:false, unlocked
+            // -> undefined so the node follows the global interactive lock again.
+            // An explicit draggable:true would override the Controls padlock and
+            // keep the node movable under a global freeze.
+            return { ...n, draggable: locked ? false : undefined, data: { ...n.data, locked } };
+        }));
+        commit();
+    };
+
     // Live custom-colour drag: apply immediately but collapse the stream of native
     // picker events into a single undo entry (debounced), like the arrow nudge.
     const colorTimer = useRef(null);
@@ -959,12 +1120,25 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         colorTimer.current = setTimeout(() => { colorTimer.current = null; commit(); }, 400);
     };
 
+    // The canvas's visible centre in flow coords — new nodes/zones drop where the
+    // user is currently looking rather than at a fixed origin that may be panned
+    // off-screen. screenToFlowPosition accounts for the live pan/zoom.
+    const viewportCenter = () => {
+        const rect = wrapperRef.current?.getBoundingClientRect();
+        if (!rect) return { x: 0, y: 0 };
+        return rf.screenToFlowPosition({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+    };
+
     const addNode = () => {
-        const n = nodesRef.current.filter((x) => x.type !== 'group').length;
+        const c = viewportCenter();
+        // Cycle a 2×2 cluster around the centre so repeated clicks stay in view but
+        // don't stack — steps sized to clearly separate the ~90×44 node boxes.
+        const k = nodesRef.current.filter((x) => x.type !== 'group').length % 4;
+        const pos = { x: c.x - 110 + (k % 2) * 140, y: c.y - 42 + Math.floor(k / 2) * 84 };
         const node = {
             id: uid(),
             type: 'labeled',
-            position: { x: 80 + (n % 4) * 150, y: 60 + Math.floor(n / 4) * 90 },
+            position: snapRef.current ? snapToGridPos(pos) : pos,
             data: { label: 'Node' },
         };
         setNodes([...nodesRef.current, node]);
@@ -972,12 +1146,16 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     };
 
     const addZone = () => {
+        const c = viewportCenter();
+        // Same idea as addNode, larger cascade step for the bigger 288×180 box.
+        const step = (nodesRef.current.filter((x) => x.type === 'group').length % 4) * 24;
+        const pos = { x: c.x - 140 + step, y: c.y - 90 + step };
         const zone = {
             id: uid(),
             type: 'group',
-            position: { x: 24, y: 24 },
-            width: 280,
-            height: 180,
+            position: snapRef.current ? snapToGridPos(pos) : pos,
+            width: 288,   // 16 grid steps — a clean multiple of SNAP_GRID
+            height: 180,  // 10 grid steps
             data: { label: 'Zone', color: 'sage' },
         };
         // Groups must precede their children in the array (React Flow requirement).
@@ -985,21 +1163,58 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         commit();
     };
 
-    // Drop a node into a zone (or out of one): re-parent it and convert its
-    // position to be relative to the new parent, so it moves with the zone.
+    // Absolute (world) bounding rect of a node at drag stop.
+    const nodeRect = (id, fallbackPos) => {
+        const internal = rf.getInternalNode(id);
+        const pos = internal?.internals?.positionAbsolute ?? fallbackPos ?? { x: 0, y: 0 };
+        const w = internal?.measured?.width ?? internal?.width ?? 0;
+        const h = internal?.measured?.height ?? internal?.height ?? 0;
+        return { x: pos.x, y: pos.y, w, h };
+    };
+
+    // Innermost of a set of candidate zones = the one with the smallest area (a
+    // nested zone is always smaller than its container), so a drop lands in the
+    // deepest zone under it rather than an outer one.
+    const innermost = (groups) => groups
+        .slice()
+        .sort((a, b) => {
+            const ra = nodeRect(a.id); const rb = nodeRect(b.id);
+            return (ra.w * ra.h) - (rb.w * rb.h);
+        })[0]?.id;
+
+    // Drop a node/zone into a zone (or out of one): re-parent it and convert its
+    // position to be relative to the new parent, so it moves as a unit with the
+    // zone. A device node joins the innermost zone it INTERSECTS (they're small,
+    // so intersection ≈ containment). A dragged ZONE joins the innermost zone
+    // that FULLY contains it — excluding itself and its own descendants, so a
+    // zone can never be dropped into its own child. No matching zone ⇒ root.
     const reparentOnDragStop = (dragged) => {
-        if (dragged.type === 'group') return;
-        const abs = rf.getInternalNode(dragged.id)?.internals?.positionAbsolute ?? dragged.position;
-        const target = rf.getIntersectingNodes(dragged).find((g) => g.type === 'group');
-        const newParent = target ? target.id : undefined;
-        if (newParent === (dragged.parentId ?? undefined)) return;
+        const nodes = nodesRef.current;
+        const rect = nodeRect(dragged.id, dragged.position);
+
+        // A locked zone is frozen: it never accepts a dropped child.
+        const lockedIds = new Set(nodes.filter((n) => n.data?.locked).map((n) => n.id));
+        let newParent;
+        if (dragged.type === 'group') {
+            const excluded = collectDescendants(dragged.id, nodes);
+            excluded.add(dragged.id);
+            const contains = (o) => o.x <= rect.x && o.y <= rect.y
+                && o.x + o.w >= rect.x + rect.w && o.y + o.h >= rect.y + rect.h;
+            newParent = innermost(nodes.filter((n) =>
+                n.type === 'group' && !excluded.has(n.id) && !lockedIds.has(n.id) && contains(nodeRect(n.id))));
+        } else {
+            newParent = innermost(rf.getIntersectingNodes(dragged)
+                .filter((g) => g.type === 'group' && !lockedIds.has(g.id)));
+        }
+
+        if ((newParent ?? undefined) === (dragged.parentId ?? undefined)) return;
 
         const gAbs = newParent
             ? (rf.getInternalNode(newParent)?.internals?.positionAbsolute ?? { x: 0, y: 0 })
             : { x: 0, y: 0 };
-        const position = { x: abs.x - gAbs.x, y: abs.y - gAbs.y };
+        const position = { x: rect.x - gAbs.x, y: rect.y - gAbs.y };
 
-        setNodes(sortGroupsFirst(nodesRef.current.map((n) => {
+        setNodes(sortGroupsFirst(nodes.map((n) => {
             if (n.id !== dragged.id) return n;
             const next = { ...n, position };
             if (newParent) next.parentId = newParent; else delete next.parentId;
@@ -1012,16 +1227,27 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         const delEdgeIds = new Set(selectionRef.current.edges.map((x) => x.id));
         if (!delNodeIds.size && !delEdgeIds.size) return false;
 
+        const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
         const next = nodesRef.current
             .filter((x) => !delNodeIds.has(x.id))
             .map((n) => {
-                // If a node's parent zone is being deleted, keep it where it sits.
-                if (n.parentId && delNodeIds.has(n.parentId)) {
-                    const abs = rf.getInternalNode(n.id)?.internals?.positionAbsolute ?? n.position;
-                    const { parentId, ...rest } = n;
-                    return { ...rest, position: abs };
-                }
-                return n;
+                // If a node's parent zone is being deleted, re-home it to the
+                // nearest surviving ancestor (walking up past any other deleted
+                // zones), or to root if none survives — preserving its absolute
+                // on-screen position either way. This keeps a sub-zone nested
+                // where it visually sits instead of orphaning it to root.
+                if (!n.parentId || !delNodeIds.has(n.parentId)) return n;
+                let ancestor = n.parentId;
+                while (ancestor && delNodeIds.has(ancestor)) ancestor = byId.get(ancestor)?.parentId;
+                const newParent = ancestor && !delNodeIds.has(ancestor) ? ancestor : undefined;
+                const abs = rf.getInternalNode(n.id)?.internals?.positionAbsolute ?? n.position;
+                const gAbs = newParent
+                    ? (rf.getInternalNode(newParent)?.internals?.positionAbsolute ?? { x: 0, y: 0 })
+                    : { x: 0, y: 0 };
+                const { parentId, ...rest } = n;
+                const relocated = { ...rest, position: { x: abs.x - gAbs.x, y: abs.y - gAbs.y } };
+                if (newParent) relocated.parentId = newParent;
+                return relocated;
             });
         setNodes(sortGroupsFirst(next));
         setEdges(edgesRef.current.filter(
@@ -1043,7 +1269,9 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         pushHistory();
     };
     const nudge = (dx, dy) => {
-        const ids = new Set((selectionRef.current.nodes ?? []).map((n) => n.id));
+        // Locked elements don't move — mirror the drag lock for the keyboard.
+        const lockedIds = new Set(nodesRef.current.filter((n) => n.data?.locked).map((n) => n.id));
+        const ids = new Set((selectionRef.current.nodes ?? []).map((n) => n.id).filter((id) => !lockedIds.has(id)));
         if (!ids.size) return false;
         setNodes(nodesRef.current.map((n) =>
             ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n));
@@ -1184,7 +1412,19 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         return true;
     };
 
-    keyActions.current = { undo, redo, copySelection, paste, duplicate, deleteSelected, nudge };
+    // Deselect everything. Returns whether anything was actually selected so the
+    // caller (Esc) can decide to swallow the key or let it fall through.
+    const clearSelection = () => {
+        const had = (selectionRef.current.nodes?.length ?? 0) + (selectionRef.current.edges?.length ?? 0) > 0;
+        if (!had) return false;
+        setNodes(nodesRef.current.map((n) => (n.selected ? { ...n, selected: false } : n)));
+        setEdges(edgesRef.current.map((e) => (e.selected ? { ...e, selected: false } : e)));
+        selectionRef.current = { nodes: [], edges: [] };
+        setSelCount(0);
+        return true;
+    };
+
+    keyActions.current = { undo, redo, copySelection, paste, duplicate, deleteSelected, nudge, clearSelection };
 
     // Stable context value for the node/edge components. The handlers above are
     // recreated every render but only ever touch refs, so we route them through a
@@ -1193,7 +1433,7 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
     // node and edge (all context consumers) re-renders on every drag frame — which
     // is what made dragging feel laggy. Now only the dragged node re-renders.
     const behaviorRef = useRef(null);
-    behaviorRef.current = { onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onEdgeChange, onEdgeDelete, onPersist: commit };
+    behaviorRef.current = { onLabelChange, onLabelLive, onKindChange, onPropsChange, onPropsLive, onNodeColorChange, onNodeColorLive, onLockToggle, onEdgeChange, onEdgeDelete, onPersist: commit };
     const behavior = useMemo(() => ({
         editable,
         onLabelChange: (...a) => behaviorRef.current.onLabelChange(...a),
@@ -1203,17 +1443,71 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         onPropsLive: (...a) => behaviorRef.current.onPropsLive(...a),
         onNodeColorChange: (...a) => behaviorRef.current.onNodeColorChange(...a),
         onNodeColorLive: (...a) => behaviorRef.current.onNodeColorLive(...a),
+        onLockToggle: (...a) => behaviorRef.current.onLockToggle(...a),
         onEdgeChange: (...a) => behaviorRef.current.onEdgeChange(...a),
         onEdgeDelete: (...a) => behaviorRef.current.onEdgeDelete(...a),
         onPersist: (...a) => behaviorRef.current.onPersist(...a),
         snapToGrid: snap,
-    }), [editable, snap]);
+        // Gates content editing (e.g. zone-label double-click) so the global lock
+        // freezes editing too, not just drag/select. Changes only on padlock toggle,
+        // so it doesn't churn the memo during drags.
+        interactive,
+        // Gates the per-item options popovers. Churns the memo on every selection
+        // change, but only across the true/false boundary — and the nodes have to
+        // re-render on that transition anyway.
+        soloSelection,
+    }), [editable, snap, interactive, soloSelection]);
 
     // In the editor, leave node interactivity to React Flow's defaults (all on) so
     // the Controls lock button can toggle it; the read-only mount pins it all off.
-    const interactionProps = editable
-        ? {}
-        : { nodesDraggable: false, nodesConnectable: false, elementsSelectable: false };
+    //
+    // Editor selection model: a plain left-drag on empty canvas draws a marquee
+    // (partial-intersection, Figma-style) instead of panning — panning moves to the
+    // middle/right mouse button, or holding Space while dragging. The read view has
+    // no selection, so there a left-drag still pans (the natural way to look around).
+    const interactionProps = useMemo(() => editable
+        ? {
+            selectionOnDrag: true,
+            selectionMode: SelectionMode.Partial,
+            panOnDrag: PAN_ON_DRAG,           // middle / right button pan
+            panActivationKeyCode: 'Space',
+        }
+        : {
+            nodesDraggable: false, nodesConnectable: false, elementsSelectable: false,
+            panOnDrag: true,
+        }, [editable]);
+
+    const handleNodeDragStop = useCallback((_, node) => {
+        reparentOnDragStop(node);
+        commit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleMoveEnd = useCallback((_, vp) => {
+        viewportRef.current = vp;
+    }, []);
+
+    const handleSelectionChange = useCallback((sel) => {
+        selectionRef.current = sel;
+        setSelCount(sel.nodes?.length ?? 0);
+        setSelEdgeCount(sel.edges?.length ?? 0);
+    }, []);
+
+    // A plain click on a node that is part of a multi-selection narrows the
+    // selection to just that node, so its per-item options panel opens (React
+    // Flow's default keeps the whole marquee selection so the group can be
+    // dragged as one). A DRAG still moves the group — that fires drag events, not
+    // a click — so group-move is unaffected. Runs only in the editor.
+    const handleNodeClick = useCallback((_, node) => {
+        const sel = selectionRef.current;
+        if ((sel.nodes?.length ?? 0) + (sel.edges?.length ?? 0) <= 1) {
+            return;
+        }
+        setNodes(nodesRef.current.map((n) => (
+            n.selected === (n.id === node.id) ? n : { ...n, selected: n.id === node.id }
+        )));
+        setEdges(edgesRef.current.map((e) => (e.selected ? { ...e, selected: false } : e)));
+    }, [setNodes, setEdges]);
 
     const [downloading, setDownloading] = useState(false);
 
@@ -1275,19 +1569,19 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                     onNodesChange={editable ? onNodesChange : undefined}
                     onEdgesChange={editable ? onEdgesChange : undefined}
                     onConnect={editable ? onConnect : undefined}
-                    onNodeDragStop={editable ? ((_, node) => { reparentOnDragStop(node); commit(); }) : undefined}
-                    onMoveEnd={editable ? ((_, vp) => {
-                        viewportRef.current = vp;
-                    }) : undefined}
-                    onSelectionChange={(sel) => { selectionRef.current = sel; setSelCount(sel.nodes?.length ?? 0); }}
-                    defaultViewport={seed.current.viewport ?? { x: 0, y: 0, zoom: 1 }}
+                    onNodeDragStop={editable ? handleNodeDragStop : undefined}
+                    onMoveEnd={editable ? handleMoveEnd : undefined}
+                    onSelectionChange={handleSelectionChange}
+                    onNodeClick={editable ? handleNodeClick : undefined}
+                    defaultViewport={seed.current.viewport ?? DEFAULT_VIEWPORT}
                     {...interactionProps}
-                    // Read view stays non-editing but is still navigable: drag to pan,
-                    // pinch / double-click / the Controls buttons to zoom, all clamped
-                    // to translateExtent (graph bounds + margin) so it can't be lost.
-                    // Scroll-to-zoom stays editor-only so reading the page over an
-                    // embedded diagram scrolls the article instead of hijacking the wheel.
-                    panOnDrag
+                    // Navigation (both views): pinch / double-click / the Controls
+                    // buttons to zoom, all clamped to translateExtent (graph bounds +
+                    // margin) so it can't be lost. Pan-on-drag is set per-mode in
+                    // interactionProps (left-drag in read view; middle/right/Space in
+                    // the editor, where left-drag marquee-selects instead). Scroll-to-
+                    // zoom stays editor-only so reading the page over an embedded
+                    // diagram scrolls the article instead of hijacking the wheel.
                     zoomOnScroll={editable}
                     zoomOnPinch
                     zoomOnDoubleClick
@@ -1299,8 +1593,17 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
                     fitView={(seed.current.nodes ?? []).length > 0}
                 >
                     <Background color="#BFD2B5" gap={18} size={1.6} />
-                    {/* Zoom / fit / lock — the lock toggles node interactivity. */}
-                    {editable && <Controls showInteractive />}
+                    {/* Zoom / fit / lock — the lock toggles node interactivity.
+                        Freezing also clears the selection so a still-selected node's
+                        toolbar can't keep editing it; `controls-locked` styles the
+                        padlock as active (see app.css). */}
+                    {editable && (
+                        <Controls
+                            showInteractive
+                            className={interactive ? undefined : 'controls-locked'}
+                            onInteractiveChange={(next) => { setInteractive(next); if (!next) clearSelection(); }}
+                        />
+                    )}
                     {/* Read view: zoom in/out + fit-to-recenter (no interactivity lock). */}
                     {!editable && nodes.length > 0 && <Controls showInteractive={false} />}
                     {editable && showMap && (

@@ -5,9 +5,12 @@ namespace Database\Seeders;
 use App\Models\Attachment;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use App\Models\Document;
 use App\Models\Tag;
+use App\Support\Audit;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -1351,18 +1354,88 @@ class WorkspaceSeeder extends Seeder
             ],
         ];
 
+        // ── Workspace groups ──────────────────────────────────────────────────
+        // Sidebar shelves that file workspaces under a heading. Each entry maps a
+        // group name to the workspaces (by name) that live under it, in order.
+        // Any workspace not listed here stays ungrouped (top level) — Sandbox and
+        // Feature Demo & Testing are deliberately left ungrouped so both the
+        // grouped and ungrouped sidebar states are represented.
+        $groupLayout = [
+            'Engineering' => ['Engineering Hub', 'Product & Design', 'Network & Infrastructure'],
+            'Operations'  => ['Operations & HR', 'Security & Compliance', 'Finance & Legal'],
+            'Go-to-Market' => ['Customer Support', 'Sales & Marketing'],
+        ];
+
+        $groupOf = [];   // workspace name => WorkspaceGroup
+        $groupPos = 1;
+        foreach ($groupLayout as $groupName => $members) {
+            $group = WorkspaceGroup::create([
+                'name'     => $groupName,
+                'position' => $groupPos++,
+            ]);
+            foreach ($members as $wsName) {
+                $groupOf[$wsName] = $group;
+            }
+        }
+
         // ── Seeding logic ─────────────────────────────────────────────────────
         foreach ($workspacesData as $wData) {
             $workspace = Workspace::create([
                 'name'        => $wData['name'],
                 'description' => $wData['description'],
                 'position'    => $wData['position'],
+                'group_id'    => $groupOf[$wData['name']]->id ?? null,
             ]);
 
             foreach ($wData['pages'] as $pageData) {
                 $this->createPage($workspace->id, $pageData, null, $authorIds, $tags);
             }
         }
+
+        // ── Shared top-level order ─────────────────────────────────────────────
+        // Groups and ungrouped workspaces share ONE position sequence (exactly as
+        // the reorder UI persists it), so a loose workspace can sit *between* two
+        // groups. Here Sandbox lands between Engineering and Operations, and
+        // Feature Demo & Testing trails the last group — a live demo of interleaving
+        // straight out of the seeder. DB writes so un-filed positions don't bump
+        // updated_at (structural, not an edit).
+        $topLevel = [
+            ['group', 'Engineering'],
+            ['workspace', 'Sandbox'],
+            ['group', 'Operations'],
+            ['group', 'Go-to-Market'],
+            ['workspace', 'Feature Demo & Testing'],
+        ];
+        foreach ($topLevel as $position => [$type, $name]) {
+            $table = $type === 'group' ? 'workspace_groups' : 'workspaces';
+            \Illuminate\Support\Facades\DB::table($table)
+                ->where('name', $name)
+                ->when($type === 'workspace', fn ($q) => $q->whereNull('group_id'))
+                ->update(['position' => $position]);
+        }
+
+        // ── Page folders ───────────────────────────────────────────────────────
+        // File some workspaces' root pages into folders. Most workspaces stay flat
+        // and one folder is left empty on purpose, so the sidebar shows every
+        // state: foldered pages, loose pages beside folders, and an empty folder.
+        $folderLayout = [
+            'Engineering Hub' => [
+                ['name' => 'Guides', 'pages' => ['Getting Started']],
+                ['name' => 'Architecture & Standards', 'pages' => ['Architecture Overview', 'Code Style Guidelines']],
+                // Deployment Guide stays loose alongside the folders.
+            ],
+            'Operations & HR' => [
+                ['name' => 'People Ops', 'pages' => ['Onboarding', 'Company Benefits']],
+                // Office Operations stays loose.
+            ],
+            'Security & Compliance' => [
+                ['name' => 'Policies', 'pages' => ['Security Policy Overview', 'Data Protection & GDPR']],
+                ['name' => 'Runbooks', 'pages' => ['Incident Response']],
+                ['name' => 'Audit Evidence', 'pages' => []],   // empty folder, on purpose
+                // Backup & Disaster Recovery stays loose.
+            ],
+        ];
+        $this->seedFolders($folderLayout, $authorIds);
 
         // Re-resolve wiki-links created before their target document existed
         $this->command->info('Syncing wiki-links across seeded pages...');
@@ -1438,6 +1511,86 @@ class WorkspaceSeeder extends Seeder
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Create page folders and file the named ROOT pages into them. Folders and
+     * loose root pages share ONE top-level position space (a folder can sit above
+     * or between loose pages), so folders take the first slots and the remaining
+     * loose pages are renumbered after them.
+     *
+     * Filing a page is STRUCTURAL — folder_id only, never content/title — so it
+     * must not bump updated_at or the version counter. We save inside
+     * withoutTimestamps() exactly like DocumentController::refile, and record the
+     * same audit events (folder.created + document.moved) so the trail matches the
+     * app's own write path.
+     *
+     * @param  array<string, array<int, array{name: string, pages?: array<int, string>}>>  $folderLayout
+     * @param  array<int, int>  $authorIds
+     */
+    protected function seedFolders(array $folderLayout, array $authorIds): void
+    {
+        $this->command->info('Filing pages into page folders...');
+
+        foreach ($folderLayout as $workspaceName => $folders) {
+            $workspace = Workspace::where('name', $workspaceName)->first();
+            if (! $workspace) {
+                continue;
+            }
+
+            // Attribute the folder creation and refiles to a real content author.
+            $actorId = $authorIds[array_rand($authorIds)];
+            auth()->loginUsingId($actorId);
+
+            $topPos = 0;   // shared top-level order: folders first, loose pages after
+
+            foreach ($folders as $spec) {
+                $folder = $workspace->folders()->create([
+                    'name'     => $spec['name'],
+                    'position' => $topPos++,
+                ]);
+
+                Audit::record('folder.created', $folder, [
+                    'name'      => $folder->name,
+                    'workspace' => $workspace->name,
+                ], $actorId);
+
+                $memberPos = 0;
+                foreach ($spec['pages'] ?? [] as $title) {
+                    $page = $workspace->documents()
+                        ->whereNull('parent_id')
+                        ->where('title', $title)
+                        ->first();
+                    if (! $page) {
+                        continue;
+                    }
+
+                    $page->folder_id = $folder->id;
+                    $page->position  = $memberPos++;
+                    Document::withoutTimestamps(fn () => $page->save());
+
+                    Audit::record('document.moved', $page, [
+                        'title'       => $page->title,
+                        'from_folder' => null,
+                        'to_folder'   => $folder->name,
+                    ], $actorId);
+                }
+            }
+
+            // Renumber the loose root pages that stayed behind so they trail the
+            // folders. Structural — write the column directly, leaving updated_at
+            // and the observer untouched.
+            $loose = $workspace->documents()
+                ->whereNull('parent_id')
+                ->whereNull('folder_id')
+                ->orderBy('position')
+                ->pluck('id');
+            foreach ($loose as $id) {
+                DB::table('documents')->where('id', $id)->update(['position' => $topPos++]);
+            }
+        }
+
+        auth()->logout();
+    }
 
     protected function createPage(int $workspaceId, array $pageData, ?int $parentId, array $authorIds, array $tags): void
     {

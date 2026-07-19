@@ -14,6 +14,7 @@ use App\Support\Audit;
 use App\Support\BackupSettings;
 use App\Support\Smtp\TestRun;
 use App\Support\MailSettings;
+use App\Support\TestStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,8 @@ class BackupController extends Controller
             'settings'  => BackupSettings::forDisplay(),
             'intervals' => array_keys(config('backup.intervals')),
             'drivers'   => config('backup.drivers'),
+            'destinationTest' => TestStatus::get('backup_destination'),
+            'emailTest'       => TestStatus::get('backup_email'),
         ]);
     }
 
@@ -123,6 +126,11 @@ class BackupController extends Controller
         $this->assertMailAuthPaired($request);
 
         Setting::put('backup', $this->mergeSettings($validated));
+
+        // A destination/mail change makes the last connection test stale — clear
+        // both so the passive badges read "not tested yet" until re-checked.
+        TestStatus::clear('backup_destination');
+        TestStatus::clear('backup_email');
 
         // Operational knobs only — SMB/SMTP credentials never enter the trail.
         Audit::record('settings.backup_updated', null, [
@@ -307,8 +315,12 @@ class BackupController extends Controller
                 DestinationFactory::make('local')->test();
             }
         } catch (\Throwable $e) {
+            TestStatus::record('backup_destination', false, $e->getMessage());
+
             return back()->with('error', $e->getMessage());
         }
+
+        TestStatus::record('backup_destination', true);
 
         return back()->with('success', 'Destination is reachable and writable.');
     }
@@ -341,6 +353,7 @@ class BackupController extends Controller
             fn () => $notifier->sendTest($mail),
             'Test email sent to ' . $request->input('mail.to') . '.',
             ['transport' => trim((string) $request->input('mail.host', '')) === '' ? 'global' : 'own'],
+            fn (bool $ok) => TestStatus::record('backup_email', $ok),
         );
     }
 

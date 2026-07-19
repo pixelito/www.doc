@@ -27,8 +27,11 @@
 - **Import & export** — DOCX/PDF in both directions as background jobs; drop
   files anywhere in the app to batch-import them.
 - **Attachments** — arbitrary files per page, included in backups.
-- **Organization** — fixed top-level workspaces, shallow page nesting,
-  cross-workspace tags, page templates, starred and recently viewed pages.
+- **Organization** — top-level workspaces, optionally filed into collapsible
+  sidebar groups; pages shallow-nested or filed into folders; cross-workspace
+  tags, page templates, starred and recently viewed pages. Each workspace list
+  and page tree has an Edit mode for drag-reordering and moving items between
+  groups or folders.
 - **Appearance** — light/dark/system mode and five accent themes, per user.
 - **Roles & admin** — admin / editor / viewer roles, user management, Trash
   with restore/purge.
@@ -66,10 +69,11 @@ docker compose exec app php artisan migrate --seed   # schema + demo data
 ```
 
 The app is at **http://localhost:8000** (Vite HMR on `5173`). The seeder
-creates one demo user per role, password `password`; `admin@example.com` has
-full access. The dev stack includes **Mailpit** (outbound email viewer at
-**http://localhost:8025**) and a dummy **Samba** server for SMB backups
-(host `samba`, share `backups`, user `smbuser`, password `smbpassword`).
+creates demo users across all three roles (password `password`);
+`admin@example.com` has full access. The dev stack includes **Mailpit**
+(outbound email viewer at **http://localhost:8025**) and a dummy **Samba**
+server for SMB backups (host `samba`, share `backups`, user `smbuser`,
+password `smbpassword`).
 
 ### Common commands & tests
 

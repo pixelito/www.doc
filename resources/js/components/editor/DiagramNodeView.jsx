@@ -1,6 +1,6 @@
-import { Suspense, lazy, useCallback, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState, useRef } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
-import { IconTopologyStar3, IconTrash } from '@tabler/icons-react';
+import { IconTopologyStar3, IconTrash, IconArrowsMaximize, IconArrowsMinimize } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // React Flow is heavy, so the editable canvas is split out and only fetched
@@ -54,6 +54,54 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
     // Confirm before removing the whole diagram — its layout would be lost.
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    // Maximize the editing surface to a full-viewport overlay. The same React
+    // Flow instance is just re-hosted via a class toggle (no remount, so the
+    // viewport/zoom is preserved); no page ancestor is transformed, so
+    // position:fixed anchors to the viewport without a portal.
+    const [maximized, setMaximized] = useState(false);
+    // Where the page was scrolled when we went full screen. Going full screen
+    // takes the block out of the flow, so the article loses its height: a diagram
+    // near the end of the page puts the reader past the shortened document's
+    // maximum and the browser clamps the scroll upwards. Exiting restores the
+    // height but not the offset, landing the reader above the diagram they were
+    // just editing — so remember it here and put it back on the way out.
+    //
+    // Capture on the way IN, from the toggle handler: by the time an effect runs
+    // the overlay class is already committed and the browser has clamped the
+    // offset, so reading it there would just save the damage.
+    const scrollYRef = useRef(null);
+    const toggleMaximized = useCallback(() => {
+        if (!maximized) scrollYRef.current = window.scrollY;
+        setMaximized(!maximized);
+    }, [maximized]);
+    useEffect(() => {
+        if (!maximized) {
+            // Restore on exit only, not on unmount (this branch never runs for an
+            // unmounting component) — scrolling a page we've navigated away from
+            // would fight Inertia's own scroll handling.
+            if (scrollYRef.current !== null) {
+                window.scrollTo(0, scrollYRef.current);
+                scrollYRef.current = null;
+            }
+            return undefined;
+        }
+        // Lock body scroll and exit on Esc (but not while a label input is
+        // focused — there Esc cancels the edit).
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            const t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+            setMaximized(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [maximized]);
+
     if (!editable) {
         const hasNodes = (graph.nodes ?? []).length > 0;
         return (
@@ -82,7 +130,11 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
 
     return (
         <NodeViewWrapper className="network-diagram-block my-4" contentEditable={false} data-network-diagram="true">
-            <div className="diagram-artifact overflow-hidden rounded-md border border-border bg-canvas">
+            <div className={`diagram-artifact bg-canvas ${
+                maximized
+                    ? 'fixed inset-0 z-50 flex flex-col rounded-none border-0'
+                    : 'overflow-hidden rounded-md border border-border'
+            }`}>
                 <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
                     <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-text-secondary">
                         <IconTopologyStar3 className="h-3.5 w-3.5 shrink-0" stroke={1.5} />
@@ -97,6 +149,17 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
                     </span>
                     <button
                         type="button"
+                        onClick={toggleMaximized}
+                        title={maximized ? 'Exit full screen (Esc)' : 'Enter full screen'}
+                        aria-label={maximized ? 'Exit full screen' : 'Enter full screen'}
+                        className="flex h-6 w-6 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-foreground"
+                    >
+                        {maximized
+                            ? <IconArrowsMinimize className="h-3.5 w-3.5" stroke={1.5} />
+                            : <IconArrowsMaximize className="h-3.5 w-3.5" stroke={1.5} />}
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setConfirmOpen(true)}
                         title="Remove this diagram"
                         className="flex h-6 w-6 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-danger hover:text-text-inverse"
@@ -104,7 +167,7 @@ export default function DiagramNodeView({ node, updateAttributes, editor, delete
                         <IconTrash className="h-3.5 w-3.5" stroke={1.5} />
                     </button>
                 </div>
-                <div style={{ height: 440 }}>
+                <div className={maximized ? 'min-h-0 flex-1' : ''} style={maximized ? undefined : { height: 440 }}>
                     <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-text-tertiary">Loading diagram…</div>}>
                         <Canvas graph={graph} editable={editable} name={node.attrs.name ?? ''} onChange={onChange} onActivate={onActivate} />
                     </Suspense>

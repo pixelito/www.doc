@@ -26,8 +26,10 @@ class TestRun
      * @param  string  $successMessage  toast for the all-green case
      * @param  array  $extra  additional report fields (e.g. the backups
      *         endpoint's `transport` label)
+     * @param  callable|null  $onResult  invoked with the boolean pass/fail before
+     *         redirecting, so callers can persist the outcome (see TestStatus)
      */
-    public function flash(array $mail, callable $send, string $successMessage, array $extra = []): RedirectResponse
+    public function flash(array $mail, callable $send, string $successMessage, array $extra = [], ?callable $onResult = null): RedirectResponse
     {
         $stages = $this->probe->run(
             (string) ($mail['host'] ?? ''),
@@ -43,7 +45,12 @@ class TestRun
             ...$extra,
         ];
 
-        if (SmtpProbe::failed($stages)) {
+        $ok = ! SmtpProbe::failed($stages);
+        if ($onResult) {
+            $onResult($ok);
+        }
+
+        if (! $ok) {
             return back()
                 ->with('error', 'The test email could not be sent — see the connection check for the failing step.')
                 ->with('smtpTest', $report);

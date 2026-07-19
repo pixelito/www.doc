@@ -3,11 +3,13 @@
 use App\Models\Attachment;
 use App\Models\Backup;
 use App\Models\Document;
+use App\Models\DocumentFolder;
 use App\Models\DocumentVersion;
 use App\Models\Setting;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceGroup;
 use App\Services\Backup\BackupService;
 use App\Services\Backup\RestoreService;
 use Database\Factories\DocumentFactory;
@@ -451,6 +453,55 @@ test('a backup restores losslessly, reverting later edits', function () {
 
     expect(Workspace::find($ws->id)->name)->toBe('Original Name');
     expect(Document::find($doc->id)->title)->toBe('Original Title');
+});
+
+test('restore round-trips workspace groups and each workspace group_id', function () {
+    Storage::fake('local');
+    login();
+
+    $group     = WorkspaceGroup::factory()->create(['name' => 'Security']);
+    $grouped   = Workspace::factory()->create(['name' => 'BitLocker', 'group_id' => $group->id]);
+    $ungrouped = Workspace::factory()->create(['name' => 'Scratch', 'group_id' => null]);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift after the backup: delete the group (members revert to ungrouped).
+    $group->workspaces()->update(['group_id' => null]);
+    $group->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    // Group table + each workspace's group_id come back (proves the group is
+    // inserted before workspaces, so the group_id FK resolves).
+    expect(WorkspaceGroup::find($group->id)?->name)->toBe('Security');
+    expect(Workspace::find($grouped->id)->group_id)->toBe($group->id);
+    expect(Workspace::find($ungrouped->id)->group_id)->toBeNull();
+});
+
+test('restore round-trips page folders and each page\'s folder_id', function () {
+    Storage::fake('local');
+    login();
+
+    $ws     = Workspace::factory()->create(['name' => 'Engineering']);
+    $folder = DocumentFolder::factory()->create(['workspace_id' => $ws->id, 'name' => 'Runbooks']);
+    $filed  = Document::factory()->for($ws)->create(['title' => 'Restore procedure', 'folder_id' => $folder->id]);
+    $loose  = Document::factory()->for($ws)->create(['title' => 'Scratch']);
+
+    $backup = Backup::create(['trigger' => 'manual', 'disk' => 'local', 'status' => 'pending']);
+    app(BackupService::class)->run($backup->fresh());
+
+    // Drift after the backup: delete the folder (its page reverts to loose).
+    $folder->documents()->update(['folder_id' => null]);
+    $folder->delete();
+
+    app(RestoreService::class)->restore($backup->fresh());
+
+    // Folder table + each page's folder_id come back — proves document_folders is
+    // inserted after workspaces (its FK) and before documents (their folder_id FK).
+    expect(DocumentFolder::find($folder->id)?->name)->toBe('Runbooks');
+    expect(Document::find($filed->id)->folder_id)->toBe($folder->id);
+    expect(Document::find($loose->id)->folder_id)->toBeNull();
 });
 
 test('restore round-trips the page tree, tags, versions and verbatim content', function () {
@@ -1056,4 +1107,30 @@ test('a backup with a changed encryption key cannot be restored via the UI', fun
     // 4. Attempting to restore it via the controller should fail with a redirect error
     $this->post("/admin/backups/{$backup->id}/restore")
         ->assertSessionHas('error', 'The BACKUP_ENCRYPTION_KEY currently configured does not match the key used to encrypt this archive. You cannot restore it.');
+});
+
+test('testing the destination records a passing status the page exposes', function () {
+    login();
+
+    $this->post('/admin/backups/test-destination', ['driver' => 'local'])
+        ->assertRedirect()->assertSessionHas('success');
+
+    expect(\App\Support\TestStatus::get('backup_destination')['ok'])->toBeTrue();
+
+    // The Backups page surfaces it for the passive status badge.
+    $this->get('/admin/backups')->assertInertia(
+        fn (Assert $page) => $page->where('destinationTest.ok', true),
+    );
+});
+
+test('saving backup settings clears prior connection test statuses', function () {
+    login();
+    \App\Support\TestStatus::record('backup_destination', true);
+    \App\Support\TestStatus::record('backup_email', true);
+
+    $this->patch('/admin/backups/settings', settingsPayload())
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(\App\Support\TestStatus::get('backup_destination'))->toBeNull()
+        ->and(\App\Support\TestStatus::get('backup_email'))->toBeNull();
 });

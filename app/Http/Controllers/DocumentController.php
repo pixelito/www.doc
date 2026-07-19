@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDocumentRequest;
 use App\Http\Requests\UpdateDocumentRequest;
 use App\Models\Document;
+use App\Models\DocumentFolder;
 use App\Models\Tag;
 use App\Models\Workspace;
 use App\Support\BulkReorder;
@@ -82,6 +83,11 @@ class DocumentController extends Controller
                 ->whereNotNull('starred_at')
                 ->exists(),
             'versionsCount' => $document->versions()->count(),
+            // Direct children for the "Contents" folder view. children_count lets
+            // the list mark a child that is itself a folder. Ordered by position.
+            'children'     => $document->children()
+                ->withCount('children')
+                ->get(['id', 'title', 'slug', 'parent_id', 'position', 'updated_at']),
             'breadcrumbs'  => $document->ancestors(),
             'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),
@@ -177,6 +183,30 @@ class DocumentController extends Controller
         // tags, THEN write content — so the first version's snapshot captures the
         // tags too. The version observer reads tags off the page at save time.
         $document = new Document(array_diff_key($validated, ['tags' => '', 'content' => '', 'template_id' => '']));
+
+        // A new page lands at the TOP of its scope (same workspace + parent + folder)
+        // so it's visible without scrolling — matching new workspaces/folders/groups.
+        // Positions are only sort keys (a later reorder renumbers), so one below the
+        // current minimum is enough; no need to shift existing siblings down.
+        if (! isset($validated['position'])) {
+            $mins = [
+                Document::where('workspace_id', $document->workspace_id)
+                    ->where('parent_id', $document->parent_id)
+                    ->where('folder_id', $document->folder_id)
+                    ->min('position'),
+            ];
+
+            // A loose top-level page shares ONE ordering space with the workspace's
+            // folders (WorkspaceController@show + Show.jsx buildTopLevel), so "top"
+            // has to clear the folders too — otherwise the page lands below them.
+            if ($document->parent_id === null && $document->folder_id === null) {
+                $mins[] = DocumentFolder::where('workspace_id', $document->workspace_id)->min('position');
+            }
+
+            $mins = array_filter($mins, fn ($p) => $p !== null);
+            $document->position = ($mins ? min($mins) : 0) - 1;
+        }
+
         $document->sourceTemplateName = $template?->name; // surfaces in the document.created audit context
         $document->save();
 
@@ -266,6 +296,26 @@ class DocumentController extends Controller
             ->with('success', "Moved \"{$document->title}\" to trash.");
     }
 
+    /**
+     * Rename a page in place (title only), staying on the current page — the
+     * inline-title edit from the workspace tree's Edit mode. Unlike update(), which
+     * redirects to the document editor, this returns back() so the tree stays put.
+     * A title change IS a content edit: the observer bumps version, snapshots, and
+     * records document.updated, exactly as an editor save would.
+     */
+    public function rename(Request $request, Document $document): RedirectResponse
+    {
+        $this->authorize('update', $document);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+        ]);
+
+        $document->update(['title' => $data['title']]);
+
+        return back();
+    }
+
     /** Immediate children of a document, in display order. */
     public function children(Document $document): JsonResponse
     {
@@ -274,6 +324,70 @@ class DocumentController extends Controller
         return response()->json(
             $document->children()->get(['id', 'title', 'slug', 'parent_id', 'position'])
         );
+    }
+
+    /**
+     * File a root page into a folder, or back out to loose (folder_id = null).
+     *
+     * Deliberately separate from move(): this never touches parent_id, and it is
+     * the ONLY way to change folder membership — refiling is a menu action, not a
+     * drag (mirroring "Move to group"). Structural, so no updated_at/version bump.
+     */
+    public function refile(Request $request, Document $document): RedirectResponse
+    {
+        $this->authorize('update', $document);
+
+        $data = $request->validate([
+            'folder_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('document_folders', 'id'),
+            ],
+            'position' => ['nullable', 'integer'],
+        ]);
+
+        $folderId = $data['folder_id'] ?? null;
+
+        // Both invariants are DB-enforced, so violating them would raise a
+        // QueryException (a 500). Check here so a bad request is a 422 the client
+        // can render instead.
+        if ($folderId !== null) {
+            if ($document->parent_id !== null) {
+                throw ValidationException::withMessages([
+                    'folder_id' => 'Only a top-level page can be filed in a folder.',
+                ]);
+            }
+
+            $folder = DocumentFolder::find($folderId);
+            if (! $folder || $folder->workspace_id !== $document->workspace_id) {
+                throw ValidationException::withMessages([
+                    'folder_id' => 'The folder must belong to this page\'s workspace.',
+                ]);
+            }
+        }
+
+        $folderChanged = $folderId !== $document->folder_id;
+        $fromFolder = $document->folder?->name;
+
+        $document->folder_id = $folderId;
+        $document->position = $data['position'] ?? $document->position;
+
+        // Structural move must not shift updated_at — nor `version`, which is the
+        // editor's optimistic lock: bumping it would fake an edit conflict for
+        // anyone with the page open. DocumentObserver only bumps version on
+        // content/title changes, so this save leaves it alone.
+        Document::withoutTimestamps(fn () => $document->save());
+
+        // Refiling is audited (parity with workspace.moved); a position-only
+        // change within the same folder is layout noise and is not.
+        if ($folderChanged) {
+            \App\Support\Audit::record('document.moved', $document, [
+                'title'       => $document->title,
+                'from_folder' => $fromFolder,
+                'to_folder'   => $folderId ? DocumentFolder::find($folderId)?->name : null,
+            ]);
+        }
+
+        return back();
     }
 
     /** Move a node to a new parent (and optionally a new workspace). */
@@ -335,6 +449,16 @@ class DocumentController extends Controller
         $document->parent_id = $parentId;
         $document->workspace_id = $newWorkspaceId;
         $document->position = $data['position'] ?? $document->position;
+
+        // A page that stops being top-level, or leaves the workspace its folder
+        // lives in, cannot keep that folder: folder_id is root-only and
+        // same-workspace, both enforced in the schema. Clear it rather than let
+        // the write blow up. The folder membership is a casualty of the move the
+        // user asked for, so it rides that document.moved event rather than
+        // emitting a second one.
+        if ($parentId !== null || $workspaceChanged) {
+            $document->folder_id = null;
+        }
 
         // A move carries the slug over unchanged; re-slug if it now collides with
         // a page already in the destination workspace (slugs are unique per ws).
@@ -435,6 +559,307 @@ class DocumentController extends Controller
         ]);
 
         return back();
+    }
+
+    /**
+     * Reorder the interleaved top level of a workspace AND refile pages between
+     * folders, in one atomic structural save. Folders and loose root pages share
+     * ONE position sequence (`items`, so a loose page can sit between two folders);
+     * each folder's members ride the `folders` companion axis, tagged with the
+     * folder they now belong to — so a drag that carries a page from one folder
+     * into another (or out to loose) lands its new `folder_id` in the same "Done".
+     * The exact mirror of WorkspaceController@reorderTopLevel (folders play the
+     * part of groups, loose pages the part of ungrouped workspaces).
+     *
+     * A page's target is derived from WHERE it appears: a `items` page becomes a
+     * loose root page (folder_id = null); a `folders[].members` page joins that
+     * folder as a root page; a `subtrees` page is nested under another page. Both
+     * sides are made consistent in the write — a top-level page has its parent_id
+     * cleared (un-nested), a subtree page has its folder_id cleared — so root-only
+     * (folder_id IS NULL OR parent_id IS NULL) always holds. Positions are
+     * structural sort keys; the raw writes never touch updated_at or the
+     * optimistic-lock `version`.
+     *
+     * Reordering is layout noise and stays unaudited. A page whose folder_id
+     * actually changes records ONE `document.moved` (parity with the standalone
+     * refile); re-nesting OR un-nesting a page to the top level records
+     * `workspace.restructured`, like the dedicated restructure path.
+     */
+    public function reorderTopLevel(Request $request, Workspace $workspace): RedirectResponse
+    {
+        $this->authorize('update', $workspace);
+
+        $data = $request->validate([
+            // `present`, not `required`: a save that only re-nests pages carries an
+            // empty top level, which `required` would reject as missing.
+            'items'        => ['present', 'array'],
+            'items.*.type' => ['required', 'string', 'in:folder,page'],
+            'items.*.id'   => ['required', 'integer'],
+            // Each folder with its ordered members. Replaces the old flat `members`
+            // list: the folder id is what lets a member be REFILED here, not just
+            // reordered.
+            'folders'             => ['array'],
+            'folders.*.id'        => ['required', 'integer'],
+            'folders.*.members'   => ['present', 'array'],
+            'folders.*.members.*' => ['integer'],
+            // Optional page nesting (subpages, parent_id != null). A unified drag
+            // can re-nest pages in the same gesture as a top-level reorder, so it
+            // rides the same atomic save.
+            'subtrees'             => ['array'],
+            'subtrees.*.id'        => ['required', 'integer', 'distinct'],
+            'subtrees.*.parent_id' => ['required', 'integer'],
+            'subtrees.*.position'  => ['required', 'integer'],
+            // Folders CREATED in the Edit session — deferred here so Cancel can
+            // discard them (nothing hit the server) and Done persists them in the
+            // same atomic save. Each carries a client temp id (negative, so it can
+            // never collide with a real folder id) that `items`/`folders` reference;
+            // the write maps it to the real id.
+            'newFolders'        => ['array'],
+            'newFolders.*.id'   => ['required', 'integer', 'lt:0', 'distinct'],
+            'newFolders.*.name' => ['required', 'string', 'max:255'],
+        ]);
+
+        // Folder slots (position = index in the interleaved top level) + the loose
+        // pages that share that same index space.
+        $folderPairs = [];
+        $looseRows   = []; // [id, folder_id (null), position]
+        foreach (array_values($data['items']) as $position => $item) {
+            if ($item['type'] === 'folder') {
+                $folderPairs[] = [(int) $item['id'], $position];
+            } else {
+                $looseRows[] = [(int) $item['id'], null, $position];
+            }
+        }
+
+        // Members carry their destination folder_id (the axis that makes this a
+        // refile, not just a reorder) and a per-folder position.
+        $memberRows = []; // [id, folder_id, position]
+        $referencedFolderIds = array_column($folderPairs, 0);
+        foreach ($data['folders'] ?? [] as $folder) {
+            $folderId = (int) $folder['id'];
+            $referencedFolderIds[] = $folderId;
+            foreach (array_values($folder['members']) as $position => $memberId) {
+                $memberRows[] = [(int) $memberId, $folderId, $position];
+            }
+        }
+        $subtrees = $data['subtrees'] ?? [];
+
+        // Folders created this session, keyed by their client temp id (negative).
+        $newFolderNames = [];
+        foreach ($data['newFolders'] ?? [] as $nf) {
+            $newFolderNames[(int) $nf['id']] = trim($nf['name']);
+        }
+
+        // Guards — every REAL folder belongs to THIS workspace, every referenced
+        // temp id was actually declared in newFolders, every reordered page is a
+        // live page here, no page holds two slots, and the nesting payload is
+        // acyclic. Membership legality is derived, not asserted against the current
+        // state — refiling is the whole point.
+        $realFolderIds = array_values(array_filter(array_unique($referencedFolderIds), fn ($id) => $id > 0));
+        $tempFolderIds = array_values(array_filter(array_unique($referencedFolderIds), fn ($id) => $id < 0));
+        if ($realFolderIds && $workspace->folders()->whereIn('id', $realFolderIds)->count() !== count($realFolderIds)) {
+            throw ValidationException::withMessages(['items' => 'Unknown folder in the reorder.']);
+        }
+        foreach ($tempFolderIds as $tempId) {
+            if (! isset($newFolderNames[$tempId])) {
+                throw ValidationException::withMessages(['items' => 'A new folder was referenced but not declared.']);
+            }
+        }
+        if ($newFolderNames) {
+            $this->authorize('create', DocumentFolder::class);
+        }
+        $pageRows = array_merge($looseRows, $memberRows);
+        $this->assertReorderablePages($workspace, array_column($pageRows, 0));
+        $this->assertNestable($workspace, $subtrees, array_column($pageRows, 0));
+
+        // Detect the refiles BEFORE writing: a page whose folder_id changes is
+        // audited; a pure reorder is not. One query for the current state.
+        $targetFolderOf = [];
+        foreach ($pageRows as [$id, $folderId]) {
+            $targetFolderOf[$id] = $folderId;
+        }
+        $current = Document::whereIn('id', array_keys($targetFolderOf))
+            ->get(['id', 'title', 'folder_id', 'parent_id']);
+        $refiled = $current->filter(fn (Document $d) => $targetFolderOf[$d->id] !== $d->folder_id);
+
+        // A currently-nested page presented at the top level (loose or a folder
+        // member) is being UN-NESTED — its parent_id must be cleared so it lands as
+        // a real root page. Un-nesting to loose is a structural re-parent, audited
+        // as workspace.restructured (parity with the no-folder restructure path); a
+        // subpage dragged straight INTO a folder is already covered by its own
+        // document.moved, so it is not counted here a second time.
+        $reparented    = $current->filter(fn (Document $d) => $d->parent_id !== null);
+        $unnestedLoose = $reparented->filter(fn (Document $d) => $targetFolderOf[$d->id] === null);
+        $reparentedIds = $reparented->pluck('id')->all();
+
+        // Each real folder change is a per-page mutation — authorize it like the
+        // standalone refile does (a pure reorder rides the workspace gate above).
+        foreach ($refiled as $document) {
+            $this->authorize('update', $document);
+        }
+
+        $subtreeIds = array_column($subtrees, 'id');
+
+        // Temp folder id (negative, client-assigned) -> real id, filled as the new
+        // folders are created inside the transaction so the SAME atomic save that
+        // reorders can also CREATE the folders a deferred Edit session added.
+        $tempMap = [];
+
+        DB::transaction(function () use ($workspace, $tempFolderIds, $newFolderNames, $folderPairs, $pageRows, $subtrees, $subtreeIds, $reparentedIds, &$tempMap) {
+            // Create the session's new folders first, so their real ids are known
+            // before the order/refile writes reference them. Position is set by the
+            // assign() below from the interleaved order, so a bare 0 here is fine.
+            foreach ($tempFolderIds as $tempId) {
+                $tempMap[$tempId] = $workspace->folders()->create([
+                    'name' => $newFolderNames[$tempId], 'position' => 0,
+                ])->id;
+            }
+            // Swap every temp folder id for its real one in the folder slots and the
+            // members' destination folder — real ids (and null) pass through untouched.
+            $mapFolder   = fn ($id) => $id !== null ? ($tempMap[$id] ?? $id) : null;
+            $folderPairs = array_map(fn ($p) => [$mapFolder($p[0]), $p[1]], $folderPairs);
+            $pageRows    = array_map(fn ($r) => [$r[0], $mapFolder($r[1]), $r[2]], $pageRows);
+
+            // Clear folder_id on nested pages FIRST: a subtree node about to get a
+            // parent_id must shed any folder membership, or the root-only DB CHECK
+            // (folder_id IS NULL OR parent_id IS NULL) trips at the tree() write.
+            // A raw UPDATE keeps it structural (no updated_at bump).
+            if ($subtreeIds) {
+                DB::table('documents')->whereIn('id', $subtreeIds)
+                    ->whereNotNull('folder_id')->update(['folder_id' => null]);
+            }
+            if ($subtrees) {
+                BulkReorder::tree('documents', $subtrees);
+            }
+            // The mirror clear: a page presented at the top level is a root page, so
+            // shed any parent_id it still carries (un-nest) BEFORE container() sets
+            // its folder_id — otherwise a subpage filed straight into a folder would
+            // trip the same root-only CHECK. Also a raw UPDATE, so it stays structural.
+            if ($reparentedIds) {
+                DB::table('documents')->whereIn('id', $reparentedIds)
+                    ->update(['parent_id' => null]);
+            }
+            BulkReorder::assign('document_folders', $folderPairs);
+            BulkReorder::container('documents', 'folder_id', $pageRows);
+        });
+
+        // Names for both ends of every move: the destination folders named in the
+        // payload (real + freshly created) AND each refiled page's SOURCE folder,
+        // which may not appear in the payload when a page is dragged out to loose.
+        $folderNames = DocumentFolder::whereIn('id', array_merge(
+            $realFolderIds,
+            array_values($tempMap),
+            $refiled->pluck('folder_id')->filter()->all(),
+        ))->pluck('name', 'id');
+
+        // The new folders are their own audit event, recorded at Done only — a
+        // cancelled Edit session never reaches here, so no folder.created lingers
+        // for a folder the user discarded.
+        foreach (DocumentFolder::whereIn('id', array_values($tempMap))->get() as $folder) {
+            \App\Support\Audit::record('folder.created', $folder, [
+                'name'      => $folder->name,
+                'workspace' => $workspace->name,
+            ]);
+        }
+
+        foreach ($refiled as $document) {
+            // A page filed into a brand-new folder targets its temp id — resolve it
+            // to the real one for the move's destination name.
+            $to = $targetFolderOf[$document->id];
+            $to = $to !== null ? ($tempMap[$to] ?? $to) : null;
+            \App\Support\Audit::record('document.moved', $document, [
+                'title'       => $document->title,
+                'from_folder' => $document->folder_id ? $folderNames[$document->folder_id] ?? null : null,
+                'to_folder'   => $to ? $folderNames[$to] ?? null : null,
+            ]);
+        }
+
+        // Re-nesting OR un-nesting a page is a structural change to the tree —
+        // audited like the dedicated restructure path. A pure order change (no
+        // subtrees, no un-nest to loose) is layout noise, so it stays unaudited,
+        // like sibling and folder reorders. A subpage filed straight into a folder
+        // is its own document.moved above, not counted again here.
+        $restructureCount = count($subtrees) + $unnestedLoose->count();
+        if ($restructureCount > 0) {
+            \App\Support\Audit::record('workspace.restructured', $workspace, [
+                'name'       => $workspace->name,
+                'page_count' => $restructureCount,
+            ]);
+        }
+
+        return back();
+    }
+
+    /**
+     * Assert each subtree node is a page in this workspace whose parent is also a
+     * page in this workspace, with no cycle among the reordered nodes, and that no
+     * page is claimed by both a container slot and a nesting slot ($topLevelIds =
+     * the loose + member page ids). A subtree node's folder_id is cleared before
+     * it is nested (root-only is schema-enforced), so nesting a currently-filed
+     * page is allowed here.
+     */
+    private function assertNestable(Workspace $workspace, array $subtrees, array $topLevelIds): void
+    {
+        if (! $subtrees) {
+            return;
+        }
+
+        $ids       = array_column($subtrees, 'id');
+        $parentIds = array_column($subtrees, 'parent_id');
+        $wsPageIds = $workspace->documents()->pluck('id')->flip();
+
+        foreach (array_merge($ids, $parentIds) as $id) {
+            if (! isset($wsPageIds[$id])) {
+                throw ValidationException::withMessages(['subtrees' => 'A nested page must belong to this workspace.']);
+            }
+        }
+
+        // A page can hold at most one slot — a top-level/member position AND a
+        // nesting slot would race for its parent_id/folder_id.
+        if (array_intersect($ids, $topLevelIds)) {
+            throw ValidationException::withMessages(['subtrees' => 'A page cannot be both reordered and nested.']);
+        }
+
+        // Cycle guard over the payload's parent map; a parent outside the payload
+        // is a root and ends the chain.
+        $parentOf = [];
+        foreach ($subtrees as $node) {
+            $parentOf[$node['id']] = $node['parent_id'];
+        }
+        foreach ($parentOf as $id => $parentId) {
+            $seen = [];
+            while ($parentId !== null) {
+                if ($parentId === $id || isset($seen[$parentId])) {
+                    throw ValidationException::withMessages(['subtrees' => 'A page cannot be nested inside itself.']);
+                }
+                $seen[$parentId] = true;
+                $parentId = $parentOf[$parentId] ?? null;
+            }
+        }
+    }
+
+    /**
+     * Assert every id is a live page in this workspace, and that no id appears
+     * twice — a page holding two slots would get two conflicting positions/folders.
+     * Neither the folder side NOR the parent side is checked: a reorder may refile
+     * AND un-nest, so a page presented at the top level is made a root page (its
+     * parent_id is cleared in the write), whatever it was before.
+     */
+    private function assertReorderablePages(Workspace $workspace, array $ids): void
+    {
+        if (! $ids) {
+            return;
+        }
+
+        if (count($ids) !== count(array_unique($ids))) {
+            throw ValidationException::withMessages(['items' => 'A page appears twice in the reorder.']);
+        }
+
+        if ($workspace->documents()->whereIn('id', $ids)->count() !== count($ids)) {
+            throw ValidationException::withMessages([
+                'items' => 'A reordered page is not a live page in this workspace.',
+            ]);
+        }
     }
 
     /** Reorder siblings by assigning positions from the given id order. */

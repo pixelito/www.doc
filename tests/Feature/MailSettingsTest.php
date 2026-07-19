@@ -138,3 +138,46 @@ test('a failing probe flashes an error and the stage report, and skips the send'
 
     Mail::assertNothingSent();
 });
+
+test('a passing test records the mail status and the page exposes it', function () {
+    login();
+    Mail::fake();
+    fakeSmtpProbe();
+
+    $this->post('/admin/settings/mail/test', mailPayload(['to' => 'me@acme.test']))
+        ->assertRedirect()->assertSessionHas('success');
+
+    $status = \App\Support\TestStatus::get('mail');
+    expect($status['ok'])->toBeTrue()->and($status['at'])->not->toBeNull();
+
+    // The Email page surfaces it for the passive status badge.
+    $this->get('/admin/settings/mail')->assertInertia(
+        fn (Assert $page) => $page->where('testStatus.ok', true),
+    );
+});
+
+test('a failing test records a failed mail status', function () {
+    login();
+    Mail::fake();
+    fakeSmtpProbe([
+        ['stage' => 'dns', 'status' => 'skipped', 'detail' => 'IP address'],
+        ['stage' => 'connect', 'status' => 'failed', 'detail' => 'timed out'],
+        ['stage' => 'tls', 'status' => 'skipped', 'detail' => 'Not attempted'],
+        ['stage' => 'send', 'status' => 'skipped', 'detail' => 'Not attempted'],
+    ]);
+
+    $this->post('/admin/settings/mail/test', mailPayload(['host' => '192.0.2.27', 'to' => 'me@acme.test']))
+        ->assertRedirect()->assertSessionHas('error');
+
+    expect(\App\Support\TestStatus::get('mail')['ok'])->toBeFalse();
+});
+
+test('saving mail settings clears a prior test status', function () {
+    login();
+    \App\Support\TestStatus::record('mail', true);
+
+    $this->patch('/admin/settings/mail', mailPayload())
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(\App\Support\TestStatus::get('mail'))->toBeNull();
+});
