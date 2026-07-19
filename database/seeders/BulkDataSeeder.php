@@ -8,6 +8,7 @@ use App\Models\Tag;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceGroup;
+use App\Support\Audit;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -119,9 +120,11 @@ class BulkDataSeeder extends Seeder
     protected function fillWorkspace(Workspace $workspace, array $authorIds, $tags): void
     {
         $rootCount = rand(4, 10);
+        $roots = [];
 
         for ($p = 1; $p <= $rootCount; $p++) {
             $root = $this->makeDocument($workspace->id, null, $p, $authorIds, $tags);
+            $roots[] = $root;
 
             // ~40% of roots get 1-4 children (shallow nesting only).
             if (rand(1, 10) <= 4) {
@@ -130,6 +133,76 @@ class BulkDataSeeder extends Seeder
                     $this->makeDocument($workspace->id, $root->id, $c, $authorIds, $tags);
                 }
             }
+        }
+
+        // ~half the bulk workspaces file some roots into folders; the rest stay
+        // flat. Always leaves at least one root loose so the mixed state shows.
+        if (rand(0, 1) === 1) {
+            $this->foldSomeRoots($workspace, $roots, $authorIds);
+        }
+    }
+
+    /**
+     * Create 1-2 folders in a workspace and file a random slice of its ROOT pages
+     * into them, distributed round-robin. Folders and loose roots share one
+     * top-level position space, so folders take the first slots and the loose
+     * roots are renumbered after them. Filing is structural (folder_id only), so
+     * we save inside withoutTimestamps() — no updated_at/version bump — and record
+     * the same events the real refile path does.
+     *
+     * @param  array<int, Document>  $roots
+     * @param  array<int, int>  $authorIds
+     */
+    protected function foldSomeRoots(Workspace $workspace, array $roots, array $authorIds): void
+    {
+        // Keep at least one root loose; nothing to fold if there are too few.
+        if (count($roots) < 2) {
+            return;
+        }
+
+        $actorId = $authorIds[array_rand($authorIds)];
+        auth()->loginUsingId($actorId);
+
+        $folderCount = min(rand(1, 2), count($roots) - 1);
+        $folders = [];
+        $topPos = 0;
+        for ($f = 0; $f < $folderCount; $f++) {
+            $folder = $workspace->folders()->create([
+                'name'     => \Illuminate\Support\Str::title(fake()->unique()->words(2, true)),
+                'position' => $topPos++,
+            ]);
+            Audit::record('folder.created', $folder, [
+                'name'      => $folder->name,
+                'workspace' => $workspace->name,
+            ], $actorId);
+            $folders[] = $folder;
+        }
+
+        // File a slice of the roots (never all of them) round-robin across folders.
+        $fileCount = rand(1, count($roots) - 1);
+        $memberPos = array_fill(0, $folderCount, 0);
+        foreach (array_slice($roots, 0, $fileCount) as $i => $page) {
+            $folder = $folders[$i % $folderCount];
+
+            $page->folder_id = $folder->id;
+            $page->position  = $memberPos[$i % $folderCount]++;
+            Document::withoutTimestamps(fn () => $page->save());
+
+            Audit::record('document.moved', $page, [
+                'title'       => $page->title,
+                'from_folder' => null,
+                'to_folder'   => $folder->name,
+            ], $actorId);
+        }
+
+        // Renumber the loose roots that stayed behind so they trail the folders.
+        $loose = $workspace->documents()
+            ->whereNull('parent_id')
+            ->whereNull('folder_id')
+            ->orderBy('position')
+            ->pluck('id');
+        foreach ($loose as $id) {
+            DB::table('documents')->where('id', $id)->update(['position' => $topPos++]);
         }
     }
 
