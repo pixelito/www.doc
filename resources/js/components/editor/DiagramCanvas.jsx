@@ -257,7 +257,7 @@ function LabeledNode({ id, data, selected, dragging }) {
             {editable && (
                 <NodeResizer
                     minWidth={90}
-                    minHeight={40}
+                    minHeight={36}
                     isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
                     handleClassName="!h-3 !w-3 !rounded-sm !border-accent-400 !bg-surface"
@@ -419,7 +419,7 @@ function GroupNode({ id, data, selected, dragging }) {
         >
             {editable && (
                 <NodeResizer
-                    minWidth={140}
+                    minWidth={144}
                     minHeight={90}
                     isVisible={!dragging && selected}
                     lineClassName="!border-accent-400"
@@ -787,6 +787,16 @@ const PRO_OPTIONS = { hideAttribution: true };
 // land on the dots.
 const SNAP_GRID = [18, 18];
 
+// Snap a world-space position to the grid. New nodes are placed here so their
+// origin sits on a grid line: React Flow's NodeResizer snaps the pointer but not
+// the node's origin, so an off-grid origin makes a snapped resize compute
+// arbitrary, un-roundable sizes (the "weird height" you can't reset). With the
+// origin on-grid, snapped pointer − snapped origin is always a clean multiple.
+const snapToGridPos = ({ x, y }) => ({
+    x: Math.round(x / SNAP_GRID[0]) * SNAP_GRID[0],
+    y: Math.round(y / SNAP_GRID[1]) * SNAP_GRID[1],
+});
+
 // Padding (flow units) added around the graph's bounding box to form the
 // read-view pan boundary, so viewers can pan/zoom but not wander into the void.
 const READ_VIEW_MARGIN = 80;
@@ -1124,10 +1134,11 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
         // Cycle a 2×2 cluster around the centre so repeated clicks stay in view but
         // don't stack — steps sized to clearly separate the ~90×44 node boxes.
         const k = nodesRef.current.filter((x) => x.type !== 'group').length % 4;
+        const pos = { x: c.x - 110 + (k % 2) * 140, y: c.y - 42 + Math.floor(k / 2) * 84 };
         const node = {
             id: uid(),
             type: 'labeled',
-            position: { x: c.x - 110 + (k % 2) * 140, y: c.y - 42 + Math.floor(k / 2) * 84 },
+            position: snapRef.current ? snapToGridPos(pos) : pos,
             data: { label: 'Node' },
         };
         setNodes([...nodesRef.current, node]);
@@ -1136,14 +1147,15 @@ function Canvas({ graph, editable, name, onChange, onActivate }) {
 
     const addZone = () => {
         const c = viewportCenter();
-        // Same idea as addNode, larger cascade step for the bigger 280×180 box.
+        // Same idea as addNode, larger cascade step for the bigger 288×180 box.
         const step = (nodesRef.current.filter((x) => x.type === 'group').length % 4) * 24;
+        const pos = { x: c.x - 140 + step, y: c.y - 90 + step };
         const zone = {
             id: uid(),
             type: 'group',
-            position: { x: c.x - 140 + step, y: c.y - 90 + step },
-            width: 280,
-            height: 180,
+            position: snapRef.current ? snapToGridPos(pos) : pos,
+            width: 288,   // 16 grid steps — a clean multiple of SNAP_GRID
+            height: 180,  // 10 grid steps
             data: { label: 'Zone', color: 'sage' },
         };
         // Groups must precede their children in the array (React Flow requirement).
