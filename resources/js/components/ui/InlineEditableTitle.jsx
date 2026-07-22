@@ -69,8 +69,10 @@ export default function InlineEditableTitle({
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+                // Consume the keys we act on: Escape means "cancel this edit",
+                // never "close the surrounding dialog" or fire a page shortcut.
+                if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
             }}
             className={`min-w-0 flex-1 rounded-sm border border-accent-400 bg-surface px-1.5 py-0.5 text-foreground outline-none ring-[3px] ring-accent-200 ${inputClassName}`}
         />

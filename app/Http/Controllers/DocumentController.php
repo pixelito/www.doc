@@ -93,6 +93,11 @@ class DocumentController extends Controller
             'allTags'      => Tag::orderBy('name')->get(),
             'allDocuments' => Document::with('workspace:id,name')->orderBy('title')->get(['id', 'title', 'slug', 'workspace_id']),
             'workspaces'   => Workspace::orderBy('name')->get(['id', 'name']),
+            // This workspace's folders, so "New page" here offers the same
+            // destinations as the workspace tree's dialog does.
+            'folders'      => DocumentFolder::where('workspace_id', $document->workspace_id)
+                ->orderBy('position')
+                ->get(['id', 'name']),
         ]);
     }
 
@@ -179,35 +184,35 @@ class DocumentController extends Controller
             ? \App\Models\Template::findOrFail($validated['template_id'])
             : null;
 
+        // Same invariant refile() enforces: folder membership is a TOP-LEVEL
+        // notion, so a page cannot be both a subpage and a folder member. The DB
+        // enforces it too — checking here makes it a 422 instead of a 500.
+        if (($validated['folder_id'] ?? null) !== null && ($validated['parent_id'] ?? null) !== null) {
+            throw ValidationException::withMessages([
+                'folder_id' => 'Only a top-level page can be filed in a folder.',
+            ]);
+        }
+
         // Create the bare page first (a blank page snapshots no version), attach
         // tags, THEN write content — so the first version's snapshot captures the
         // tags too. The version observer reads tags off the page at save time.
         $document = new Document(array_diff_key($validated, ['tags' => '', 'content' => '', 'template_id' => '']));
 
-        // A new page lands at the TOP of its scope (same workspace + parent + folder)
-        // so it's visible without scrolling — matching new workspaces/folders/groups.
-        // Positions are only sort keys (a later reorder renumbers), so one below the
-        // current minimum is enough; no need to shift existing siblings down.
         if (! isset($validated['position'])) {
-            $mins = [
-                Document::where('workspace_id', $document->workspace_id)
-                    ->where('parent_id', $document->parent_id)
-                    ->where('folder_id', $document->folder_id)
-                    ->min('position'),
-            ];
-
-            // A loose top-level page shares ONE ordering space with the workspace's
-            // folders (WorkspaceController@show + Show.jsx buildTopLevel), so "top"
-            // has to clear the folders too — otherwise the page lands below them.
-            if ($document->parent_id === null && $document->folder_id === null) {
-                $mins[] = DocumentFolder::where('workspace_id', $document->workspace_id)->min('position');
-            }
-
-            $mins = array_filter($mins, fn ($p) => $p !== null);
-            $document->position = ($mins ? min($mins) : 0) - 1;
+            $document->position = Document::topPosition(
+                $document->workspace_id,
+                $document->parent_id,
+                $document->folder_id,
+            );
         }
 
         $document->sourceTemplateName = $template?->name; // surfaces in the document.created audit context
+        // Where it was filed, for the same context. Creating INTO a folder is one
+        // action — it logs document.created carrying the folder, not a second
+        // document.moved (rule 7: one event per user action).
+        $document->sourceFolderName = $document->folder_id
+            ? DocumentFolder::find($document->folder_id)?->name
+            : null;
         $document->save();
 
         if ($request->has('tags')) {

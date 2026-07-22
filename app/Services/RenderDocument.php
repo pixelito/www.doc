@@ -243,11 +243,21 @@ class ResizableImageNode extends \Tiptap\Nodes\Image
         elseif ($align === 'right') $style .= 'margin-left:auto;';
         $fallback = \App\Services\RenderDocument::UNAVAILABLE_IMAGE;
 
+        // `align` must NOT survive as an HTML attribute: it is a legacy
+        // presentational attribute that both browsers and Dompdf translate to
+        // `float: left|right`, which pulls every image out of the flow — images
+        // then pile up side by side (Compare page, PDF) instead of sitting where
+        // the author placed them. Alignment is expressed by $style above; the
+        // intent rides along as `data-align`, matching the editor's ResizableImage
+        // renderHTML.
+        unset($HTMLAttributes['align']);
+
         return ['img', array_merge($HTMLAttributes, [
-            'src'     => $src,
-            'alt'     => $alt,
-            'style'   => $style,
-            'onerror' => "if(this.src!=='{$fallback}')this.src='{$fallback}';",
+            'src'        => $src,
+            'alt'        => $alt,
+            'style'      => $style,
+            'data-align' => $align,
+            'onerror'    => "if(this.src!=='{$fallback}')this.src='{$fallback}';",
         ])];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\ConversionJob;
 use App\Services\Importers\DocxImporter;
 use App\Services\Importers\PdfImporter;
+use App\Support\ImportTitle;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
@@ -36,12 +37,25 @@ class ImportDocumentJob implements ShouldQueue
 
             $document = $job->document;
 
-            // Overwrite title only if the document still has the placeholder title
-            if (str_starts_with($document->title, 'Importing')) {
-                $document->title = $result['title'];
+            // Overwrite the title only while it's still the placeholder — a title
+            // typed at upload wins. Word/PDF files often carry no title of their
+            // own; then the filename-derived name stands, which is what the user
+            // recognises, rather than a generic "Imported document".
+            if (ImportTitle::isPlaceholder($document->title)) {
+                $document->title = $result['title']
+                    ?? ImportTitle::fromFilename((string) $job->source_name);
             }
 
             $document->content = $result['content'];
+
+            // The page becomes real here, so this save carries the import's single
+            // document.created event (see DocumentObserver::saved). The folder rides
+            // along the same way a straight-into-a-folder create does.
+            $document->importCompleted   = true;
+            $document->sourceImportName  = $job->source_name;
+            $document->sourceFolderName  = $document->folder?->name;
+            // No request here — the address the upload came from rides the job.
+            $document->auditIp           = $job->ip;
             $document->save();
 
             // Clean up the temp upload
@@ -78,7 +92,7 @@ class ImportDocumentJob implements ShouldQueue
         // (soft delete, recoverable) so a failed import doesn't leave an empty
         // "Importing …" page in the tree.
         $document = $job->document;
-        if ($document && str_starts_with($document->title, 'Importing')
+        if ($document && ImportTitle::isPlaceholder($document->title)
             && \App\Support\TipTap::isEmpty($document->content)) {
             $document->delete();
         }

@@ -77,7 +77,9 @@ class DocxImporter implements ImporterContract
         $doc = \App\Services\RenderDocument::fromHtml($body);
 
         return [
-            'title'   => $title !== '' ? $title : 'Imported document',
+            // null = the file carries no title of its own; the caller keeps the
+            // name it already derived from the filename rather than inventing one.
+            'title'   => $title !== '' ? $title : null,
             'content' => $doc,
         ];
     }

@@ -163,7 +163,10 @@ class BackupController extends Controller
             'trigger'       => 'manual',
             'disk'          => BackupSettings::get()['driver'] ?? 'local',
             'status'        => 'pending',
+            // Actor + address for the completion event the queue job writes:
+            // it has no session and no request of its own.
             'created_by_id' => $request->user()->id,
+            'ip'            => $request->ip(),
         ]);
 
         RunBackupJob::dispatch($backup->id);
@@ -210,6 +213,7 @@ class BackupController extends Controller
             'disk'          => BackupSettings::get()['driver'] ?? 'local',
             'status'        => 'pending',
             'created_by_id' => $request->user()->id,
+            'ip'            => $request->ip(),
         ]);
 
         ImportBackupJob::dispatch($backup->id, $stagingPath, $validated['key'] ?? null);

@@ -30,12 +30,45 @@ class Document extends Model
     public ?string $sourceTemplateName = null;
 
     /**
+     * Transient, same contract as $sourceTemplateName: the folder this page was
+     * created straight into, so document.created records where it landed.
+     */
+    public ?string $sourceFolderName = null;
+
+    /**
      * Transient: set by the observer once this instance's creation has been
      * audited, so the create flow's second save (the content write in
      * DocumentController::store) doesn't log a duplicate document.created —
      * one event per user action.
      */
     public bool $creationAudited = false;
+
+    /**
+     * Transient: an import creates an empty placeholder page in the request and
+     * fills it in from the queue job, so the ONE user action spans two saves on
+     * two instances (unlike DocumentController::store, which $creationAudited
+     * covers). The controller marks the placeholder so its save logs nothing,
+     * and the job marks the fill-in save so it logs document.created — with the
+     * real title, and only if the import actually landed.
+     */
+    public bool $importPlaceholder = false;
+
+    public bool $importCompleted = false;
+
+    /**
+     * Transient, same contract as $sourceTemplateName: the file this page was
+     * imported from, so document.created records that it arrived as an import
+     * rather than being typed.
+     */
+    public ?string $sourceImportName = null;
+
+    /**
+     * Transient: the IP an out-of-request save should be audited under. A queue
+     * job has no request, so without this the event of a human action performed
+     * from a browser would record no IP at all, unlike every other user action.
+     * Left null by console/scheduled work, which correctly has no address.
+     */
+    public ?string $auditIp = null;
 
     protected function casts(): array
     {
@@ -73,6 +106,37 @@ class Document extends Model
     public function children(): HasMany
     {
         return $this->hasMany(Document::class, 'parent_id')->orderBy('position');
+    }
+
+    /**
+     * The position that puts a new page at the TOP of its scope (same workspace
+     * + parent + folder), so it's visible without scrolling — matching new
+     * workspaces/folders/groups. Positions are only sort keys (a later reorder
+     * renumbers), so one below the current minimum is enough; no need to shift
+     * existing siblings down.
+     *
+     * Every path that creates a page must use this — the column's own default
+     * (0) sorts a new page into the MIDDLE of renumbered siblings.
+     */
+    public static function topPosition(?int $workspaceId, ?int $parentId, ?int $folderId): int
+    {
+        $mins = [
+            static::where('workspace_id', $workspaceId)
+                ->where('parent_id', $parentId)
+                ->where('folder_id', $folderId)
+                ->min('position'),
+        ];
+
+        // A loose top-level page shares ONE ordering space with the workspace's
+        // folders (WorkspaceController@show + Show.jsx buildTopLevel), so "top"
+        // has to clear the folders too — otherwise the page lands below them.
+        if ($parentId === null && $folderId === null) {
+            $mins[] = DocumentFolder::where('workspace_id', $workspaceId)->min('position');
+        }
+
+        $mins = array_filter($mins, fn ($p) => $p !== null);
+
+        return ($mins ? min($mins) : 0) - 1;
     }
 
     public function creator(): BelongsTo

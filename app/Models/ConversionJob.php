@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['document_id', 'direction', 'format', 'status', 'result_path', 'error', 'created_by_id'])]
+#[Fillable(['document_id', 'direction', 'format', 'source_name', 'status', 'result_path', 'error', 'created_by_id', 'ip'])]
 class ConversionJob extends Model
 {
     /** @use HasFactory<\Database\Factories\ConversionJobFactory> */

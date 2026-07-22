@@ -60,6 +60,45 @@ test('a batch of files imports as sibling pages and bad files fail alone', async
     await expect(page.getByText(/Pages will be created under/)).toContainText('Alpha runbook');
 });
 
+/**
+ * Renaming a staged row before importing. Escape belongs to the edit, not to
+ * the dialog: the dialog's Escape-to-close listener sits on `document`, above
+ * the input, so cancelling a rename used to close the whole modal with it.
+ */
+test('a staged file can be renamed, and Escape cancels the rename without closing the dialog', async ({ page }) => {
+    await openWorkspace(page, 'E2E Rename Import');
+
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: /Import pages/ }).click();
+
+    await page.locator('input[type=file]').setInputFiles(['tests/e2e/fixtures/alpha-runbook.docx']);
+
+    // The row shows the title the page will get, derived from the filename,
+    // with the filename itself kept underneath.
+    const row = page.getByRole('listitem').filter({ hasText: 'alpha-runbook.docx' });
+    await expect(row.getByText('Alpha runbook')).toBeVisible();
+
+    const pencil = row.getByRole('button', { name: 'Rename alpha-runbook.docx' });
+    const field = row.getByRole('textbox', { name: 'Rename alpha-runbook.docx' });
+
+    // Enter commits.
+    await pencil.click();
+    await field.fill('Renamed by hand');
+    await field.press('Enter');
+    await expect(row.getByText('Renamed by hand')).toBeVisible();
+
+    // Escape discards the next edit and leaves the dialog open.
+    await pencil.click();
+    await field.fill('Discarded');
+    await field.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Import pages' })).toBeVisible();
+    await expect(row.getByText('Renamed by hand')).toBeVisible();
+
+    // Escape outside a field still closes the dialog, as it always did.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Import pages' })).toBeHidden();
+});
+
 /** Synthesizes the events an OS file drag fires; dnd-kit row drags never do. */
 function fireFileDrag(page, type) {
     return page.evaluate((eventType) => {

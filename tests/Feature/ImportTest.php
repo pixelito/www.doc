@@ -293,3 +293,190 @@ test('import rejects a file over the 50 MB limit with a validation error', funct
     // No placeholder page is created for a rejected upload.
     expect(\App\Models\Document::count())->toBe(0);
 });
+
+test('an import can be filed straight into a folder', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+    $folder    = \App\Models\DocumentFolder::factory()->create(['workspace_id' => $workspace->id]);
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('runbook.docx', 40, DOCX_MIME);
+
+    $this->post(route('imports.store', $workspace), ['file' => $file, 'folder_id' => $folder->id], ['Accept' => 'application/json'])
+        ->assertStatus(202);
+
+    // The placeholder page exists in the folder from the start, so the tree
+    // shows it converting in place rather than jumping there when it finishes.
+    $page = \App\Models\Document::latest('id')->first();
+    expect($page->folder_id)->toBe($folder->id)
+        ->and($page->parent_id)->toBeNull();
+});
+
+// An import is a new page like any other: it lands at the TOP of its scope,
+// not wherever the position column's default happens to sort.
+test('an imported page lands at the top of its scope', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+    $folder    = \App\Models\DocumentFolder::factory()->create(['workspace_id' => $workspace->id, 'position' => 0]);
+
+    foreach (range(0, 2) as $i) {
+        \App\Models\Document::factory()->create([
+            'workspace_id' => $workspace->id,
+            'folder_id'    => $folder->id,
+            'position'     => $i,
+        ]);
+        \App\Models\Document::factory()->create([
+            'workspace_id' => $workspace->id,
+            'position'     => $i,
+        ]);
+    }
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('runbook.docx', 40, DOCX_MIME);
+    $this->post(route('imports.store', $workspace), ['file' => $file, 'folder_id' => $folder->id], ['Accept' => 'application/json'])
+        ->assertStatus(202);
+
+    $inFolder = \App\Models\Document::latest('id')->first();
+    expect($inFolder->position)->toBeLessThan(0);
+
+    // A loose top-level page shares ONE ordering space with the workspace's
+    // folders, so "top" has to clear the folders too.
+    $file = \Illuminate\Http\UploadedFile::fake()->create('loose.docx', 40, DOCX_MIME);
+    $this->post(route('imports.store', $workspace), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertStatus(202);
+
+    expect(\App\Models\Document::latest('id')->first()->position)->toBeLessThan(0);
+});
+
+// Importing is ONE user action spread over two saves (placeholder row now,
+// content later from the queue), so it audits exactly one document.created —
+// the placeholder save is silent and the job's save carries the real title.
+test('an import audits one document.created, logged when the content lands', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+    $folder    = \App\Models\DocumentFolder::factory()->create(['workspace_id' => $workspace->id]);
+
+    $path = makeFormattedDocx();
+    $file = new \Illuminate\Http\UploadedFile($path, 'network-runbook.docx', DOCX_MIME, null, true);
+
+    // A distinct upload address: the job runs outside this request, so an event
+    // carrying it can only have got it from the conversion job row.
+    $response = $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.10'])->post(
+        route('imports.store', $workspace),
+        ['file' => $file, 'folder_id' => $folder->id],
+        ['Accept' => 'application/json'],
+    )->assertStatus(202);
+    unlink($path);
+
+    // Phase 1: the placeholder is in the tree but nothing is audited yet — an
+    // import that never finishes must leave no trace of a page that never was.
+    expect(\App\Models\AuditEvent::where('event', 'like', 'document.%')->count())->toBe(0);
+
+    // Phase 2: the queue fills it in.
+    (new \App\Jobs\ImportDocumentJob($response->json('job_id')))
+        ->handle(app(DocxImporter::class), app(\App\Services\Importers\PdfImporter::class));
+
+    $events = \App\Models\AuditEvent::where('event', 'like', 'document.%')->get();
+    expect($events)->toHaveCount(1);
+
+    $document = \App\Models\Document::find($response->json('document_id'));
+    expect($events[0]->event)->toBe('document.created')
+        ->and($events[0]->user_id)->toBe(auth()->id())
+        // Written by the worker, which has no request — the uploader's address
+        // rides the conversion job so the row isn't IP-less like a console run.
+        ->and($events[0]->ip)->toBe('192.0.2.10')
+        ->and($events[0]->context['title'])->toBe($document->title)
+        ->and($events[0]->context['title'])->not->toStartWith('Importing ')
+        // Provenance: the Events page reads this as "imported X from Y".
+        ->and($events[0]->context['import'])->toBe('network-runbook.docx')
+        ->and($events[0]->context['folder'])->toBe($folder->name);
+});
+
+/**
+ * Upload a one-paragraph .docx through the import route and run its queued job,
+ * returning the finished page. $docTitle sets the file's own title property —
+ * null means the file carries none, like most real-world documents.
+ */
+function importDocx(string $filename, ?string $docTitle = null): \App\Models\Document
+{
+    $pw = new PhpWord();
+    if ($docTitle !== null) {
+        $pw->getDocInfo()->setTitle($docTitle);
+    }
+    $pw->addSection()->addText('Body text.');
+
+    $path = tempnam(sys_get_temp_dir(), 'import') . '.docx';
+    IOFactory::createWriter($pw, 'Word2007')->save($path);
+
+    $workspace = \App\Models\Workspace::factory()->create();
+    $file      = new \Illuminate\Http\UploadedFile($path, $filename, DOCX_MIME, null, true);
+
+    $response = test()->post(
+        route('imports.store', $workspace),
+        ['file' => $file],
+        ['Accept' => 'application/json'],
+    );
+    unlink($path);
+    $response->assertStatus(202);
+
+    (new \App\Jobs\ImportDocumentJob($response->json('job_id')))
+        ->handle(app(DocxImporter::class), app(\App\Services\Importers\PdfImporter::class));
+
+    return \App\Models\Document::findOrFail($response->json('document_id'));
+}
+
+test('an imported page keeps its filename-derived title when the file carries none', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+
+    expect(importDocx('network-runbook.docx')->title)->toBe('Network Runbook');
+});
+
+// Dompdf writes no /Title metadata, so this is the same "file carries no title"
+// path as the docx case — PdfImporter must not invent "Imported PDF" either.
+test('an imported pdf keeps its filename-derived title when the file carries none', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+
+    $path = makeLinesPdf(['Failover steps.', 'Step one.']);
+    $file  = new \Illuminate\Http\UploadedFile($path, 'failover-plan.pdf', 'application/pdf', null, true);
+
+    $response = $this->post(route('imports.store', $workspace), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertStatus(202);
+    unlink($path);
+
+    (new \App\Jobs\ImportDocumentJob($response->json('job_id')))
+        ->handle(app(DocxImporter::class), app(\App\Services\Importers\PdfImporter::class));
+
+    expect(\App\Models\Document::find($response->json('document_id'))->title)->toBe('Failover Plan');
+});
+
+test('a title stored in the file wins over the filename', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+
+    expect(importDocx('network-runbook.docx', 'Q3 Network Plan')->title)->toBe('Q3 Network Plan');
+});
+
+test('an import rejects a folder from another workspace', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    login();
+    $workspace = \App\Models\Workspace::factory()->create();
+    $folder    = \App\Models\DocumentFolder::factory()->create();
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('runbook.docx', 40, DOCX_MIME);
+
+    $this->post(route('imports.store', $workspace), ['file' => $file, 'folder_id' => $folder->id], ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('folder_id');
+
+    expect(\App\Models\Document::count())->toBe(0);
+});

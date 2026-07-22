@@ -472,7 +472,7 @@ function ContentsIndex({ pages, canCreate, onAddPage, hasIntro }) {
     );
 }
 
-export default function DocumentShow({ document, isStarred = false, versionsCount, children: childPages = [], breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [] }) {
+export default function DocumentShow({ document, isStarred = false, versionsCount, children: childPages = [], breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [], folders = [] }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
@@ -1141,6 +1141,7 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                 workspaceId={document.workspace_id}
                 initialParentId={document.id}
                 parentOptions={parentOptions}
+                folderOptions={folders}
             />
         </DocsLayout>
 

@@ -44,7 +44,9 @@ class PdfImporter implements ImporterContract
         }
 
         return [
-            'title'   => $title !== '' ? $title : 'Imported PDF',
+            // null = no title in the PDF metadata; see DocxImporter — the caller
+            // falls back to the filename-derived name.
+            'title'   => $title !== '' ? $title : null,
             'content' => ['type' => 'doc', 'content' => $nodes],
         ];
     }

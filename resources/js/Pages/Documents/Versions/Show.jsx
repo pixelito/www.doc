@@ -21,7 +21,8 @@ export default function VersionShow({ document: doc, workspace, version }) {
 
     return (
         <>
-        <DocsLayout>
+        {/* wideable: a snapshot is the page's own content, read the same way. */}
+        <DocsLayout wideable>
             <Head title={`Version — ${version.title}`} />
 
             {/* Breadcrumb */}

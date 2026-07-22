@@ -364,6 +364,74 @@ test('a whole added or removed diagram becomes a tinted entry', function () {
         ->and($diff['diagrams'][0]['overlay_graph']['nodes'][0]['data']['color'])->toBe('#4B6840');
 });
 
+test('a node property edit is a semantic change, not silence', function () {
+    // props hold the node's real data (IPs, models) — an edit there used to
+    // leave the diagram "unchanged", so the compare page showed nothing at all.
+    $withProps = fn (array $props) => ['nodes' => [
+        nd('a', 'core-router', ['data' => ['label' => 'core-router', 'props' => $props]]),
+    ], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($withProps([['key' => 'IP', 'value' => '192.0.2.10']]))),
+        diffSide(content: diffDiagramDoc($withProps([['key' => 'IP', 'value' => '192.0.2.99']]))),
+    );
+
+    $entry = $diff['diagrams'][0];
+    expect($entry['status'])->toBe('modified')
+        ->and(array_column($entry['changes'], 'kind'))->toContain('node-prop-changed')
+        ->and($entry['changes'][0]['text'])->toContain('IP')
+        ->and($entry['changes'][0]['text'])->toContain('192.0.2.10')
+        ->and($entry['changes'][0]['text'])->toContain('192.0.2.99')
+        // and the node is tinted in the overlay like any other modification
+        ->and($entry['overlay_graph']['nodes'][0]['data']['color'])->toBe('#C99650');
+});
+
+test('adding or removing a node property reports one collapsed change', function () {
+    $withProps = fn (array $props) => ['nodes' => [
+        nd('a', 'core-router', ['data' => ['label' => 'core-router', 'props' => $props]]),
+    ], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($withProps([]))),
+        diffSide(content: diffDiagramDoc($withProps([['key' => 'IP', 'value' => '192.0.2.10']]))),
+    );
+
+    expect($diff['diagrams'][0]['status'])->toBe('modified')
+        ->and(array_column($diff['diagrams'][0]['changes'], 'kind'))->toBe(['node-props-changed']);
+});
+
+test('legacy value-only props still report a change', function () {
+    // DiagramSvg::normalizeNode tolerates prop entries that are not {key,value}
+    // arrays, so graphs carrying them exist. Reading ['key'] off those yields
+    // null on BOTH sides — the per-index compare would call them equal and the
+    // diagram would read "unchanged" while its data changed.
+    $withProps = fn (array $props) => ['nodes' => [
+        nd('a', 'core-router', ['data' => ['label' => 'core-router', 'props' => $props]]),
+    ], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($withProps(['192.0.2.10', '192.0.2.20']))),
+        diffSide(content: diffDiagramDoc($withProps(['192.0.2.99', '192.0.2.20']))),
+    );
+
+    expect($diff['diagrams'][0]['status'])->toBe('modified')
+        ->and(array_column($diff['diagrams'][0]['changes'], 'kind'))->toBe(['node-props-changed']);
+});
+
+test('renaming a diagram is reported even though its graph is untouched', function () {
+    $graph = ['nodes' => [nd('a', 'A')], 'edges' => []];
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: diffDiagramDoc($graph, 'Rack A')),
+        diffSide(content: diffDiagramDoc($graph, 'Rack B')),
+    );
+
+    expect($diff['diagrams'][0]['status'])->toBe('modified')
+        ->and($diff['diagrams'][0]['changes'][0]['kind'])->toBe('diagram-renamed')
+        ->and($diff['diagrams'][0]['changes'][0]['text'])->toContain('Rack A')
+        ->and($diff['diagrams'][0]['changes'][0]['text'])->toContain('Rack B');
+});
+
 test('diagrams are stripped from the body diff', function () {
     $graph = ['nodes' => [nd('a', 'router-x')], 'edges' => []];
 
@@ -377,6 +445,45 @@ test('diagrams are stripped from the body diff', function () {
 
     expect($diff['body']['html'])->not->toContain('network-diagram')
         ->and($diff['body']['html'])->not->toContain('data:image');
+});
+
+// ── Size cap ────────────────────────────────────────────────────────────────
+
+test('a page too large for the inline differ falls back instead of timing out', function () {
+    // php-htmldiff is ~cubic: past the cap a real request would exceed FPM's
+    // 30s limit. The whole point of the cap is that this returns immediately.
+    $long = fn (string $tail) => paragraphDoc(...array_map(
+        fn ($i) => str_repeat("network switch vlan record $i ", 30) . $tail,
+        range(1, 60),
+    ));
+
+    $started = microtime(true);
+    $diff = DocumentDiff::compare(
+        diffSide(content: $long('')),
+        diffSide(content: $long('edited')),
+    );
+
+    expect(strlen($diff['body']['leftHtml']))->toBeGreaterThan(25_000)
+        ->and($diff['body']['skipped'])->toBeTrue()
+        ->and($diff['body']['changed'])->toBeTrue()
+        // the side-by-side fallback still needs both plain renders
+        ->and($diff['body']['rightHtml'])->toContain('edited')
+        ->and(microtime(true) - $started)->toBeLessThan(2.0);
+});
+
+test('an ordinary page still gets the inline diff', function () {
+    $page = fn (string $tail) => paragraphDoc(...array_map(
+        fn ($i) => str_repeat("network switch vlan record $i ", 15) . $tail,
+        range(1, 10),
+    ));
+
+    $diff = DocumentDiff::compare(
+        diffSide(content: $page('')),
+        diffSide(content: $page('edited')),
+    );
+
+    expect($diff['body']['skipped'])->toBeFalse()
+        ->and($diff['body']['html'])->toContain('<ins');
 });
 
 // ── Schema parity + fail-loud guard ─────────────────────────────────────────
