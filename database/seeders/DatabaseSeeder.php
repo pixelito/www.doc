@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call(WorkspaceSeeder::class);
         $this->call(TemplateSeeder::class);
+        $this->call(LargePageSeeder::class);
         $this->call(AuditEventSeeder::class);
 
         // High-volume factory data on top of the curated content. Runs last: it

@@ -2,7 +2,11 @@
 
 use App\Models\Attachment;
 use App\Models\Document;
+use App\Support\DocumentDiff;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\LargePageSeeder;
+use Database\Seeders\RoleSeeder;
+use Database\Seeders\UserSeeder;
 use Database\Seeders\WorkspaceSeeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -57,4 +61,54 @@ it('seeds page attachments with real, openable binaries', function () {
 
     $csv = $onboarding->attachments->firstWhere('original_name', 'Equipment Request Form.csv');
     expect(Storage::disk('local')->get($csv->path))->toContain('item,model,notes');
+});
+
+/**
+ * LargePageSeeder exists to put pages on BOTH sides of DocumentDiff's size cap
+ * — that is the only reason it generates bodies nobody would write by hand. If
+ * the cap moves and the fixture doesn't, it silently stops covering the case it
+ * was made for, so assert the straddle rather than the byte counts.
+ */
+it('seeds pages on both sides of the version-diff size cap', function () {
+    $this->seed(RoleSeeder::class);
+    $this->seed(UserSeeder::class);
+    $this->seed(LargePageSeeder::class);
+
+    $verdicts = Document::whereIn('title', [
+        'Runbook: Core Switch Replacement',
+        'Runbook: Datacentre Migration Wave 2',
+    ])->get()->mapWithKeys(function (Document $document) {
+        [$newer, $older] = [$document->versions[0], $document->versions[1]];
+
+        $diff = DocumentDiff::compare(
+            ['title' => $older->title, 'content' => $older->content, 'tags' => $older->tags ?? []],
+            ['title' => $newer->title, 'content' => $newer->content, 'tags' => $newer->tags ?? []],
+        );
+
+        expect($diff['body']['changed'])->toBeTrue();
+
+        return [$document->title => $diff['body']['skipped']];
+    });
+
+    expect($verdicts['Runbook: Core Switch Replacement'])->toBeFalse()
+        ->and($verdicts['Runbook: Datacentre Migration Wave 2'])->toBeTrue();
+});
+
+/** The diagram page's last revision changes ONLY the graph — the case where the
+ *  body has nothing to diff but the diagram section still must report. */
+it('seeds a long page whose newest revision changes only its diagram', function () {
+    $this->seed(RoleSeeder::class);
+    $this->seed(UserSeeder::class);
+    $this->seed(LargePageSeeder::class);
+
+    $document = Document::where('title', 'Capacity Review 2026 (Long, With Diagram)')->firstOrFail();
+    [$newer, $older] = [$document->versions[0], $document->versions[1]];
+
+    $diff = DocumentDiff::compare(
+        ['title' => $older->title, 'content' => $older->content, 'tags' => $older->tags ?? []],
+        ['title' => $newer->title, 'content' => $newer->content, 'tags' => $newer->tags ?? []],
+    );
+
+    expect($diff['body']['changed'])->toBeFalse()
+        ->and($diff['diagrams'])->not->toBeEmpty();
 });
