@@ -4,6 +4,7 @@ import {
     IconUpload, IconFileTypePdf, IconFileTypeDocx, IconLoader2, IconX, IconAlertCircle,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+import InlineEditableTitle from '@/components/ui/InlineEditableTitle';
 import { csrfToken } from '@/lib/utils';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -48,15 +49,35 @@ function StatusBadge({ status }) {
     );
 }
 
-function FileRow({ item, staging, onRemove }) {
+/**
+ * One staged/importing file: the page title it will become on top, the file it
+ * came from underneath. Renaming reuses InlineEditableTitle — the same pencil
+ * affordance that renames pages in the tree — so the list stays quiet text
+ * until you ask to edit, instead of reading as a form of N inputs.
+ * Skipped files never got a title, so they show their filename alone.
+ */
+function FileRow({ item, staging, onRename, onRemove }) {
     const Icon = item.name.toLowerCase().endsWith('.pdf') ? IconFileTypePdf : IconFileTypeDocx;
+    const editable = staging && item.status === 'staged';
+
     return (
         <li className="flex items-center gap-2.5 px-3 py-2">
             <Icon className="h-4 w-4 shrink-0 text-text-tertiary" stroke={1.5} aria-hidden="true" />
             <span className="min-w-0 flex-1">
-                <span className="flex items-baseline gap-2">
-                    <span className="truncate text-[13px] font-medium text-foreground" title={item.name}>{item.name}</span>
-                    {item.size != null && <span className="shrink-0 text-[11px] text-text-tertiary">{formatSize(item.size)}</span>}
+                {editable ? (
+                    <InlineEditableTitle
+                        value={item.title}
+                        onCommit={onRename}
+                        ariaLabel={`Rename ${item.name}`}
+                        className="max-w-full text-[13px] font-medium text-foreground"
+                        inputClassName="w-full text-[13px] font-medium"
+                    />
+                ) : (
+                    <span className="block truncate text-[13px] font-medium text-foreground">{item.title || item.name}</span>
+                )}
+                <span className="mt-0.5 flex items-baseline gap-2 text-[11px] text-text-tertiary">
+                    {Boolean(item.title) && <span className="truncate" title={item.name}>{item.name}</span>}
+                    {item.size != null && <span className="shrink-0">{formatSize(item.size)}</span>}
                 </span>
                 {item.error && <span className="mt-0.5 block text-xs text-danger">{item.error}</span>}
             </span>
@@ -91,13 +112,22 @@ function FileRow({ item, staging, onRemove }) {
  *   onSettled       – called each time a file finishes (done OR failed) while
  *                     the dialog is open, so the parent can refresh the tree
  *   workspaceId     – always required
- *   parentOptions   – [{ id, label }] for the destination select
- *   initialParentId – pre-select a destination (e.g. "Import as subpage")
+ *   parentOptions   – [{ id, label }] pages the import can land under
+ *   folderOptions   – [{ id, name }] folders the import can land in
+ *   initialParentId – pre-select a page destination ("Import as subpage")
+ *   initialFolderId – pre-select a folder destination ("Import into folder")
  *   initialFiles    – File[] staged on open (drop-anywhere hands files in here)
+ *
+ * Destination encoding matches NewPageModal: '' = top level, 'f:3' = folder 3,
+ * '7' = subpage of page 7. A page is never both, so one select covers both.
  */
-export default function ImportDialog({ open, onClose, onSettled, workspaceId, parentOptions = [], initialParentId = '', initialFiles = null }) {
+export default function ImportDialog({
+    open, onClose, onSettled, workspaceId,
+    parentOptions = [], folderOptions = [],
+    initialParentId = '', initialFolderId = '', initialFiles = null,
+}) {
     const [items, setItems] = useState([]);
-    const [parentId, setParentId] = useState('');
+    const [dest, setDest] = useState('');
     const [started, setStarted] = useState(false);
     const [notice, setNotice] = useState('');
     const [dragging, setDragging] = useState(false);
@@ -107,15 +137,15 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
     const itemsRef = useRef(items);
     itemsRef.current = items;
     const runRef = useRef(0);
-    const parentIdRef = useRef(parentId);
-    parentIdRef.current = parentId;
+    const destRef = useRef(dest);
+    destRef.current = dest;
     const onSettledRef = useRef(onSettled);
     onSettledRef.current = onSettled;
 
     useEffect(() => {
         if (open) {
             setItems([]);
-            setParentId(initialParentId ? String(initialParentId) : '');
+            setDest(initialFolderId ? `f:${initialFolderId}` : (initialParentId ? String(initialParentId) : ''));
             setStarted(false);
             setNotice('');
             setDragging(false);
@@ -143,10 +173,17 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
         });
     }
 
-    // Close on Escape (closing mid-batch is safe by design).
+    // Close on Escape (closing mid-batch is safe by design) — but never while a
+    // field has focus: there, Escape belongs to whatever is being edited (a row
+    // rename cancels, a native select closes its dropdown). This listener sits on
+    // `document`, above the dialog, so it would otherwise fire on the way past.
     useEffect(() => {
         if (!open) return;
-        const handler = (e) => { if (e.key === 'Escape') close(); };
+        const handler = (e) => {
+            if (e.key !== 'Escape') return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+            close();
+        };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
     }, [open, items]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -168,7 +205,9 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
             }
             if (staged >= MAX_FILES) { refused++; continue; }
             staged++;
-            additions.push({ key: nextKey++, file, name: file.name, size: file.size, status: 'staged', error: null });
+            // Prefilled from the filename, editable in the row until the batch
+            // starts — same affordance the old single-file Import page had.
+            additions.push({ key: nextKey++, file, name: file.name, size: file.size, title: titleFromFilename(file.name), status: 'staged', error: null });
         }
 
         setNotice(refused > 0 ? `Batches are limited to ${MAX_FILES} files — ${refused} ${refused === 1 ? 'file was' : 'files were'} not added.` : '');
@@ -181,8 +220,13 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
         const form = new FormData();
         form.append('file', item.file);
         form.append('_token', csrfToken());
-        form.append('title', titleFromFilename(item.name));
-        if (parentIdRef.current) form.append('parent_id', parentIdRef.current);
+        // The row's title (renaming never leaves it blank). Sending none would
+        // let the server read the file's own title, then the filename.
+        const title = (item.title ?? '').trim();
+        if (title) form.append('title', title);
+        // 'f:3' files the page in folder 3; a bare id makes it a subpage.
+        if (destRef.current.startsWith('f:')) form.append('folder_id', destRef.current.slice(2));
+        else if (destRef.current) form.append('parent_id', destRef.current);
 
         try {
             const res = await fetch(`/workspaces/${workspaceId}/imports`, {
@@ -248,7 +292,8 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
     if (!open) return null;
 
     const hasPdf = items.some((i) => i.status === 'staged' && i.name.toLowerCase().endsWith('.pdf'));
-    const selectedParent = parentOptions.find((o) => String(o.id) === parentId);
+    const selectedParent = parentOptions.find((o) => String(o.id) === dest);
+    const selectedFolder = dest.startsWith('f:') ? folderOptions.find((f) => String(f.id) === dest.slice(2)) : null;
 
     return createPortal(
         <div
@@ -316,30 +361,46 @@ export default function ImportDialog({ open, onClose, onSettled, workspaceId, pa
                                     key={item.key}
                                     item={item}
                                     staging={!started}
+                                    onRename={(title) => patch(item.key, { title })}
                                     onRemove={() => setItems((prev) => prev.filter((i) => i.key !== item.key))}
                                 />
                             ))}
                         </ul>
                     )}
 
-                    {!started && parentOptions.length > 0 && (
+                    {!started && (parentOptions.length > 0 || folderOptions.length > 0) && (
                         <div>
                             <label className="mb-1.5 block text-xs font-medium text-foreground">
                                 Destination <span className="font-normal text-text-tertiary">(all files import here)</span>
                             </label>
                             <select
-                                value={parentId}
-                                onChange={(e) => setParentId(e.target.value)}
+                                value={dest}
+                                onChange={(e) => setDest(e.target.value)}
                                 className="ui-select h-9 w-full rounded-sm border border-border bg-canvas px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-accent-400 focus:ring-[3px] focus:ring-accent-200"
                             >
                                 <option value="">Top level (no parent)</option>
-                                {parentOptions.map((o) => (
-                                    <option key={o.id} value={String(o.id)}>{o.label}</option>
-                                ))}
+                                {folderOptions.length > 0 && (
+                                    <optgroup label="Folders">
+                                        {folderOptions.map((f) => (
+                                            <option key={`f-${f.id}`} value={`f:${f.id}`}>{f.name}</option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                                {parentOptions.length > 0 && (
+                                    <optgroup label="Subpage of">
+                                        {parentOptions.map((o) => (
+                                            <option key={o.id} value={String(o.id)}>{o.label}</option>
+                                        ))}
+                                    </optgroup>
+                                )}
                             </select>
-                            {selectedParent && (
+                            {(selectedParent || selectedFolder) && (
                                 <p className="mt-1 text-xs text-text-tertiary">
-                                    Pages will be created under <span className="font-medium text-text-secondary">{selectedParent.label.trim()}</span>.
+                                    Pages will be created {selectedFolder ? 'in' : 'under'}{' '}
+                                    <span className="font-medium text-text-secondary">
+                                        {(selectedFolder?.name ?? selectedParent.label).trim()}
+                                    </span>
+                                    {selectedFolder ? ' folder.' : '.'}
                                 </p>
                             )}
                         </div>

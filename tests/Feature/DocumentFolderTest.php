@@ -709,3 +709,81 @@ test('a newly created folder sorts to the top of the order', function () {
     expect($new->position)->toBeLessThan($existing->position)
         ->and($new->position)->toBe($ws->folders()->min('position'));
 });
+
+// ── Creating / importing straight into a folder ──────────────────────────────
+
+test('a page can be created directly inside a folder', function () {
+    login();
+    $ws     = Workspace::factory()->create();
+    $folder = DocumentFolder::factory()->create(['workspace_id' => $ws->id, 'name' => 'Runbooks']);
+
+    $this->post('/documents', [
+        'title'        => 'Restore procedure',
+        'workspace_id' => $ws->id,
+        'folder_id'    => $folder->id,
+    ])->assertRedirect();
+
+    $page = Document::firstWhere('title', 'Restore procedure');
+    expect($page->folder_id)->toBe($folder->id)
+        ->and($page->parent_id)->toBeNull()
+        // Top of its folder, like every other new page is top of its scope.
+        ->and($page->position)->toBe($folder->documents()->min('position'));
+});
+
+test('creating into a folder is ONE created event carrying the folder, not a move', function () {
+    login();
+    $ws     = Workspace::factory()->create();
+    $folder = DocumentFolder::factory()->create(['workspace_id' => $ws->id, 'name' => 'Runbooks']);
+
+    $this->post('/documents', [
+        'title'        => 'Restore procedure',
+        'workspace_id' => $ws->id,
+        'folder_id'    => $folder->id,
+    ]);
+
+    $created = AuditEvent::where('event', 'document.created')->latest('id')->first();
+    expect($created->context['title'])->toBe('Restore procedure')
+        ->and($created->context['folder'])->toBe('Runbooks')
+        ->and(AuditEvent::where('event', 'document.moved')->count())->toBe(0);
+});
+
+test('a page created loose records no folder in its audit context', function () {
+    login();
+    $ws = Workspace::factory()->create();
+
+    $this->post('/documents', ['title' => 'Loose page', 'workspace_id' => $ws->id]);
+
+    $created = AuditEvent::where('event', 'document.created')->latest('id')->first();
+    expect($created->context)->not->toHaveKey('folder');
+});
+
+test('creating a page rejects a folder from another workspace', function () {
+    login();
+    $mine      = Workspace::factory()->create();
+    $elsewhere = Workspace::factory()->create();
+    $folder    = DocumentFolder::factory()->create(['workspace_id' => $elsewhere->id]);
+
+    $this->post('/documents', [
+        'title'        => 'Sneaky',
+        'workspace_id' => $mine->id,
+        'folder_id'    => $folder->id,
+    ])->assertSessionHasErrors('folder_id');
+
+    expect(Document::where('title', 'Sneaky')->exists())->toBeFalse();
+});
+
+test('creating a page rejects being a subpage AND a folder member', function () {
+    login();
+    $ws     = Workspace::factory()->create();
+    $folder = DocumentFolder::factory()->create(['workspace_id' => $ws->id]);
+    $parent = Document::factory()->create(['workspace_id' => $ws->id]);
+
+    $this->post('/documents', [
+        'title'        => 'Confused',
+        'workspace_id' => $ws->id,
+        'parent_id'    => $parent->id,
+        'folder_id'    => $folder->id,
+    ])->assertSessionHasErrors('folder_id');
+
+    expect(Document::where('title', 'Confused')->exists())->toBeFalse();
+});

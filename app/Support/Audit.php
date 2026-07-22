@@ -23,8 +23,13 @@ class Audit
      * @param  array  $context  Human-readable snapshot (titles, old/new values).
      * @param  int|null  $actorId  Override for queue/console contexts where
      *                             Auth::id() is empty (jobs carry created_by).
+     * @param  string|null  $ip  Override for the same reason: a job has no
+     *                           request, so an action a human started from a
+     *                           browser must carry the IP captured back then
+     *                           (jobs store it alongside the actor). Scheduled
+     *                           and console runs pass nothing and stay null.
      */
-    public static function record(string $event, ?Model $subject = null, array $context = [], ?int $actorId = null): AuditEvent
+    public static function record(string $event, ?Model $subject = null, array $context = [], ?int $actorId = null, ?string $ip = null): AuditEvent
     {
         return AuditEvent::create([
             'user_id'        => $actorId ?? Auth::id(),
@@ -33,7 +38,7 @@ class Audit
             'auditable_id'   => $subject?->getKey(),
             'workspace_id'   => self::workspaceId($subject),
             'context'        => $context ?: null,
-            'ip'             => app()->runningInConsole() ? null : request()->ip(),
+            'ip'             => $ip ?? (app()->runningInConsole() ? null : request()->ip()),
             'created_at'     => now(),
         ]);
     }

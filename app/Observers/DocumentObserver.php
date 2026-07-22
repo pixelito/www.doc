@@ -79,14 +79,26 @@ class DocumentObserver
             return;
         }
 
+        // An import's placeholder row is not a page yet: its event is deferred
+        // to the job that fills it in (below), so a failed import audits nothing
+        // and a successful one logs the real title, not "Importing …".
+        if ($document->importPlaceholder) {
+            return;
+        }
+
+        $isCreation = $document->wasRecentlyCreated || $document->importCompleted;
+
         Audit::record(
-            $document->wasRecentlyCreated ? 'document.created' : 'document.updated',
+            $isCreation ? 'document.created' : 'document.updated',
             $document,
             array_filter([
                 'title'    => $document->title,
-                'template' => $document->wasRecentlyCreated ? $document->sourceTemplateName : null,
+                'template' => $isCreation ? $document->sourceTemplateName : null,
+                'import'   => $isCreation ? $document->sourceImportName : null,
+                'folder'   => $isCreation ? $document->sourceFolderName : null,
             ]),
             Auth::id() ?? $document->updated_by_id ?? $document->created_by_id,
+            $document->auditIp,
         );
 
         $document->creationAudited = $document->wasRecentlyCreated;

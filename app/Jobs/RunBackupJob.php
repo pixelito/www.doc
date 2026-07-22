@@ -32,12 +32,13 @@ class RunBackupJob implements ShouldQueue
             $service->run($backup);
             $notifier->notify($backup->refresh());
 
-            // Actor override: no session on the queue. Scheduled runs have no
-            // created_by and land as system (null) events.
+            // Actor + IP override: no session and no request on the queue, so
+            // both ride the backup row from the request that started it.
+            // Scheduled runs have neither and land as system (null) events.
             \App\Support\Audit::record('backup.completed', $backup, [
                 'trigger'    => $backup->trigger,
                 'size_bytes' => $backup->size_bytes,
-            ], $backup->created_by_id);
+            ], $backup->created_by_id, $backup->ip);
         } catch (Throwable $e) {
             $backup->update(['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => now()]);
             $notifier->notify($backup->refresh());

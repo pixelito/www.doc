@@ -358,6 +358,48 @@ test('a successful backup emails a report when notifications are on', function (
         $m->hasTo('admin@company.com') && $m->backup?->status === 'done');
 });
 
+// The completion event is written by the worker, which has no session AND no
+// request — so both the actor and the address ride the backups row, captured
+// when the admin clicked. Running the job outside the original request (ambient
+// IP 127.0.0.1) is what makes the assertion meaningful.
+test('a queued backup audits its completion with the admin ip captured at request time', function () {
+    Storage::fake('local');
+    \Illuminate\Support\Facades\Queue::fake();
+    login();
+
+    $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.10'])
+        ->post('/admin/backups')
+        ->assertRedirect();
+
+    $backup = Backup::latest('id')->first();
+    expect($backup->ip)->toBe('192.0.2.10');
+
+    (new \App\Jobs\RunBackupJob($backup->id))->handle(
+        app(BackupService::class),
+        app(\App\Services\Backup\BackupNotifier::class),
+    );
+
+    $event = \App\Models\AuditEvent::where('event', 'backup.completed')->latest('id')->first();
+    expect($event->ip)->toBe('192.0.2.10')
+        ->and($event->user_id)->toBe(auth()->id());
+});
+
+// A scheduled run has no human behind it: no actor, and no address to invent.
+test('a scheduled backup audits its completion as System with no ip', function () {
+    Storage::fake('local');
+
+    $backup = Backup::create(['trigger' => 'scheduled', 'disk' => 'local', 'status' => 'pending']);
+
+    (new \App\Jobs\RunBackupJob($backup->id))->handle(
+        app(BackupService::class),
+        app(\App\Services\Backup\BackupNotifier::class),
+    );
+
+    $event = \App\Models\AuditEvent::where('event', 'backup.completed')->latest('id')->first();
+    expect($event->user_id)->toBeNull()
+        ->and($event->ip)->toBeNull();
+});
+
 test('a backup produces an archive with the canonical layer and a manifest', function () {
     Storage::fake('local');
     login();

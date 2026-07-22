@@ -29,7 +29,10 @@ function bytes(n) {
 }
 
 const EVENTS = {
-    'document.created':          { tone: 'good',    text: (c) => <>created {quoted(c?.title)}{c?.template ? <> from the <span className="font-medium">{c.template}</span> template</> : ''}</> },
+    // One code, three provenances: typed by hand, instantiated from a template,
+    // or converted from an uploaded file. The verb follows the provenance — the
+    // event code stays document.created either way.
+    'document.created':          { tone: 'good',    text: (c) => <>{c?.import ? 'imported' : 'created'} {quoted(c?.title)}{c?.import ? <> from <span className="font-medium">{c.import}</span></> : ''}{c?.template ? <> from the <span className="font-medium">{c.template}</span> template</> : ''}{c?.folder ? <> in the <span className="font-medium">{c.folder}</span> folder</> : ''}</> },
     'document.updated':          { tone: 'neutral', text: (c) => <>edited {quoted(c?.title)}</> },
     'document.tags_changed':     { tone: 'neutral', text: (c) => <>changed the tags on {quoted(c?.title)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
     'document.moved': {

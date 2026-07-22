@@ -441,7 +441,7 @@ function TreeRow({ id, depth, node, activeTagId, onAddChild, onImport, onRename,
  * the tree guides. Members render one level deeper (see FOLDER_MEMBER_DEPTH), which
  * is what distinguishes them from loose top-level pages.
  */
-function FolderHeaderRow({ folder, count, collapsed, onToggle }) {
+function FolderHeaderRow({ folder, count, collapsed, onToggle, canCreate, onAddPage, onImport }) {
     return (
         <li className="group relative grid grid-cols-[1fr_110px_96px] items-center border-b border-border-subtle last:border-0 bg-surface-hover/50 transition-colors hover:bg-surface-hover">
             {/* Spine dropping to the first member (only when expanded) — same geometry
@@ -475,7 +475,21 @@ function FolderHeaderRow({ folder, count, collapsed, onToggle }) {
                 </div>
             </div>
             <div className="py-2 pr-4" />
-            <div className="py-2 pr-2" />
+            {/* Same create aids a page row carries, aimed at the folder: without
+                them the only way to fill a folder was to make a loose page and
+                drag it in through Edit mode. */}
+            <div className="flex items-center justify-end gap-1 py-2 pr-2">
+                {canCreate && (
+                    <>
+                        <ActionButton onClick={() => onImport(folder.id)} title={`Import into ${folder.name}`}>
+                            <IconFileImport className="h-3.5 w-3.5" stroke={1.5} />
+                        </ActionButton>
+                        <ActionButton onClick={() => onAddPage(folder.id)} title={`Add page to ${folder.name}`}>
+                            <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
+                        </ActionButton>
+                    </>
+                )}
+            </div>
         </li>
     );
 }
@@ -613,8 +627,10 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
     const [folderToDelete, setFolderToDelete] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalParentId, setModalParentId] = useState('');
+    const [modalFolderId, setModalFolderId] = useState('');
     const [importOpen, setImportOpen] = useState(false);
     const [importParentId, setImportParentId] = useState('');
+    const [importFolderId, setImportFolderId] = useState('');
     const [importFiles, setImportFiles] = useState(null);
     const [dropActive, setDropActive] = useState(false);
     const [pendingImportJobs, setPendingImportJobs] = useState([]);
@@ -704,6 +720,12 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
     }, [rootNodes, activeTag]);
 
     const options = useMemo(() => flattenOptions(rootNodes), [rootNodes]);
+    // Folder destinations for the create/import dialogs. Persisted folders only:
+    // a folder still pending in Edit mode has no server id to file a page into.
+    const folderChoices = useMemo(
+        () => folders.map((f) => ({ id: f.id, name: f.name })),
+        [folders],
+    );
 
     // The DnD operates on the folder-aware forest while editing, the plain tree
     // otherwise (read view with no folders). With zero folders the two coincide.
@@ -801,11 +823,27 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
 
     function openModal(parentId = '') {
         setModalParentId(String(parentId));
+        setModalFolderId('');
+        setModalOpen(true);
+    }
+
+    /** Same dialog, aimed at a folder: the new page is filed, not nested. */
+    function openModalInFolder(folderId) {
+        setModalParentId('');
+        setModalFolderId(String(folderId));
         setModalOpen(true);
     }
 
     function openImport(parentId = '') {
         setImportParentId(String(parentId));
+        setImportFolderId('');
+        setImportFiles(null);
+        setImportOpen(true);
+    }
+
+    function openImportInFolder(folderId) {
+        setImportParentId('');
+        setImportFolderId(String(folderId));
         setImportFiles(null);
         setImportOpen(true);
     }
@@ -1282,12 +1320,15 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
                                                         count={countPages(members)}
                                                         collapsed={collapsed}
                                                         onToggle={() => toggleFolder(folder.id)}
+                                                        canCreate={perms.create}
+                                                        onAddPage={openModalInFolder}
+                                                        onImport={openImportInFolder}
                                                     />
                                                     {!collapsed && (members.length === 0
                                                         ? (
                                                             <li className="border-b border-border-subtle last:border-0">
                                                                 <p className="py-3 pl-[60px] pr-4 text-xs text-text-tertiary">
-                                                                    Empty folder — open Edit to drag pages in.
+                                                                    Empty folder — hover the folder row to add or import a page, or open Edit to drag pages in.
                                                                 </p>
                                                             </li>
                                                         )
@@ -1383,7 +1424,9 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
             onClose={() => setModalOpen(false)}
             workspaceId={workspace.id}
             parentOptions={options}
+            folderOptions={folderChoices}
             initialParentId={modalParentId}
+            initialFolderId={modalFolderId}
             templates={templates}
         />
 
@@ -1427,7 +1470,9 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
             onSettled={refreshTree}
             workspaceId={workspace.id}
             parentOptions={options}
+            folderOptions={folderChoices}
             initialParentId={importParentId}
+            initialFolderId={importFolderId}
             initialFiles={importFiles}
         />
 

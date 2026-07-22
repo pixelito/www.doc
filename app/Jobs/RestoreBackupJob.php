@@ -34,6 +34,11 @@ class RestoreBackupJob implements ShouldQueue
             // System event (no session on the queue); the requesting admin was
             // captured by backup.restore_requested. Recorded AFTER the restore
             // transaction, so it survives the wipe it describes.
+            //
+            // No IP override either, deliberately: the address travels with the
+            // actor, and the row's `ip` is where this backup was CREATED, which
+            // can be a different admin (or a scheduled run) than the one
+            // restoring it. The requester's address is on restore_requested.
             \App\Support\Audit::record('backup.restored', $backup, [
                 'trigger' => $backup->trigger,
                 'path'    => $backup->path,
