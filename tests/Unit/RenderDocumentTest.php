@@ -159,6 +159,23 @@ test('a diagram node sitting next to text does not disturb the surrounding conte
         ->toContain('class="network-diagram"');
 });
 
+test('images never emit the legacy align attribute (it floats them out of flow)', function () {
+    // `align="left|right"` is translated to `float:…` by browser UA stylesheets
+    // AND by Dompdf, so images stop stacking and pile up side by side on the
+    // Compare page and in PDFs. Alignment must travel via inline style only.
+    foreach (['left', 'center', 'right'] as $align) {
+        $html = RenderDocument::toHtml(docWith([
+            'type'  => 'image',
+            'attrs' => ['src' => '/storage/a.png', 'alt' => '', 'align' => $align],
+        ]));
+
+        expect($html)
+            ->toContain('display:block;')
+            ->toContain('data-align="' . $align . '"')
+            ->not->toMatch('/<img[^>]*\salign=/');
+    }
+});
+
 test('fromHtml parses HTML into a TipTap JSON structure', function () {
     $html = '<h1>Main Heading</h1><p>This is <strong>bold</strong> and <em>italic</em> text.</p>';
     

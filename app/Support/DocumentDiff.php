@@ -26,11 +26,16 @@ use RuntimeException;
 class DocumentDiff
 {
     /**
-     * Combined size cap for the two body HTML sides. php-htmldiff is
-     * superlinear in the worst case; past this we skip the inline diff (the
-     * page falls back to side-by-side, which is just two plain renders).
+     * Combined size cap for the two body HTML sides. php-htmldiff is roughly
+     * CUBIC in document size, so this has to be far lower than it looks:
+     * measured on one side, ~10% of paragraphs edited — 8 KB → 0.3s,
+     * 21 KB → 3s, 42 KB → 23s, 63 KB → 76s. Since FPM's default
+     * max_execution_time is 30s (and nginx gives up at 60s), anything much
+     * past ~25 KB per side doesn't render a slow page — it renders an error.
+     * Past the cap we skip the inline diff and the page falls back to
+     * side-by-side, which is just two plain renders and always finishes.
      */
-    private const MAX_DIFF_BYTES = 400_000;
+    private const MAX_DIFF_BYTES = 50_000;
 
     /**
      * Every node type the differ understands — mirrors the editor schema.
@@ -351,12 +356,24 @@ class DocumentDiff
         foreach ($pairs as [$a, $b]) {
             if ($a && $b) {
                 $diff = self::graphDiff($a['graph'], $b['graph']);
+                $changes = $diff['changes'];
+
+                // Diagrams pair by unique name first, so a pair with DIFFERING
+                // names got here by residual document order — i.e. a rename.
+                // Without this the graph itself is untouched and the whole
+                // diagram reports as unchanged.
+                if ($a['name'] !== $b['name']) {
+                    array_unshift($changes, ['kind' => 'diagram-renamed',
+                        'text' => 'Renamed diagram “' . ($a['name'] ?: 'Untitled diagram')
+                            . '” → “' . ($b['name'] ?: 'Untitled diagram') . '”']);
+                }
+
                 $out[] = [
                     'name'          => $b['name'] ?: 'Untitled diagram',
-                    'status'        => $diff['changes'] ? 'modified' : 'unchanged',
-                    'changes'       => $diff['changes'],
+                    'status'        => $changes ? 'modified' : 'unchanged',
+                    'changes'       => $changes,
                     'repositioned'  => $diff['repositioned'],
-                    'overlay_graph' => ($diff['changes'] || $diff['repositioned'])
+                    'overlay_graph' => ($changes || $diff['repositioned'])
                         ? self::mergedGraph($a['graph'], $b['graph'], $diff)
                         : null,
                 ];
@@ -424,6 +441,10 @@ class DocumentDiff
             if (($was['parentId'] ?? null) !== ($node['parentId'] ?? null)) {
                 $semantic[] = ['kind' => 'node-reparented', 'text' => '“' . self::label($node) . '” moved into another group'];
             }
+            // `data.props` is the node's structured key/value list (IPs, models,
+            // …) — content, not layout, and rendered inside the node by
+            // DiagramSvg. Skipping it made an IP edit read as "nothing changed".
+            $semantic = array_merge($semantic, self::propsChanges($was, $node));
 
             if ($semantic) {
                 $changes = array_merge($changes, $semantic);
@@ -464,6 +485,59 @@ class DocumentDiff
             'nodeStatus'   => $nodeStatus,
             'edgeStatus'   => $edgeStatus,
         ];
+    }
+
+    /**
+     * Per-node property changes, paired by list position (props are an ordered
+     * list, like the rest of this file's index pairing). A same-key value edit
+     * reads as from→to; anything structural (key renamed, row added/removed,
+     * or an entry that isn't a {key,value} pair at all) collapses into one
+     * entry — the overlay tints the node either way.
+     *
+     * @return array<int,array{kind:string,text:string}>
+     */
+    private static function propsChanges(array $was, array $node): array
+    {
+        $old = array_values((array) ($was['data']['props'] ?? []));
+        $new = array_values((array) ($node['data']['props'] ?? []));
+
+        if ($old == $new) {
+            return [];
+        }
+
+        $name = self::label($node);
+        $collapsed = [['kind' => 'node-props-changed', 'text' => '“' . $name . '” properties changed']];
+        $out = [];
+
+        for ($i = 0; $i < max(count($old), count($new)); $i++) {
+            $a = $old[$i] ?? null;
+            $b = $new[$i] ?? null;
+
+            // Legacy/hand-edited graphs carry prop entries that are NOT
+            // {key,value} arrays (DiagramSvg::normalizeNode skips them the same
+            // way). Reading ['key'] off a string yields null on both sides, so
+            // the per-index compare below would call them equal and report
+            // nothing — the exact silence this method exists to end. We already
+            // know the lists differ, so say so and stop.
+            if (($a !== null && ! is_array($a)) || ($b !== null && ! is_array($b))) {
+                return $collapsed;
+            }
+
+            if ($a && $b && ($a['key'] ?? '') === ($b['key'] ?? '')) {
+                if (($a['value'] ?? '') !== ($b['value'] ?? '')) {
+                    $key = trim((string) ($b['key'] ?? ''));
+                    $out[] = ['kind' => 'node-prop-changed', 'text' => '“' . $name . '” ' . ($key !== '' ? $key . ': ' : '')
+                        . '“' . ($a['value'] ?? '') . '” → “' . ($b['value'] ?? '') . '”'];
+                }
+
+                continue;
+            }
+
+            // Keys no longer line up — report once and stop guessing.
+            return array_merge($out, $collapsed);
+        }
+
+        return $out;
     }
 
     /**

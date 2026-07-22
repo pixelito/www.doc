@@ -51,8 +51,22 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
     const pickerValue = (side) => (side.kind === 'current' ? 'current' : String(side.id));
     const diagrams = diff.diagrams.filter((d) => d.status !== 'unchanged' || d.repositioned > 0);
 
+    // The two sides differ in stored JSON, yet no section below has anything to
+    // show — e.g. a diagram was only panned, or an empty page carries a null
+    // body on one side. Say so: a page with nothing on it reads as a bug.
+    // KEEP IN STEP with the section render conditions below: a new section that
+    // isn't listed here would render under a banner claiming nothing changed.
+    const hasVisibleChange = diff.title.changed
+        || diff.tags.added.length > 0 || diff.tags.removed.length > 0
+        || diff.body.changed
+        || diff.blocks.length > 0
+        || diagrams.length > 0;
+
+    // wideable: a comparison renders document content, so it honours the user's
+    // page-width preference like the page and snapshot views do. The history
+    // LIST stays boxed — that's a list page, not content.
     return (
-        <DocsLayout>
+        <DocsLayout wideable>
             <Head title={`Compare — ${doc?.title ?? 'Pages'}`} />
 
             {/* Breadcrumb */}
@@ -150,6 +164,13 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                 </div>
             ) : (
                 <>
+                    {!hasVisibleChange && (
+                        <div className="rounded-md border border-warning-border bg-warning-surface px-4 py-3 text-sm text-warning-text">
+                            These two differ in stored content, but nothing visible changed —
+                            usually a diagram that was only panned or zoomed, or an empty page.
+                        </div>
+                    )}
+
                     {/* Title */}
                     {diff.title.changed && (
                         <SectionCard label="Title">
@@ -193,9 +214,9 @@ export default function Compare({ mode, workspace, document: doc, left, right, v
                                 </div>
                             ) : diff.body.formatting_only ? (
                                 <div className="m-4 rounded-md border border-warning-border bg-warning-surface px-4 py-3 text-sm text-warning-text">
-                                    Only formatting changed (like text or highlight colours) — the
-                                    inline diff cannot mark those, so the old and new content are
-                                    shown side by side instead.
+                                    Only attributes changed — formatting, alignment, a heading level
+                                    or a ticked task. The inline diff cannot mark those, so the old
+                                    and new content are shown side by side instead.
                                 </div>
                             ) : view === 'inline' ? (
                                 <div className="tiptap-read-area">
