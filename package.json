@@ -29,7 +29,7 @@
         "@radix-ui/react-slot": "^1.3.0",
         "@radix-ui/react-tooltip": "^1.2.12",
         "@resvg/resvg-js": "^2.6.2",
-        "@tabler/icons-react": "^3.44.0",
+        "@tabler/icons-react": "^3.45.0",
         "@tiptap/extension-code": "^3.28.0",
         "@tiptap/extension-code-block-lowlight": "^3.28.0",
         "@tiptap/extension-highlight": "^3.28.0",
